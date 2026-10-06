@@ -424,8 +424,8 @@
 
 .rest-fab {
   position: fixed;
-  bottom: calc(76px + env(safe-area-inset-bottom, 0px));
-  left: max(16px, calc((100vw - var(--max-w)) / 2 + 16px));
+  bottom: calc(94px + env(safe-area-inset-bottom, 0px));
+  left: max(12px, calc((100vw - var(--max-w)) / 2 + 12px));
   z-index: 45;
   min-height: 46px;
   padding: 0 18px;
@@ -440,8 +440,8 @@
 
 .rest-pill {
   position: fixed;
-  bottom: calc(76px + env(safe-area-inset-bottom, 0px));
-  left: max(16px, calc((100vw - var(--max-w)) / 2 + 16px));
+  bottom: calc(94px + env(safe-area-inset-bottom, 0px));
+  left: max(12px, calc((100vw - var(--max-w)) / 2 + 12px));
   z-index: 45;
   display: flex;
   align-items: center;
@@ -484,17 +484,21 @@
 
 /* ---- Barra de acciones de sesión ---- */
 
+/* Barra de sesión: mismo lenguaje que la de pestañas (flotante y redondeada). */
 .session-bar {
   position: fixed;
-  bottom: 0;
+  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
-  width: 100%;
-  max-width: var(--max-w);
-  padding: 10px var(--pad) calc(10px + env(safe-area-inset-bottom, 0px));
+  width: calc(100% - 24px);
+  max-width: calc(var(--max-w) - 24px);
+  padding: 10px;
   background: var(--bar-bg);
-  backdrop-filter: blur(14px);
-  border-top: 1px solid var(--line-soft);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid var(--line-soft);
+  border-radius: 22px;
+  box-shadow: var(--shadow);
   display: flex;
   gap: 10px;
   z-index: 40;
@@ -502,6 +506,8 @@
 
 .session-bar .btn {
   flex: 1;
+  min-height: 48px;
+  border-radius: 16px;
 }
 
 /* ---- Progreso general de sesión ---- */

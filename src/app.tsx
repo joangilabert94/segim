@@ -68,8 +68,8 @@ export function App() {
               aria-current={activeTab === t.path ? 'page' : undefined}
               onClick={() => navigate(t.path)}
             >
-              <span class="tab-ico">{t.ico}</span>
-              {t.label}
+              <span class="tab-ico" aria-hidden="true">{t.ico}</span>
+              <span class="tab-label">{t.label}</span>
             </button>
           ))}
         </nav>
