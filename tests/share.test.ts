@@ -204,4 +204,36 @@ describe('series cronometradas en el intercambio', () => {
     const res = mergeRoutines([], [], buildRoutinesFile([timed], CATALOGO));
     expect(res.routines[0]?.days[0]?.exercises[0]?.plannedSets[0]?.durationSec).toBe(45);
   });
+
+  it('el export/import conserva los rangos de reps', () => {
+    const ranged = makeRoutine({
+      days: [
+        {
+          id: 'd1',
+          name: 'Día 1',
+          exercises: [
+            {
+              id: 're1',
+              exerciseId: 'e-sent',
+              name: 'Sentadilla',
+              plannedSets: [{ reps: 4, repsMax: 6 }, { reps: 10 }],
+            },
+          ],
+        },
+      ],
+    });
+
+    const file = buildRoutinesFile([ranged], CATALOGO);
+    const parsed = parseRoutinesFile(JSON.stringify(file));
+    expect(parsed.routines[0]?.days[0]?.exercises[0]?.plannedSets).toEqual([
+      { reps: 4, repsMax: 6 },
+      { reps: 10 },
+    ]);
+
+    const res = mergeRoutines([], [], file);
+    expect(res.routines[0]?.days[0]?.exercises[0]?.plannedSets[0]).toEqual({
+      reps: 4,
+      repsMax: 6,
+    });
+  });
 });

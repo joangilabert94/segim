@@ -4,7 +4,7 @@ import { useState } from 'preact/hooks';
 import { navigate } from '../router';
 import { deleteSession, reopenSession, useStore } from '../state';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { fmtDateLong, fmtDuration, fmtVolume } from '../services/format';
+import { fmtDateLong, fmtDuration, fmtReps, fmtVolume } from '../services/format';
 import { doneSetsCount, setsCount, volumeOf } from '../services/stats';
 
 export function SessionDetail({ id }: { id: string }) {
@@ -98,7 +98,9 @@ export function SessionDetail({ id }: { id: string }) {
                 <span>
                   <b>
                     {set.weight} {s.settings.unit} ×{' '}
-                    {set.durationSec !== undefined ? `${set.durationSec} s` : set.reps}
+                    {set.durationSec !== undefined
+                      ? `${set.durationSec} s`
+                      : fmtReps(set.reps, set.repsMax)}
                   </b>{' '}
                   <span class={set.done ? 'ok' : ''}>{set.done ? '✓' : '—'}</span>
                   {set.note && <span title={set.note}> ✎</span>}

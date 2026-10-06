@@ -95,3 +95,35 @@ export function parseNumber(text: string): number | null {
   const n = Number(t);
   return Number.isFinite(n) ? n : null;
 }
+
+/** Reps como valor plano (10) o rango (4-6). */
+export interface RepsValue {
+  reps: number;
+  repsMax?: number;
+}
+
+/**
+ * Interpreta el campo de reps: acepta un número ("10", "8,5") o un rango
+ * ("4-6", "4 – 6"). En un rango normaliza de menor a mayor; si ambos
+ * extremos son iguales devuelve valor fijo. Devuelve null si no es válido.
+ */
+export function parseRepsRange(text: string): RepsValue | null {
+  const t = text.trim().replace(/[–—]/g, '-');
+  const parts = t.split('-');
+  if (parts.length === 1) {
+    const n = parseNumber(t);
+    return n === null ? null : { reps: Math.max(0, Math.round(n)) };
+  }
+  if (parts.length !== 2) return null;
+  const a = parseNumber(parts[0]);
+  const b = parseNumber(parts[1]);
+  if (a === null || b === null) return null;
+  const lo = Math.max(0, Math.round(Math.min(a, b)));
+  const hi = Math.max(0, Math.round(Math.max(a, b)));
+  return hi > lo ? { reps: lo, repsMax: hi } : { reps: lo };
+}
+
+/** Reps en pantalla: `10` o `4-6` (el rango solo si aporta información). */
+export function fmtReps(reps: number, repsMax?: number): string {
+  return repsMax !== undefined && repsMax > reps ? `${reps}-${repsMax}` : String(reps);
+}

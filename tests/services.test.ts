@@ -6,6 +6,7 @@ import { buildSessionFromDay } from '../src/services/session';
 import { cloneRoutine } from '../src/services/cloneRoutine';
 import { suggestDay } from '../src/services/suggestDay';
 import { streak, volumeOf } from '../src/services/stats';
+import { fmtReps, parseRepsRange } from '../src/services/format';
 
 // ---- Fixtures ----
 
@@ -169,6 +170,35 @@ describe('prefillFromPrevious', () => {
     const result = prefillFromPrevious([{ weight: 0, reps: 0, durationSec: 30 }], undefined);
     expect(result[0]).toEqual({ weight: 0, reps: 0, done: false, durationSec: 30 });
   });
+
+  it('arrastra el rango de reps (anterior > plan)', () => {
+    const planned = [
+      { weight: 0, reps: 4, repsMax: 6 },
+      { reps: 10 },
+    ];
+    const previous = [
+      { weight: 0, reps: 5, repsMax: 7, done: true },
+      { weight: 40, reps: 12, done: true },
+    ];
+    const result = prefillFromPrevious(planned, previous);
+    expect(result[0]).toEqual({ weight: 0, reps: 5, done: false, repsMax: 7 });
+    expect(result[1].reps).toBe(12);
+    expect(result[1].repsMax).toBeUndefined();
+  });
+
+  it('sin sesión anterior toma el rango del plan', () => {
+    const result = prefillFromPrevious([{ weight: 0, reps: 4, repsMax: 6 }], undefined);
+    expect(result[0]).toEqual({ weight: 0, reps: 4, done: false, repsMax: 6 });
+  });
+
+  it('un rango inconsistente (plan 4-6 con anterior fijo 10) se guarda como fijo', () => {
+    const result = prefillFromPrevious(
+      [{ reps: 4, repsMax: 6 }],
+      [{ weight: 0, reps: 10, done: true }],
+    );
+    expect(result[0].reps).toBe(10);
+    expect(result[0].repsMax).toBeUndefined();
+  });
 });
 
 describe('buildSessionFromDay', () => {
@@ -258,6 +288,34 @@ describe('suggestDay', () => {
   });
 });
 
+describe('parseRepsRange / fmtReps', () => {
+  it('acepta un número fijo y redondea', () => {
+    expect(parseRepsRange('10')).toEqual({ reps: 10 });
+    expect(parseRepsRange(' 8,5 ')).toEqual({ reps: 9 });
+    expect(parseRepsRange('-3')).toBeNull(); // el guion es separador de rango
+  });
+
+  it('acepta un rango y lo normaliza de menor a mayor', () => {
+    expect(parseRepsRange('4-6')).toEqual({ reps: 4, repsMax: 6 });
+    expect(parseRepsRange('4 – 6')).toEqual({ reps: 4, repsMax: 6 });
+    expect(parseRepsRange('6-4')).toEqual({ reps: 4, repsMax: 6 });
+    expect(parseRepsRange('5-5')).toEqual({ reps: 5 });
+  });
+
+  it('rechaza lo que no sea número ni rango', () => {
+    expect(parseRepsRange('')).toBeNull();
+    expect(parseRepsRange('abc')).toBeNull();
+    expect(parseRepsRange('4-6-8')).toBeNull();
+    expect(parseRepsRange('-')).toBeNull();
+  });
+
+  it('fmtReps pinta 10 o 4-6', () => {
+    expect(fmtReps(10)).toBe('10');
+    expect(fmtReps(4, 6)).toBe('4-6');
+    expect(fmtReps(6, 6)).toBe('6'); // extremos iguales: fijo
+  });
+});
+
 describe('stats', () => {
   it('volumen = Σ peso × reps de series hechas', () => {
     const session = makeSession({
@@ -288,6 +346,21 @@ describe('stats', () => {
       ],
     });
     expect(volumeOf(session)).toBe(480); // la plancha (30 s) queda fuera
+  });
+
+  it('un rango de reps cuenta el extremo alto en el volumen', () => {
+    const session = makeSession({
+      entries: [
+        {
+          exerciseName: 'Press',
+          sets: [
+            { weight: 100, reps: 4, repsMax: 6, done: true },
+            { weight: 100, reps: 4, repsMax: 6, done: false },
+          ],
+        },
+      ],
+    });
+    expect(volumeOf(session)).toBe(600); // 100 × 6, la sin marcar no cuenta
   });
 
   it('racha de días consecutivos', () => {

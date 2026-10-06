@@ -6,12 +6,15 @@ import { daysBetween, todayISO } from './format';
 /**
  * Volumen de una sesión: Σ peso × reps de las series marcadas como hechas.
  * Las series cronometradas (durationSec) no aportan volumen: no tienen reps.
+ * En un rango (4-6) se cuenta el extremo alto: es el máximo posible hecho.
  */
 export function volumeOf(session: Session): number {
   let total = 0;
   for (const entry of session.entries) {
     for (const set of entry.sets) {
-      if (set.done && set.durationSec === undefined) total += set.weight * set.reps;
+      if (set.done && set.durationSec === undefined) {
+        total += set.weight * (set.repsMax ?? set.reps);
+      }
     }
   }
   return total;

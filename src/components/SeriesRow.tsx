@@ -3,16 +3,19 @@
 
 import { useEffect, useState } from 'preact/hooks';
 import type { PerformedSet, PlannedSet, Unit } from '../models';
-import { fmtRelative, parseNumber } from '../services/format';
+import { fmtReps, fmtRelative, parseNumber, parseRepsRange } from '../services/format';
 
-/** Texto de comparación de una serie: `60 × 8` o `— × 30 s` (cronometrada). */
+/** Texto de comparación de una serie: `60 × 4-6` o `— × 30 s` (cronometrada). */
 function fmtSetForCompare(
   weight: number | undefined,
   reps: number,
+  repsMax?: number,
   durationSec?: number,
 ): string {
   const w = weight !== undefined ? weight : '—';
-  return durationSec !== undefined ? `${w} × ${durationSec} s` : `${w} × ${reps}`;
+  return durationSec !== undefined
+    ? `${w} × ${durationSec} s`
+    : `${w} × ${fmtReps(reps, repsMax)}`;
 }
 
 interface Props {
@@ -38,15 +41,20 @@ export function SeriesRow({
   onMenu,
 }: Props) {
   const [weightText, setWeightText] = useState(String(performed.weight));
-  const [repsText, setRepsText] = useState(String(performed.reps));
+  const [repsText, setRepsText] = useState(fmtReps(performed.reps, performed.repsMax));
   const [durationText, setDurationText] = useState(String(performed.durationSec ?? 30));
 
   // Serie cronometrada: manda durationSec y se editan segundos en vez de reps.
   const timed = performed.durationSec !== undefined;
+  // Rango de reps (4-6): el campo pasa a texto libre.
+  const repsRange = !timed && performed.repsMax !== undefined && performed.repsMax > performed.reps;
 
   // Sincroniza el texto si el valor cambia desde fuera (prefill, "copiar plan"...)
   useEffect(() => setWeightText(String(performed.weight)), [performed.weight]);
-  useEffect(() => setRepsText(String(performed.reps)), [performed.reps]);
+  useEffect(
+    () => setRepsText(fmtReps(performed.reps, performed.repsMax)),
+    [performed.reps, performed.repsMax],
+  );
   useEffect(
     () => setDurationText(String(performed.durationSec ?? 30)),
     [performed.durationSec],
@@ -57,8 +65,11 @@ export function SeriesRow({
     if (n !== null && n !== performed.weight) onPatch({ weight: n });
   };
   const commitReps = (text: string) => {
-    const n = parseNumber(text);
-    if (n !== null && n !== performed.reps) onPatch({ reps: Math.round(n) });
+    const next = parseRepsRange(text);
+    if (next === null) return;
+    if (next.reps !== performed.reps || next.repsMax !== performed.repsMax) {
+      onPatch({ reps: next.reps, repsMax: next.repsMax });
+    }
   };
   const commitDuration = (text: string) => {
     const n = parseNumber(text);
@@ -69,9 +80,14 @@ export function SeriesRow({
   const planText =
     planned === undefined
       ? '—'
-      : fmtSetForCompare(planned.weight, planned.reps, planned.durationSec);
+      : fmtSetForCompare(planned.weight, planned.reps, planned.repsMax, planned.durationSec);
   const prevText = previousSet
-    ? fmtSetForCompare(previousSet.weight, previousSet.reps, previousSet.durationSec)
+    ? fmtSetForCompare(
+        previousSet.weight,
+        previousSet.reps,
+        previousSet.repsMax,
+        previousSet.durationSec,
+      )
     : '—';
 
   return (
@@ -131,15 +147,21 @@ export function SeriesRow({
               <label class="num-field num-reps">
                 <input
                   type="text"
-                  inputMode="numeric"
+                  inputMode={repsRange ? 'text' : 'numeric'}
                   value={repsText}
-                  aria-label={`Repeticiones de la serie ${index + 1}`}
+                  aria-label={
+                    repsRange
+                      ? `Repeticiones de la serie ${index + 1} (rango, ej. 4-6)`
+                      : `Repeticiones de la serie ${index + 1}`
+                  }
                   onInput={(e) => setRepsText(e.currentTarget.value)}
                   onChange={(e) => commitReps(e.currentTarget.value)}
                   onBlur={(e) => {
-                    const n = parseNumber(e.currentTarget.value);
-                    if (n === null) setRepsText(String(performed.reps));
-                    else commitReps(e.currentTarget.value);
+                    if (parseRepsRange(e.currentTarget.value) === null) {
+                      setRepsText(fmtReps(performed.reps, performed.repsMax));
+                    } else {
+                      commitReps(e.currentTarget.value);
+                    }
                   }}
                 />
               </label>

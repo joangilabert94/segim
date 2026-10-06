@@ -2,7 +2,8 @@
 // notas, series extra, cronómetro opcional y guardado incremental.
 
 import { useState } from 'preact/hooks';
-import type { Exercise, PerformedSet, Session } from '../models';
+import type { Exercise, PerformedSet, Session, SetMode } from '../models';
+import { setModeOf } from '../models';
 import { navigate } from '../router';
 import {
   ensureExercise,
@@ -99,6 +100,7 @@ export function SessionView() {
         reps: last?.reps ?? 10,
         done: false,
         extra: true,
+        ...(last?.repsMax !== undefined ? { repsMax: last.repsMax } : {}),
         ...(last?.durationSec !== undefined ? { durationSec: last.durationSec } : {}),
       });
     });
@@ -122,6 +124,8 @@ export function SessionView() {
       if (!target) return;
       target.weight = planned.weight ?? target.weight;
       target.reps = planned.reps;
+      if (planned.repsMax !== undefined) target.repsMax = planned.repsMax;
+      else delete target.repsMax;
       if (planned.durationSec !== undefined) target.durationSec = planned.durationSec;
       else delete target.durationSec;
     });
@@ -133,19 +137,29 @@ export function SessionView() {
       entry.sets.forEach((set) => {
         set.weight = source.weight;
         set.reps = source.reps;
+        if (source.repsMax !== undefined) set.repsMax = source.repsMax;
+        else delete set.repsMax;
         if (source.durationSec !== undefined) set.durationSec = source.durationSec;
         else delete set.durationSec;
       });
     });
   };
 
-  /** Cambia una serie entre modo reps y modo cronometrada (30 s por defecto). */
-  const toggleSetMode = (ei: number, si: number) => {
+  /** Cambia el tipo de serie: fijo, rango (4-6) o cronometrada (30 s). */
+  const applySetMode = (ei: number, si: number, mode: SetMode) => {
     patchEntry(ei, (entry) => {
       const set = entry.sets[si];
       if (!set) return;
-      if (set.durationSec !== undefined) delete set.durationSec;
-      else set.durationSec = 30;
+      if (mode === 'fixed') {
+        delete set.repsMax;
+        delete set.durationSec;
+      } else if (mode === 'range') {
+        delete set.durationSec;
+        // Rango por defecto: mínimo actual y máximo dos por encima (10 → 10-12).
+        if (set.repsMax === undefined || set.repsMax <= set.reps) set.repsMax = set.reps + 2;
+      } else if (set.durationSec === undefined) {
+        set.durationSec = 30;
+      }
     });
   };
 
@@ -170,6 +184,7 @@ export function SessionView() {
           weight: set.weight,
           reps: set.reps,
           done: false,
+          ...(set.repsMax !== undefined ? { repsMax: set.repsMax } : {}),
           ...(set.durationSec !== undefined ? { durationSec: set.durationSec } : {}),
         })),
       });
@@ -205,6 +220,17 @@ export function SessionView() {
     finalizeSession(session.id);
     navigate(`/historial/${session.id}`);
   };
+
+  // Menú de serie: modos distintos al actual (fijo / rango / cronometrada).
+  const serieSet =
+    sheet?.kind === 'serie' ? session.entries[sheet.entry]?.sets[sheet.set] : undefined;
+  const serieMode: SetMode = serieSet ? setModeOf(serieSet) : 'fixed';
+  const allModeOptions: { mode: SetMode; label: string }[] = [
+    { mode: 'fixed', label: '♯ Pasar a número fijo' },
+    { mode: 'range', label: '↔ Pasar a rango (4-6)' },
+    { mode: 'timed', label: '⏱ Pasar a cronometrada (s)' },
+  ];
+  const modeOptions = allModeOptions.filter((o) => o.mode !== serieMode);
 
   return (
     <>
@@ -354,17 +380,18 @@ export function SessionView() {
             >
               ⤓ Copiar plan a esta serie
             </button>
-            <button
-              class="sheet-action"
-              onClick={() => {
-                toggleSetMode(sheet.entry, sheet.set);
-                setSheet(null);
-              }}
-            >
-              {session.entries[sheet.entry]?.sets[sheet.set]?.durationSec !== undefined
-                ? '♯ Pasar a repeticiones'
-                : '⏱ Pasar a cronometrada (s)'}
-            </button>
+            {modeOptions.map((o) => (
+              <button
+                key={o.mode}
+                class="sheet-action"
+                onClick={() => {
+                  applySetMode(sheet.entry, sheet.set, o.mode);
+                  setSheet(null);
+                }}
+              >
+                {o.label}
+              </button>
+            ))}
             <button
               class="sheet-action"
               onClick={() => {

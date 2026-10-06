@@ -8,7 +8,7 @@ import {
   useStore,
 } from '../state';
 import { suggestDay } from '../services/suggestDay';
-import { fmtDate, fmtDateLong, greeting, fmtVolume, todayISO } from '../services/format';
+import { fmtDate, fmtDateLong, fmtReps, greeting, fmtVolume, todayISO } from '../services/format';
 import { sessionsInLast, streak, volumeInLast, setsCount } from '../services/stats';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
@@ -122,7 +122,7 @@ export function Hoy() {
                       .map((p) =>
                         p.durationSec !== undefined
                           ? `${p.weight !== undefined ? p.weight : '—'}×${p.durationSec}s`
-                          : `${p.weight !== undefined ? p.weight : '—'}×${p.reps}`,
+                          : `${p.weight !== undefined ? p.weight : '—'}×${fmtReps(p.reps, p.repsMax)}`,
                       )
                       .join(', ')}
                   </span>

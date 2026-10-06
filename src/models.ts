@@ -29,7 +29,8 @@ export interface Exercise {
 /** Serie planeada dentro de un ejercicio de una rutina. */
 export interface PlannedSet {
   weight?: number; // peso objetivo de ESTA serie (opcional)
-  reps: number; // reps planeadas de ESTA serie
+  reps: number; // reps planeadas de ESTA serie (mínimo si hay rango)
+  repsMax?: number; // si existe y > reps, la serie es un rango: 4-6
   durationSec?: number; // si existe, la serie es cronometrada (segundos)
   note?: string;
 }
@@ -61,11 +62,30 @@ export interface Routine {
 /** Serie realizada dentro de una sesión. */
 export interface PerformedSet {
   weight: number; // peso real de ESTA serie
-  reps: number; // reps reales de ESTA serie (residuo si es cronometrada)
+  reps: number; // reps reales de ESTA serie (mínimo si hay rango)
+  repsMax?: number; // si existe y > reps, la serie es un rango: 4-6
   durationSec?: number; // si existe, la serie es cronometrada (segundos)
   done: boolean;
   note?: string;
   extra?: boolean; // serie añadida sobre la marcha (no planificada)
+}
+
+/** Cómo se expresan las reps de una serie. */
+export type SetMode = 'fixed' | 'range' | 'timed';
+
+/**
+ * Modo de una serie: cronometrada > rango > número fijo.
+ * Una serie puede conservar repsMax y durationSec como residuo al cambiar
+ * de modo; este helper decide qué se muestra y qué se edita.
+ */
+export function setModeOf(set: {
+  reps: number;
+  repsMax?: number;
+  durationSec?: number;
+}): SetMode {
+  if (set.durationSec !== undefined) return 'timed';
+  if (set.repsMax !== undefined && set.repsMax > set.reps) return 'range';
+  return 'fixed';
 }
 
 export interface SessionEntry {

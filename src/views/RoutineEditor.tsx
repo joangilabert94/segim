@@ -3,7 +3,8 @@
 // —o su duración en segundos si es una serie cronometrada (⏱).
 
 import { useState } from 'preact/hooks';
-import type { Exercise, Routine } from '../models';
+import type { Exercise, PlannedSet, Routine, SetMode } from '../models';
+import { setModeOf } from '../models';
 import { navigate } from '../router';
 import {
   applyExerciseDefinition,
@@ -18,7 +19,7 @@ import { upsertRoutine } from '../state';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { BottomSheet } from '../components/BottomSheet';
 import { ExercisePicker } from '../components/ExercisePicker';
-import { parseNumber } from '../services/format';
+import { fmtReps, parseNumber, parseRepsRange } from '../services/format';
 
 const MUSCLE_GROUPS = [
   'Pecho',
@@ -41,10 +42,27 @@ function swap<T>(arr: T[], i: number, dir: -1 | 1): void {
 
 type NoteTarget = { day: number; ex: number; set: number } | null;
 
+/** Etiqueta corta del chip de modo: `reps`, `rango` o `⏱ s`. */
+function modeChipText(set: PlannedSet): string {
+  const mode = setModeOf(set);
+  if (mode === 'timed') return '⏱ s';
+  if (mode === 'range') return 'rango';
+  return 'reps';
+}
+
+/** Descripción del modo actual, para aria-label del chip. */
+function modeChipAria(set: PlannedSet, n: number): string {
+  const mode = setModeOf(set);
+  if (mode === 'timed') return `La serie ${n} es cronometrada (${set.durationSec} s)`;
+  if (mode === 'range') return `La serie ${n} tiene rango de repeticiones (${set.reps}-${set.repsMax})`;
+  return `La serie ${n} tiene repeticiones fijas (${set.reps})`;
+}
+
 export function RoutineEditor({ id }: { id: string }) {
   const s = useStore();
   const [noteTarget, setNoteTarget] = useState<NoteTarget>(null);
   const [noteText, setNoteText] = useState('');
+  const [modeTarget, setModeTarget] = useState<NoteTarget>(null);
   const [confirmDeleteDay, setConfirmDeleteDay] = useState<number | null>(null);
   const [confirmDeleteRoutine, setConfirmDeleteRoutine] = useState(false);
 
@@ -63,6 +81,15 @@ export function RoutineEditor({ id }: { id: string }) {
   }
 
   const patch = (mutate: (draft: Routine) => void) => patchRoutine(id, mutate);
+
+  // Modo de la serie seleccionada en la hoja "Tipo de serie".
+  const currentMode: SetMode | null = modeTarget
+    ? setModeOf(
+        routine.days[modeTarget.day]?.exercises[modeTarget.ex]?.plannedSets[modeTarget.set] ?? {
+          reps: 0,
+        },
+      )
+    : null;
 
   // ---- Días ----
   const addDay = () =>
@@ -147,6 +174,7 @@ export function RoutineEditor({ id }: { id: string }) {
       sets.push({
         weight: last?.weight,
         reps: last?.reps ?? 10,
+        ...(last?.repsMax !== undefined ? { repsMax: last.repsMax } : {}),
         ...(last?.durationSec !== undefined ? { durationSec: last.durationSec } : {}),
       });
     });
@@ -159,9 +187,12 @@ export function RoutineEditor({ id }: { id: string }) {
 
   const setPlannedReps = (di: number, ei: number, si: number, text: string) =>
     patch((r) => {
-      const n = parseNumber(text);
+      const next = parseRepsRange(text);
       const set = r.days[di].exercises[ei].plannedSets[si];
-      if (n !== null) set.reps = n;
+      if (next === null) return;
+      set.reps = next.reps;
+      if (next.repsMax !== undefined) set.repsMax = next.repsMax;
+      else delete set.repsMax;
     });
 
   /** Segundos planeados de una serie cronometrada. */
@@ -172,13 +203,26 @@ export function RoutineEditor({ id }: { id: string }) {
       if (n !== null) set.durationSec = Math.max(1, Math.round(n));
     });
 
-  /** Alterna entre serie por repeticiones y serie cronometrada (30 s por defecto). */
-  const togglePlannedMode = (di: number, ei: number, si: number) =>
+  /** Cambia el tipo de serie: fijo, rango (4-6) o cronometrada (30 s). */
+  const applyPlannedMode = (mode: SetMode) => {
+    if (!modeTarget) return;
+    const { day: di, ex: ei, set: si } = modeTarget;
     patch((r) => {
-      const set = r.days[di].exercises[ei].plannedSets[si];
-      if (set.durationSec !== undefined) delete set.durationSec;
-      else set.durationSec = 30;
+      const set = r.days[di]?.exercises[ei]?.plannedSets[si];
+      if (!set) return;
+      if (mode === 'fixed') {
+        delete set.repsMax;
+        delete set.durationSec;
+      } else if (mode === 'range') {
+        delete set.durationSec;
+        // Rango por defecto: mínimo actual y máximo dos por encima (10 → 10-12).
+        if (set.repsMax === undefined || set.repsMax <= set.reps) set.repsMax = set.reps + 2;
+      } else if (set.durationSec === undefined) {
+        set.durationSec = 30;
+      }
     });
+    setModeTarget(null);
+  };
 
   const removePlannedSet = (di: number, ei: number, si: number) =>
     patch((r) => {
@@ -346,20 +390,12 @@ export function RoutineEditor({ id }: { id: string }) {
                     <span class="label">
                       Serie {si + 1}
                       <button
-                        class={`mode-chip${set.durationSec !== undefined ? ' is-timed' : ''}`}
-                        aria-label={
-                          set.durationSec !== undefined
-                            ? `La serie ${si + 1} es cronometrada (${set.durationSec} s): cambiar a repeticiones`
-                            : `La serie ${si + 1} es por repeticiones: cambiar a cronometrada (segundos)`
-                        }
-                        title={
-                          set.durationSec !== undefined
-                            ? 'Serie cronometrada · toca para pasar a reps'
-                            : 'Serie por reps · toca para cronometrarla'
-                        }
-                        onClick={() => togglePlannedMode(di, ei, si)}
+                        class={`mode-chip${setModeOf(set) === 'timed' ? ' is-timed' : ''}`}
+                        aria-label={`${modeChipAria(set, si + 1)}: toca para cambiar el tipo de serie`}
+                        title="Cambiar el tipo de serie"
+                        onClick={() => setModeTarget({ day: di, ex: ei, set: si })}
                       >
-                        {set.durationSec !== undefined ? '⏱ s' : 'reps'}
+                        {modeChipText(set)}
                       </button>
                     </span>
                     <label class="num-field">
@@ -389,8 +425,12 @@ export function RoutineEditor({ id }: { id: string }) {
                       <label class="num-field num-reps">
                         <input
                           type="text"
-                          inputMode="numeric"
-                          value={String(set.reps)}
+                          inputMode={
+                            set.repsMax !== undefined && set.repsMax > set.reps
+                              ? 'text'
+                              : 'numeric'
+                          }
+                          value={fmtReps(set.reps, set.repsMax)}
                           aria-label={`Repeticiones planeadas de la serie ${si + 1}`}
                           onChange={(e) => setPlannedReps(di, ei, si, e.currentTarget.value)}
                         />
@@ -440,6 +480,38 @@ export function RoutineEditor({ id }: { id: string }) {
           <option value={g} key={g} />
         ))}
       </datalist>
+
+      <BottomSheet
+        open={modeTarget !== null}
+        onClose={() => setModeTarget(null)}
+        title={`Tipo de serie${modeTarget !== null ? ` ${modeTarget.set + 1}` : ''}`}
+      >
+        <button
+          class="sheet-action"
+          aria-pressed={currentMode === 'fixed'}
+          onClick={() => applyPlannedMode('fixed')}
+        >
+          {currentMode === 'fixed' ? '✓ ' : ''}♯ Por repeticiones (número fijo)
+        </button>
+        <button
+          class="sheet-action"
+          aria-pressed={currentMode === 'range'}
+          onClick={() => applyPlannedMode('range')}
+        >
+          {currentMode === 'range' ? '✓ ' : ''}↔ Rango de repeticiones (4-6)
+        </button>
+        <button
+          class="sheet-action"
+          aria-pressed={currentMode === 'timed'}
+          onClick={() => applyPlannedMode('timed')}
+        >
+          {currentMode === 'timed' ? '✓ ' : ''}⏱ Cronometrada (segundos)
+        </button>
+        <p class="hint" style="margin-top:8px">
+          En un rango (4-6) eliges las mínimas y las máximas de la serie; al entrenar
+          puedes apuntar el número exacto o el propio rango.
+        </p>
+      </BottomSheet>
 
       <BottomSheet
         open={noteTarget !== null}
