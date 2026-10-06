@@ -8,6 +8,7 @@ import * as db from './db/idb';
 import { buildFreeSession, buildSessionFromDay } from './services/session';
 import { pickOrCreateExercise, seedCatalogFromRoutines, linkRoutinesToCatalog } from './services/catalog';
 import { applyTheme } from './theme';
+import { buildRoutinesFile, downloadRoutinesFile, mergeRoutines, parseRoutinesFile } from './services/share';
 
 export interface AppState {
   routines: Routine[];
@@ -321,6 +322,42 @@ export function reopenSession(id: string): Session | undefined {
 export function deleteSession(id: string): void {
   setState({ sessions: state.sessions.filter((s) => s.id !== id) });
   db.removeSession(id).catch((e) => logError('borrar la sesión', e));
+}
+
+// ---------------------------------------------------------------------------
+// Intercambio de rutinas (compartir entre dispositivos)
+// ---------------------------------------------------------------------------
+
+/** Exporta rutinas + sus ejercicios a un .json. Devuelve cuántas se exportan. */
+export function exportRoutines(): number {
+  if (state.routines.length === 0) {
+    throw new Error('No hay rutinas para exportar.');
+  }
+  downloadRoutinesFile(buildRoutinesFile(state.routines, state.exercises));
+  return state.routines.length;
+}
+
+/**
+ * Importa rutinas desde un .json, sumándolas a las existentes.
+ * Las que ya están por id se omiten: reimportar no duplica.
+ */
+export function importRoutines(text: string): {
+  added: number;
+  skipped: number;
+  exercisesAdded: number;
+} {
+  const file = parseRoutinesFile(text);
+  const merged = mergeRoutines(state.routines, state.exercises, file);
+  if (merged.added > 0 || merged.exercisesAdded > 0) {
+    setState({ routines: merged.routines, exercises: merged.exercises });
+    persistRoutines();
+    persistExercises();
+  }
+  return {
+    added: merged.added,
+    skipped: merged.skipped,
+    exercisesAdded: merged.exercisesAdded,
+  };
 }
 
 // ---------------------------------------------------------------------------

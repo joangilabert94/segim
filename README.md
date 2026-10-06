@@ -18,6 +18,8 @@ dispositivo. Funciona sin conexión e instalable desde el navegador.
   La sesión en curso se guarda en cada cambio: puedes cerrar la pestaña y volver.
 - **Rutinas**: editor por días → ejercicios → series (cada serie con su peso y reps),
   reordenación, clonado profundo, rutina activa, archivar.
+- **Compartir rutinas**: exportar/importar un `.json` con solo rutinas y sus ejercicios
+  (nunca sesiones ni ajustes) desde la pestaña *Rutinas*; reimportar no duplica.
 - **Catálogo de ejercicios con id estable**: al montar una rutina autocompleta y elige un
   ejercicio existente o crea uno nuevo (queda guardado); la comparación entre sesiones usa
   el **id**, no el nombre. Pestaña *Ejercicios* para buscar, renombrar (propaga a todas las
