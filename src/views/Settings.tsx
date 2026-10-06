@@ -9,7 +9,7 @@ import { THEME_OPTIONS } from '../services/theme';
 import { currentTheme } from '../theme';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
-const APP_VERSION = '0.1.0';
+const APP_VERSION = '0.2.0';
 
 export function SettingsView() {
   const s = useStore();
