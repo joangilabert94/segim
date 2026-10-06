@@ -5,6 +5,8 @@ multi-día, modo entrenamiento con comparación **serie a serie** (Plan · Anter
 historial con fechas, clonado de rutinas y todo almacenado **localmente** en el
 dispositivo. Funciona sin conexión e instalable desde el navegador.
 
+🌐 **En producción**: <https://joangilabert94.github.io/segim/>
+
 📄 El plan completo de desarrollo está en [PLAN.md](PLAN.md).
 
 ## Qué hace
@@ -45,8 +47,13 @@ npm run icons      # regenera los iconos PNG (scripts/generate-icons.mjs)
 
 1. Sube el repo a GitHub.
 2. En **Settings → Pages → Source**, elige **GitHub Actions**.
-3. Haz push a `main`: el workflow [.github/workflows/deploy.yml](.github/workflows/deploy.yml)
-   ejecuta tests, build y publica `dist/`.
+3. Haz push a `main` o `master`: el workflow
+   [.github/workflows/deploy.yml](.github/workflows/deploy.yml) ejecuta tests, build y
+   publica `dist/`. La app queda en `https://<usuario>.github.io/<repo>/`.
+
+Si el paso *Configure Pages* falla, es porque el *source* de Pages todavía no estaba
+seleccionado: actívalo y vuelve a lanzar el run (**Actions → el run fallido →
+Re-run all jobs**).
 
 El build define `BASE_PATH=/<nombre-del-repo>/` para que funcione bajo la subcarpeta
 del repo (el router por hash evita problemas de 404). Si tu repo se llama
