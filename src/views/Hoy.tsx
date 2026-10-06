@@ -163,7 +163,7 @@ export function Hoy() {
 
       <div class="section-title">Últimas sesiones</div>
       {recent.length === 0 ? (
-        <p class="hint">Aún no has completado ninguna sesión. ¡La primera es gratis!</p>
+        <p class="hint">Aún no has completado ninguna sesión.</p>
       ) : (
         recent.map((ses) => (
           <button
