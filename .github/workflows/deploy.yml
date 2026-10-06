@@ -1,8 +1,12 @@
 name: Desplegar en GitHub Pages
 
+# ⚠️ Solo se despliega cuando se sube una ETIQUETA DE VERSIÓN (v1.2.3).
+# Los pushes a master o a cualquier otra rama NO publican nada: sirven para
+# subir trabajo en curso sin desplegarlo (la validación la hace ci.yml).
+# `workflow_dispatch` queda como escape para publicar a mano desde Actions.
 on:
   push:
-    branches: [main, master]
+    tags: ['v*']
   workflow_dispatch:
 
 permissions:

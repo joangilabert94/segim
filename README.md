@@ -50,9 +50,14 @@ npm run icons      # regenera los iconos PNG (scripts/generate-icons.mjs)
 
 1. Sube el repo a GitHub.
 2. En **Settings → Pages → Source**, elige **GitHub Actions**.
-3. Haz push a `main` o `master`: el workflow
-   [.github/workflows/deploy.yml](.github/workflows/deploy.yml) ejecuta tests, build y
+3. Publica creando una **etiqueta de versión** (`v0.3.0`) y subiéndola: el workflow
+   [.github/workflows/deploy.yml](.github/workflows/deploy.yml) solo se dispara con
+   etiquetas `v*` (o manualmente desde *Actions → Run workflow*), ejecuta tests, build y
    publica `dist/`. La app queda en `https://<usuario>.github.io/<repo>/`.
+
+Los pushes a `master` o a cualquier otra rama **no despliegan**: solo ejecutan el
+workflow de comprobación [.github/workflows/ci.yml](.github/workflows/ci.yml)
+(typecheck, tests y build), así puedes subir trabajo en curso sin publicarlo.
 
 Si el paso *Configure Pages* falla, es porque el *source* de Pages todavía no estaba
 seleccionado: actívalo y vuelve a lanzar el run (**Actions → el run fallido →
