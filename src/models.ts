@@ -1,6 +1,8 @@
 // Tipos de datos de la aplicación.
 // Todo lo planeado y lo realizado se guarda serie a serie:
-// cada serie tiene su propio peso y sus propias repeticiones.
+// cada serie tiene su propio peso y sus propias reps… o su duración,
+// cuando es una serie cronometrada (isometría: plancha 30 s, etc.).
+// Regla: si `durationSec` existe, manda él y `reps` se ignora.
 
 export type Unit = 'kg' | 'lb';
 
@@ -28,6 +30,7 @@ export interface Exercise {
 export interface PlannedSet {
   weight?: number; // peso objetivo de ESTA serie (opcional)
   reps: number; // reps planeadas de ESTA serie
+  durationSec?: number; // si existe, la serie es cronometrada (segundos)
   note?: string;
 }
 
@@ -58,7 +61,8 @@ export interface Routine {
 /** Serie realizada dentro de una sesión. */
 export interface PerformedSet {
   weight: number; // peso real de ESTA serie
-  reps: number; // reps reales de ESTA serie
+  reps: number; // reps reales de ESTA serie (residuo si es cronometrada)
+  durationSec?: number; // si existe, la serie es cronometrada (segundos)
   done: boolean;
   note?: string;
   extra?: boolean; // serie añadida sobre la marcha (no planificada)

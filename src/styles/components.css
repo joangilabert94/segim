@@ -778,6 +778,14 @@
   color: var(--dim);
   width: 52px;
   font-weight: 700;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.planned-set-row .label .mode-chip {
+  max-width: 52px;
 }
 
 .planned-set-row .num-field input {

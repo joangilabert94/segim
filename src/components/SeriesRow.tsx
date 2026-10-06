@@ -1,9 +1,19 @@
 // Fila de una serie dentro de una sesión:
-// [check] Serie n | Plan · Anterior | inputs peso × reps | menú ⋮
+// [check] Serie n | Plan · Anterior | inputs peso × reps (o segundos) | menú ⋮
 
 import { useEffect, useState } from 'preact/hooks';
 import type { PerformedSet, PlannedSet, Unit } from '../models';
 import { fmtRelative, parseNumber } from '../services/format';
+
+/** Texto de comparación de una serie: `60 × 8` o `— × 30 s` (cronometrada). */
+function fmtSetForCompare(
+  weight: number | undefined,
+  reps: number,
+  durationSec?: number,
+): string {
+  const w = weight !== undefined ? weight : '—';
+  return durationSec !== undefined ? `${w} × ${durationSec} s` : `${w} × ${reps}`;
+}
 
 interface Props {
   index: number;
@@ -29,10 +39,18 @@ export function SeriesRow({
 }: Props) {
   const [weightText, setWeightText] = useState(String(performed.weight));
   const [repsText, setRepsText] = useState(String(performed.reps));
+  const [durationText, setDurationText] = useState(String(performed.durationSec ?? 30));
+
+  // Serie cronometrada: manda durationSec y se editan segundos en vez de reps.
+  const timed = performed.durationSec !== undefined;
 
   // Sincroniza el texto si el valor cambia desde fuera (prefill, "copiar plan"...)
   useEffect(() => setWeightText(String(performed.weight)), [performed.weight]);
   useEffect(() => setRepsText(String(performed.reps)), [performed.reps]);
+  useEffect(
+    () => setDurationText(String(performed.durationSec ?? 30)),
+    [performed.durationSec],
+  );
 
   const commitWeight = (text: string) => {
     const n = parseNumber(text);
@@ -42,12 +60,19 @@ export function SeriesRow({
     const n = parseNumber(text);
     if (n !== null && n !== performed.reps) onPatch({ reps: Math.round(n) });
   };
+  const commitDuration = (text: string) => {
+    const n = parseNumber(text);
+    const next = n === null ? null : Math.max(1, Math.round(n));
+    if (next !== null && next !== performed.durationSec) onPatch({ durationSec: next });
+  };
 
   const planText =
     planned === undefined
       ? '—'
-      : `${planned.weight !== undefined ? planned.weight : '—'} × ${planned.reps}`;
-  const prevText = previousSet ? `${previousSet.weight} × ${previousSet.reps}` : '—';
+      : fmtSetForCompare(planned.weight, planned.reps, planned.durationSec);
+  const prevText = previousSet
+    ? fmtSetForCompare(previousSet.weight, previousSet.reps, previousSet.durationSec)
+    : '—';
 
   return (
     <div class={`series-row ${performed.done ? 'is-done' : ''}`}>
@@ -85,21 +110,40 @@ export function SeriesRow({
               <span class="num-suffix">{unit}</span>
             </label>
             <span class="times">×</span>
-            <label class="num-field num-reps">
-              <input
-                type="text"
-                inputMode="numeric"
-                value={repsText}
-                aria-label={`Repeticiones de la serie ${index + 1}`}
-                onInput={(e) => setRepsText(e.currentTarget.value)}
-                onChange={(e) => commitReps(e.currentTarget.value)}
-                onBlur={(e) => {
-                  const n = parseNumber(e.currentTarget.value);
-                  if (n === null) setRepsText(String(performed.reps));
-                  else commitReps(e.currentTarget.value);
-                }}
-              />
-            </label>
+            {timed ? (
+              <label class="num-field num-dur">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={durationText}
+                  aria-label={`Duración de la serie ${index + 1} en segundos`}
+                  onInput={(e) => setDurationText(e.currentTarget.value)}
+                  onChange={(e) => commitDuration(e.currentTarget.value)}
+                  onBlur={(e) => {
+                    const n = parseNumber(e.currentTarget.value);
+                    if (n === null) setDurationText(String(performed.durationSec ?? 30));
+                    else commitDuration(e.currentTarget.value);
+                  }}
+                />
+                <span class="num-suffix">s</span>
+              </label>
+            ) : (
+              <label class="num-field num-reps">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={repsText}
+                  aria-label={`Repeticiones de la serie ${index + 1}`}
+                  onInput={(e) => setRepsText(e.currentTarget.value)}
+                  onChange={(e) => commitReps(e.currentTarget.value)}
+                  onBlur={(e) => {
+                    const n = parseNumber(e.currentTarget.value);
+                    if (n === null) setRepsText(String(performed.reps));
+                    else commitReps(e.currentTarget.value);
+                  }}
+                />
+              </label>
+            )}
           </div>
         </div>
         <div class="series-meta">

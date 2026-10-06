@@ -149,6 +149,26 @@ describe('prefillFromPrevious', () => {
     expect(result[0]).toEqual({ weight: 0, reps: 10, done: false });
     expect(result[1]).toEqual({ weight: 50, reps: 8, done: false });
   });
+
+  it('arrastra la duración de las series cronometradas (anterior > plan)', () => {
+    const planned = [
+      { weight: 0, reps: 0, durationSec: 30 },
+      { reps: 10 },
+    ];
+    const previous = [
+      { weight: 0, reps: 0, durationSec: 45, done: true },
+      { weight: 40, reps: 12, done: true },
+    ];
+    const result = prefillFromPrevious(planned, previous);
+    expect(result[0]).toEqual({ weight: 0, reps: 0, done: false, durationSec: 45 });
+    expect(result[1]).toEqual({ weight: 40, reps: 12, done: false });
+    expect(result[1].durationSec).toBeUndefined();
+  });
+
+  it('sin sesión anterior toma la duración del plan', () => {
+    const result = prefillFromPrevious([{ weight: 0, reps: 0, durationSec: 30 }], undefined);
+    expect(result[0]).toEqual({ weight: 0, reps: 0, done: false, durationSec: 30 });
+  });
 });
 
 describe('buildSessionFromDay', () => {
@@ -177,6 +197,21 @@ describe('buildSessionFromDay', () => {
     expect(session.entries[0].sets).toEqual([
       { weight: 62, reps: 8, done: false },
       { weight: 67, reps: 5, done: false },
+    ]);
+  });
+
+  it('las series cronometradas del plan llegan a la sesión', () => {
+    const routine = makeRoutine();
+    routine.days[0].exercises[0].plannedSets = [
+      { weight: 0, reps: 0, durationSec: 30 },
+      { reps: 8 },
+    ];
+
+    const session = buildSessionFromDay(routine, routine.days[0], []);
+
+    expect(session.entries[0].sets).toEqual([
+      { weight: 0, reps: 0, done: false, durationSec: 30 },
+      { weight: 0, reps: 8, done: false },
     ]);
   });
 });
@@ -237,6 +272,22 @@ describe('stats', () => {
       ],
     });
     expect(volumeOf(session)).toBe(480);
+  });
+
+  it('las series cronometradas no suman volumen', () => {
+    const session = makeSession({
+      entries: [
+        {
+          exerciseName: 'Plancha',
+          sets: [
+            { weight: 60, reps: 8, done: true },
+            { weight: 10, reps: 8, done: true, durationSec: 30 },
+            { weight: 65, reps: 6, done: false },
+          ],
+        },
+      ],
+    });
+    expect(volumeOf(session)).toBe(480); // la plancha (30 s) queda fuera
   });
 
   it('racha de días consecutivos', () => {

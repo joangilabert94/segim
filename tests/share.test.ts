@@ -160,3 +160,48 @@ describe('mergeRoutines', () => {
     expect(res.routines[0].name).toBe('Local');
   });
 });
+
+describe('series cronometradas en el intercambio', () => {
+  it('el export/import conserva durationSec', () => {
+    const timed = makeRoutine({
+      days: [
+        {
+          id: 'd1',
+          name: 'Día 1',
+          exercises: [
+            {
+              id: 're1',
+              exerciseId: 'e-sent',
+              name: 'Sentadilla',
+              plannedSets: [{ weight: 0, reps: 0, durationSec: 30 }, { reps: 8 }],
+            },
+          ],
+        },
+      ],
+    });
+
+    const file = buildRoutinesFile([timed], CATALOGO);
+    const parsed = parseRoutinesFile(JSON.stringify(file));
+    expect(parsed.routines[0]?.days[0]?.exercises[0]?.plannedSets).toEqual([
+      { weight: 0, reps: 0, durationSec: 30 },
+      { reps: 8 },
+    ]);
+  });
+
+  it('mergeRoutines también las conserva', () => {
+    const timed = makeRoutine({
+      days: [
+        {
+          id: 'd1',
+          name: 'Día 1',
+          exercises: [
+            { id: 're1', exerciseId: 'e-sent', name: 'Sentadilla', plannedSets: [{ reps: 0, durationSec: 45 }] },
+          ],
+        },
+      ],
+    });
+
+    const res = mergeRoutines([], [], buildRoutinesFile([timed], CATALOGO));
+    expect(res.routines[0]?.days[0]?.exercises[0]?.plannedSets[0]?.durationSec).toBe(45);
+  });
+});

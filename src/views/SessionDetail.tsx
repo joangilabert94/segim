@@ -97,7 +97,8 @@ export function SessionDetail({ id }: { id: string }) {
                 </span>
                 <span>
                   <b>
-                    {set.weight} {s.settings.unit} × {set.reps}
+                    {set.weight} {s.settings.unit} ×{' '}
+                    {set.durationSec !== undefined ? `${set.durationSec} s` : set.reps}
                   </b>{' '}
                   <span class={set.done ? 'ok' : ''}>{set.done ? '✓' : '—'}</span>
                   {set.note && <span title={set.note}> ✎</span>}

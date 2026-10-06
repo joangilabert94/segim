@@ -1,5 +1,6 @@
 // Editor de rutina en 3 niveles: días → ejercicios → series planeadas.
-// Cada serie planeada tiene su propio peso (opcional) y sus propias reps.
+// Cada serie planeada tiene su propio peso (opcional) y sus propias reps
+// —o su duración en segundos si es una serie cronometrada (⏱).
 
 import { useState } from 'preact/hooks';
 import type { Exercise, Routine } from '../models';
@@ -143,7 +144,11 @@ export function RoutineEditor({ id }: { id: string }) {
     patch((r) => {
       const sets = r.days[di].exercises[ei].plannedSets;
       const last = sets[sets.length - 1];
-      sets.push({ weight: last?.weight, reps: last?.reps ?? 10 });
+      sets.push({
+        weight: last?.weight,
+        reps: last?.reps ?? 10,
+        ...(last?.durationSec !== undefined ? { durationSec: last.durationSec } : {}),
+      });
     });
 
   const setPlannedWeight = (di: number, ei: number, si: number, text: string) =>
@@ -157,6 +162,22 @@ export function RoutineEditor({ id }: { id: string }) {
       const n = parseNumber(text);
       const set = r.days[di].exercises[ei].plannedSets[si];
       if (n !== null) set.reps = n;
+    });
+
+  /** Segundos planeados de una serie cronometrada. */
+  const setPlannedDuration = (di: number, ei: number, si: number, text: string) =>
+    patch((r) => {
+      const n = parseNumber(text);
+      const set = r.days[di].exercises[ei].plannedSets[si];
+      if (n !== null) set.durationSec = Math.max(1, Math.round(n));
+    });
+
+  /** Alterna entre serie por repeticiones y serie cronometrada (30 s por defecto). */
+  const togglePlannedMode = (di: number, ei: number, si: number) =>
+    patch((r) => {
+      const set = r.days[di].exercises[ei].plannedSets[si];
+      if (set.durationSec !== undefined) delete set.durationSec;
+      else set.durationSec = 30;
     });
 
   const removePlannedSet = (di: number, ei: number, si: number) =>
@@ -322,7 +343,25 @@ export function RoutineEditor({ id }: { id: string }) {
               <div class="planned-sets">
                 {ex.plannedSets.map((set, si) => (
                   <div class="planned-set-row" key={si}>
-                    <span class="label">Serie {si + 1}</span>
+                    <span class="label">
+                      Serie {si + 1}
+                      <button
+                        class={`mode-chip${set.durationSec !== undefined ? ' is-timed' : ''}`}
+                        aria-label={
+                          set.durationSec !== undefined
+                            ? `La serie ${si + 1} es cronometrada (${set.durationSec} s): cambiar a repeticiones`
+                            : `La serie ${si + 1} es por repeticiones: cambiar a cronometrada (segundos)`
+                        }
+                        title={
+                          set.durationSec !== undefined
+                            ? 'Serie cronometrada · toca para pasar a reps'
+                            : 'Serie por reps · toca para cronometrarla'
+                        }
+                        onClick={() => togglePlannedMode(di, ei, si)}
+                      >
+                        {set.durationSec !== undefined ? '⏱ s' : 'reps'}
+                      </button>
+                    </span>
                     <label class="num-field">
                       <input
                         type="text"
@@ -335,15 +374,28 @@ export function RoutineEditor({ id }: { id: string }) {
                       <span class="num-suffix">{s.settings.unit}</span>
                     </label>
                     <span class="times">×</span>
-                    <label class="num-field num-reps">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={String(set.reps)}
-                        aria-label={`Repeticiones planeadas de la serie ${si + 1}`}
-                        onChange={(e) => setPlannedReps(di, ei, si, e.currentTarget.value)}
-                      />
-                    </label>
+                    {set.durationSec !== undefined ? (
+                      <label class="num-field num-dur">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={String(set.durationSec)}
+                          aria-label={`Duración planeada de la serie ${si + 1} en segundos`}
+                          onChange={(e) => setPlannedDuration(di, ei, si, e.currentTarget.value)}
+                        />
+                        <span class="num-suffix">s</span>
+                      </label>
+                    ) : (
+                      <label class="num-field num-reps">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={String(set.reps)}
+                          aria-label={`Repeticiones planeadas de la serie ${si + 1}`}
+                          onChange={(e) => setPlannedReps(di, ei, si, e.currentTarget.value)}
+                        />
+                      </label>
+                    )}
                     <button
                       class="note-indicator"
                       aria-label="Nota de la serie"

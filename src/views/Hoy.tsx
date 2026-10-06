@@ -119,7 +119,11 @@ export function Hoy() {
                   <b>{ex.name}</b>
                   <span class="sets-n">
                     {ex.plannedSets
-                      .map((p) => `${p.weight !== undefined ? p.weight : '—'}×${p.reps}`)
+                      .map((p) =>
+                        p.durationSec !== undefined
+                          ? `${p.weight !== undefined ? p.weight : '—'}×${p.durationSec}s`
+                          : `${p.weight !== undefined ? p.weight : '—'}×${p.reps}`,
+                      )
                       .join(', ')}
                   </span>
                 </li>

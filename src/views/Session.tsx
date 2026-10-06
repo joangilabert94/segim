@@ -99,6 +99,7 @@ export function SessionView() {
         reps: last?.reps ?? 10,
         done: false,
         extra: true,
+        ...(last?.durationSec !== undefined ? { durationSec: last.durationSec } : {}),
       });
     });
   };
@@ -116,9 +117,13 @@ export function SessionView() {
   const copyPlanToSet = (ei: number, si: number) => {
     const planned = comparisons[ei].plannedEx?.plannedSets[si];
     if (!planned) return;
-    patchSet(ei, si, {
-      weight: planned.weight ?? session.entries[ei].sets[si].weight,
-      reps: planned.reps,
+    patchEntry(ei, (entry) => {
+      const target = entry.sets[si];
+      if (!target) return;
+      target.weight = planned.weight ?? target.weight;
+      target.reps = planned.reps;
+      if (planned.durationSec !== undefined) target.durationSec = planned.durationSec;
+      else delete target.durationSec;
     });
   };
 
@@ -128,7 +133,19 @@ export function SessionView() {
       entry.sets.forEach((set) => {
         set.weight = source.weight;
         set.reps = source.reps;
+        if (source.durationSec !== undefined) set.durationSec = source.durationSec;
+        else delete set.durationSec;
       });
+    });
+  };
+
+  /** Cambia una serie entre modo reps y modo cronometrada (30 s por defecto). */
+  const toggleSetMode = (ei: number, si: number) => {
+    patchEntry(ei, (entry) => {
+      const set = entry.sets[si];
+      if (!set) return;
+      if (set.durationSec !== undefined) delete set.durationSec;
+      else set.durationSec = 30;
     });
   };
 
@@ -153,6 +170,7 @@ export function SessionView() {
           weight: set.weight,
           reps: set.reps,
           done: false,
+          ...(set.durationSec !== undefined ? { durationSec: set.durationSec } : {}),
         })),
       });
     });
@@ -335,6 +353,17 @@ export function SessionView() {
               }}
             >
               ⤓ Copiar plan a esta serie
+            </button>
+            <button
+              class="sheet-action"
+              onClick={() => {
+                toggleSetMode(sheet.entry, sheet.set);
+                setSheet(null);
+              }}
+            >
+              {session.entries[sheet.entry]?.sets[sheet.set]?.durationSec !== undefined
+                ? '♯ Pasar a repeticiones'
+                : '⏱ Pasar a cronometrada (s)'}
             </button>
             <button
               class="sheet-action"
