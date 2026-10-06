@@ -172,7 +172,7 @@ Settings {
 
 ## 6. Diseño
 
-- **Mobile-first**, tema **oscuro** con acento de alto contraste (lima/eléctrico), tipografía del sistema (cero descargas de fuentes).
+- **Mobile-first**, tema **oscuro** con acento de alto contraste (lima/eléctrico), tipografía del sistema (cero descargas de fuentes). *(Posteriormente se añadió el tema **claro**, con selector Automático/Claro/Oscuro en Ajustes.)*
 - **Tab bar inferior** fija (Hoy · Rutinas · Ejercicios · Historial · Ajustes); en modo sesión se sustituye por la barra de acciones de la sesión.
 - Tarjetas redondeadas, sombras sutiles, **targets táctiles ≥ 44 px**, inputs numéricos grandes con `inputmode="decimal"`.
 - Fila de serie en modo sesión con las 3 columnas (Plan · Ant. · Hoy) legibles en pantallas de 360 px; en móvil estrecho, Plan y Ant. se apilan en línea secundaria compacta.

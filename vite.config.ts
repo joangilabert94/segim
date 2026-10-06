@@ -20,8 +20,10 @@ export default defineConfig({
         scope: '.',
         display: 'standalone',
         orientation: 'portrait',
-        theme_color: '#0c0f0e',
-        background_color: '#0c0f0e',
+        // El tema claro es el valor por defecto; el manifest es estático
+        // (no admite la preferencia), así que refleja ese default.
+        theme_color: '#f4f7f1',
+        background_color: '#f4f7f1',
         icons: [
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },

@@ -24,13 +24,14 @@ dispositivo. Funciona sin conexión e instalable desde el navegador.
   rutinas) y limpiar el catálogo.
 - **Historial**: sesiones agrupadas por mes, detalle con todas las series, edición
   (reabrir) y borrado, volumen y racha.
-- **Ajustes**: kg/lb, presets de descanso, **exportar/importar JSON** (base para la
+- **Ajustes**: **tema (automático/claro/oscuro)**, kg/lb, presets de descanso,
+  **exportar/importar JSON** (base para la
   fase 2 con Google Drive) y borrado total.
 
 ## Stack
 
 Vite + TypeScript + Preact (~4 KB) · router por hash propio · IndexedDB con
-`idb-keyval` · CSS propio (tema oscuro) · `vite-plugin-pwa` (Workbox) · Vitest.
+`idb-keyval` · CSS propio (**temas claro y oscuro**, automático según el dispositivo) · `vite-plugin-pwa` (Workbox) · Vitest.
 
 ## Desarrollo
 

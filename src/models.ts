@@ -5,6 +5,15 @@
 export type Unit = 'kg' | 'lb';
 
 /**
+ * Preferencia de tema: `auto` sigue el modo del dispositivo
+ * (`prefers-color-scheme`); `light` y `dark` lo fuerzan.
+ */
+export type ThemeMode = 'auto' | 'light' | 'dark';
+
+/** Tema ya resuelto, el que realmente se pinta en el documento. */
+export type ResolvedTheme = 'light' | 'dark';
+
+/**
  * Ejercicio del catálogo. Su `id` es la identidad ESTABLE: la comparación
  * entre sesiones y los vínculos rutina↔sesión usan el id, no el nombre.
  */
@@ -78,11 +87,13 @@ export interface Settings {
   unit: Unit;
   restPresets: number[]; // 6 duraciones en segundos
   activeRoutineId?: string;
+  theme: ThemeMode; // por defecto, el del dispositivo
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   unit: 'kg',
   restPresets: [60, 90, 120, 180, 240, 300],
+  theme: 'auto',
 };
 
 /** Identificador único (uuid cuando está disponible). */

@@ -85,7 +85,7 @@
 .sheet-action.is-danger {
   color: var(--danger);
   background: var(--danger-soft);
-  border-color: rgba(255, 122, 122, 0.25);
+  border-color: var(--danger-edge);
 }
 
 .dialog {
@@ -189,7 +189,7 @@
 }
 
 .picker-opt.is-new {
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 700;
   border-top: 1px solid var(--line);
 }
@@ -239,7 +239,7 @@
 }
 
 .exercise-head .ex-meta .prev-hint {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .exercise-progress {
@@ -291,8 +291,8 @@
 }
 
 .series-row.is-done {
-  background: rgba(198, 242, 78, 0.06);
-  border-color: rgba(198, 242, 78, 0.3);
+  background: var(--accent-wash);
+  border-color: var(--accent-edge);
 }
 
 .check {
@@ -350,7 +350,7 @@
   font-weight: 800;
   text-transform: uppercase;
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
   border-radius: 5px;
   padding: 1px 5px;
 }
@@ -392,7 +392,7 @@
 }
 
 .series-meta .prev b {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .series-meta .prev-none b {
@@ -492,7 +492,7 @@
   width: 100%;
   max-width: var(--max-w);
   padding: 10px var(--pad) calc(10px + env(safe-area-inset-bottom, 0px));
-  background: rgba(16, 20, 18, 0.94);
+  background: var(--bar-bg);
   backdrop-filter: blur(14px);
   border-top: 1px solid var(--line-soft);
   display: flex;
@@ -536,7 +536,7 @@
 .session-progress .count {
   font-size: 0.82rem;
   font-weight: 800;
-  color: var(--accent);
+  color: var(--accent-text);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -561,7 +561,7 @@
 .stat .stat-value {
   font-size: 1.15rem;
   font-weight: 800;
-  color: var(--accent);
+  color: var(--accent-text);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
 }
@@ -779,7 +779,7 @@
 }
 
 .planned-set-row .note-indicator {
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: 0.85rem;
   background: none;
   border: none;
@@ -829,7 +829,7 @@
 }
 
 .entry-sets li .ok {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .entry-note,
@@ -868,7 +868,7 @@
 }
 
 .inline-msg.is-ok {
-  background: rgba(127, 227, 174, 0.12);
+  background: var(--ok-soft);
   color: var(--ok);
 }
 
@@ -885,7 +885,7 @@
 
 .kbd-list li::before {
   content: '·';
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 900;
   margin-right: 8px;
 }

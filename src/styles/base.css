@@ -194,7 +194,7 @@ p {
 
 .btn-danger {
   background: var(--danger-soft);
-  border-color: rgba(255, 122, 122, 0.35);
+  border-color: var(--danger-edge);
   color: var(--danger);
 }
 
@@ -257,13 +257,13 @@ p {
 
 .chip--accent {
   background: var(--accent-soft);
-  border-color: rgba(198, 242, 78, 0.35);
-  color: var(--accent);
+  border-color: var(--accent-edge);
+  color: var(--accent-text);
 }
 
 .chip--danger {
   background: var(--danger-soft);
-  border-color: rgba(255, 122, 122, 0.3);
+  border-color: var(--danger-edge);
   color: var(--danger);
 }
 
@@ -299,7 +299,7 @@ textarea.input {
 
 .input:focus,
 textarea.input:focus {
-  border-color: var(--accent);
+  border-color: var(--accent-text);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
@@ -320,7 +320,7 @@ textarea.input {
 }
 
 .input-title:focus {
-  border-bottom-color: var(--accent);
+  border-bottom-color: var(--accent-text);
   box-shadow: none;
 }
 
@@ -352,7 +352,7 @@ textarea.input {
 }
 
 .num-field input:focus {
-  border-color: var(--accent);
+  border-color: var(--accent-text);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
@@ -394,6 +394,18 @@ textarea.input {
   color: var(--accent-ink);
 }
 
+/* Selector a ancho completo (varias opciones: tema, por ejemplo). */
+.segmented--full {
+  display: flex;
+  width: 100%;
+}
+
+.segmented--full button {
+  flex: 1;
+  min-width: 0;
+  padding: 0 6px;
+}
+
 /* ---- Barra de pestañas ---- */
 
 .tabbar {
@@ -405,7 +417,7 @@ textarea.input {
   max-width: var(--max-w);
   height: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  background: rgba(16, 20, 18, 0.92);
+  background: var(--bar-bg);
   backdrop-filter: blur(14px);
   border-top: 1px solid var(--line-soft);
   display: flex;
@@ -431,7 +443,7 @@ textarea.input {
 }
 
 .tab.is-active {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* ---- Estados vacíos ---- */

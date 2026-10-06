@@ -7,6 +7,7 @@ import { DEFAULT_SETTINGS, newId } from './models';
 import * as db from './db/idb';
 import { buildFreeSession, buildSessionFromDay } from './services/session';
 import { pickOrCreateExercise, seedCatalogFromRoutines, linkRoutinesToCatalog } from './services/catalog';
+import { applyTheme } from './theme';
 
 export interface AppState {
   routines: Routine[];
@@ -33,12 +34,20 @@ export function subscribe(fn: () => void): () => void {
   };
 }
 
+/** Re-renderiza a los suscriptores sin tocar los datos (tema, en la práctica). */
+export function notifyListeners(): void {
+  listeners.forEach((fn) => fn());
+}
+
 export function getState(): AppState {
   return state;
 }
 
 function setState(patch: Partial<AppState>): void {
   state = { ...state, ...patch };
+  // Cualquier cambio de ajustes puede cambiar el tema (unificado aquí para
+  // no olvidar ninguna vía: cargar, editar, importar copia o borrar todo).
+  if (patch.settings) applyTheme(patch.settings.theme);
   listeners.forEach((fn) => fn());
 }
 

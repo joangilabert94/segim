@@ -5,6 +5,8 @@ import type { BackupFile } from '../services/backup';
 import { buildBackup, downloadBackup, parseBackup } from '../services/backup';
 import { clearAllData, getState, replaceAll, updateSettings, useStore } from '../state';
 import { DEFAULT_SETTINGS } from '../models';
+import { THEME_OPTIONS } from '../services/theme';
+import { currentTheme } from '../theme';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
 const APP_VERSION = '0.1.0';
@@ -17,6 +19,13 @@ export function SettingsView() {
   const [confirmClear, setConfirmClear] = useState(false);
 
   const nonArchived = s.routines.filter((r) => !r.archived);
+
+  const themeHint = () => {
+    const ahora = currentTheme() === 'light' ? 'claro' : 'oscuro';
+    if (s.settings.theme === 'light') return 'Siempre en modo claro.';
+    if (s.settings.theme === 'dark') return 'Siempre en modo oscuro.';
+    return `Sigue el modo del dispositivo. Ahora se muestra en modo ${ahora}.`;
+  };
 
   const exportar = () => {
     try {
@@ -134,6 +143,27 @@ export function SettingsView() {
         >
           Restaurar valores por defecto
         </button>
+      </div>
+
+      <div class="section-title">Apariencia</div>
+
+      <div class="card">
+        <span class="field-label">Tema</span>
+        <div class="segmented segmented--full">
+          {THEME_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              class={s.settings.theme === option.value ? 'is-active' : ''}
+              aria-pressed={s.settings.theme === option.value}
+              onClick={() => updateSettings({ theme: option.value })}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <p class="hint" style="margin-top:10px">
+          {themeHint()}
+        </p>
       </div>
 
       <div class="section-title">Datos</div>

@@ -6,20 +6,59 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#0c0f0e" />
+    <meta name="theme-color" content="#f4f7f1" />
     <meta name="description" content="Rutinas, series, pesos y repeticiones de tu día a día en el gimnasio. Funciona sin conexión." />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="icon" type="image/png" href="%BASE_URL%icons/icon-192.png" />
     <link rel="apple-touch-icon" href="%BASE_URL%icons/icon-192.png" />
     <title>GymRutinas</title>
+    <script>
+      /* Tema ANTES del primer pintado: evita el destello del tema equivocado
+         mientras se cargan los datos desde IndexedDB. Mismo criterio que
+         src/theme.ts → src/services/theme.ts (claro si no se puede detectar). */
+      (function () {
+        try {
+          var mode = localStorage.getItem('segim-theme');
+          if (mode !== 'light' && mode !== 'dark') mode = 'auto';
+          var theme;
+          if (mode === 'light' || mode === 'dark') {
+            theme = mode;
+          } else {
+            var prefers = null;
+            if (window.matchMedia) {
+              var mq = window.matchMedia('(prefers-color-scheme: light)');
+              if (mq.media !== 'not all') prefers = mq.matches;
+            }
+            theme = prefers === false ? 'dark' : 'light';
+          }
+          var root = document.documentElement;
+          root.setAttribute('data-theme', theme);
+          root.style.setProperty('color-scheme', theme);
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute('content', theme === 'dark' ? '#0c0f0e' : '#f4f7f1');
+          var ios = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+          if (ios) ios.setAttribute('content', theme === 'dark' ? 'black-translucent' : 'default');
+        } catch (e) {
+          /* sin localStorage seguimos con el tema claro (el de por defecto) */
+        }
+      })();
+    </script>
     <style>
       /* Pantalla de arranque mientras carga el módulo principal */
+      html {
+        --splash-bg: #f4f7f1;
+        --splash-ink: #141a14;
+      }
+      html[data-theme='dark'] {
+        --splash-bg: #0c0f0e;
+        --splash-ink: #c6f24e;
+      }
       html,
       body {
         margin: 0;
-        background: #0c0f0e;
-        color: #c6f24e;
+        background: var(--splash-bg);
+        color: var(--splash-ink);
         font-family: system-ui, sans-serif;
       }
       #app {
