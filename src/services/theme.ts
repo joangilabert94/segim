@@ -5,7 +5,7 @@ import type { ResolvedTheme, ThemeMode } from '../models';
 
 /** Opciones del selector de Ajustes, en el orden en que se muestran. */
 export const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
-  { value: 'auto', label: 'Automático' },
+  { value: 'auto', label: 'Auto.' },
   { value: 'light', label: 'Claro' },
   { value: 'dark', label: 'Oscuro' },
 ];
