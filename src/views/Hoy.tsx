@@ -115,9 +115,9 @@ export function Hoy() {
             {day.exercises.length === 0
               ? 'Este día todavía no tiene ejercicios.'
               : `${day.exercises.length} ejercicios · ${day.exercises.reduce(
-                  (a, e) => a + e.plannedSets.length,
-                  0,
-                )} series planeadas`}
+                (a, e) => a + e.plannedSets.length,
+                0,
+              )} series planeadas`}
           </p>
 
           {day.exercises.length > 0 && (
@@ -152,17 +152,17 @@ export function Hoy() {
             >
               Empezar {day.name}
             </button>
+            {active && active.days.length > 1 && (
+              <button class="btn btn-secondary btn-block" onClick={() => setPickOpen(true)}>
+                🗓 Otro día de la rutina
+              </button>
+            )}
             <button
               class="btn btn-block"
               onClick={() => requestBegin('free')}
             >
               Sesión libre (sin rutina)
             </button>
-            {active && active.days.length > 1 && (
-              <button class="btn btn-block" onClick={() => setPickOpen(true)}>
-                🗓 Otro día de la rutina
-              </button>
-            )}
           </div>
         </div>
       ) : (

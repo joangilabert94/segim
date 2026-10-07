@@ -188,6 +188,18 @@ p {
   background: var(--accent-2);
 }
 
+/* Secundario: mismo peso visual que el primario pero en frío (azul),
+   para acciones alternativas que no son la principal. */
+.btn-secondary {
+  background: var(--secondary);
+  border-color: var(--secondary);
+  color: var(--secondary-ink);
+}
+
+.btn-secondary:hover {
+  background: var(--secondary-2);
+}
+
 .btn-ghost {
   background: transparent;
 }

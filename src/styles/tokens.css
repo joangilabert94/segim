@@ -26,6 +26,10 @@
   --accent-wash: rgba(63, 122, 10, 0.07);
   --accent-edge: rgba(63, 122, 10, 0.35);
 
+  --secondary: #1f63c4; /* relleno: botón secundario, tinte frío frente al verde */
+  --secondary-2: #1a54a6; /* hover */
+  --secondary-ink: #ffffff; /* texto sobre el relleno secundario */
+
   --danger: #c22e2e;
   --danger-soft: rgba(194, 46, 46, 0.09);
   --danger-edge: rgba(194, 46, 46, 0.35);
@@ -75,6 +79,10 @@
   --accent-glow: rgba(198, 242, 78, 0.25);
   --accent-wash: rgba(198, 242, 78, 0.06);
   --accent-edge: rgba(198, 242, 78, 0.3);
+
+  --secondary: #5aa0f2;
+  --secondary-2: #7db4f7;
+  --secondary-ink: #0a1424;
 
   --danger: #ff7a7a;
   --danger-soft: rgba(255, 122, 122, 0.12);
