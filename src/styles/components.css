@@ -773,6 +773,23 @@
   gap: 8px;
 }
 
+/* Serie + pista de su mejor resultado */
+.set-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.set-block .best-hint {
+  padding-left: 2px;
+}
+
+.set-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .planned-set-row .label {
   font-size: 0.74rem;
   color: var(--dim);

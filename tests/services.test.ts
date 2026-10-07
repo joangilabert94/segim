@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { Routine, Session } from '../src/models';
 import { findEntry, findPreviousSession, normalizeName } from '../src/services/previousSession';
-import { prefillFromPrevious } from '../src/services/prefill';
+import { prefillFromBest } from '../src/services/prefill';
+import { buildSessionFromDay } from '../src/services/session';
 import {
-  buildSessionFromDay,
-  syncPlannedWeightsFromPrevious,
-  syncPlannedWeightsFromSession,
-} from '../src/services/session';
+  bestOverallForExercise,
+  bestSetsForExercise,
+  mergeWithBest,
+} from '../src/services/bestResults';
 import { cloneRoutine } from '../src/services/cloneRoutine';
 import { suggestDay } from '../src/services/suggestDay';
 import { streak, volumeOf } from '../src/services/stats';
@@ -119,93 +120,92 @@ describe('findPreviousSession', () => {
   });
 });
 
-describe('prefillFromPrevious', () => {
-  it('prevalece el peso superior de la sesión anterior; las reps continúan', () => {
+describe('prefillFromBest — sugerencia de la sesión', () => {
+  it('cada campo toma el mayor entre el plan y el mejor resultado', () => {
     const planned = [
       { weight: 60, reps: 8 },
       { weight: 65, reps: 6 },
     ];
-    const previous = [
+    const best = [
       { weight: 62, reps: 8, done: true },
       { weight: 67, reps: 5, done: true },
     ];
-    const result = prefillFromPrevious(planned, previous);
+    const result = prefillFromBest(planned, best);
     expect(result).toEqual([
-      { weight: 62, reps: 8, done: false }, // 62 > 60: prevalece lo entrenado
-      { weight: 67, reps: 5, done: false }, // 67 > 65: ídem
+      { weight: 62, reps: 8, done: false }, // peso 62 > 60
+      { weight: 67, reps: 6, done: false }, // peso 67 > 65; reps plan 6 > mejor 5
     ]);
   });
 
-  it('si la anterior tiene menos series, el resto usa el plan', () => {
+  it('si el historial tiene menos series, el resto usa el plan', () => {
     const planned = [
       { weight: 60, reps: 8 },
       { weight: 65, reps: 6 },
     ];
-    const previous = [{ weight: 70, reps: 8, done: true }];
-    const result = prefillFromPrevious(planned, previous);
+    const best = [{ weight: 70, reps: 8, done: true }];
+    const result = prefillFromBest(planned, best);
     expect(result[0].weight).toBe(70); // 70 > 60: prevalece lo entrenado
-    expect(result[1].weight).toBe(65); // sin sesión anterior: el plan
+    expect(result[1].weight).toBe(65); // sin datos: el plan
     expect(result[1].reps).toBe(6);
   });
 
-  it('sin sesión anterior usa el plan (y 0 si no hay peso planeado)', () => {
+  it('sin resultados previos usa el plan (y 0 si no hay peso planeado)', () => {
     const planned = [{ reps: 10 }, { weight: 50, reps: 8 }];
-    const result = prefillFromPrevious(planned, undefined);
+    const result = prefillFromBest(planned, undefined);
     expect(result[0]).toEqual({ weight: 0, reps: 10, done: false });
     expect(result[1]).toEqual({ weight: 50, reps: 8, done: false });
   });
 
-  it('arrastra la duración de las series cronometradas (anterior > plan)', () => {
+  it('la duración toma la mayor de plan y mejor resultado (45 > 30)', () => {
     const planned = [
       { weight: 0, reps: 0, durationSec: 30 },
       { reps: 10 },
     ];
-    const previous = [
+    const best = [
       { weight: 0, reps: 0, durationSec: 45, done: true },
       { weight: 40, reps: 12, done: true },
     ];
-    const result = prefillFromPrevious(planned, previous);
+    const result = prefillFromBest(planned, best);
     expect(result[0]).toEqual({ weight: 0, reps: 0, done: false, durationSec: 45 });
     expect(result[1]).toEqual({ weight: 40, reps: 12, done: false });
     expect(result[1].durationSec).toBeUndefined();
   });
 
-  it('sin sesión anterior toma la duración del plan', () => {
-    const result = prefillFromPrevious([{ weight: 0, reps: 0, durationSec: 30 }], undefined);
+  it('sin resultados, la duración es la planeada (30 s)', () => {
+    const result = prefillFromBest([{ weight: 0, reps: 0, durationSec: 30 }], undefined);
     expect(result[0]).toEqual({ weight: 0, reps: 0, done: false, durationSec: 30 });
   });
 
-  it('el rango del plan no pasa a la sesión: se queda en lo conseguido', () => {
+  it('el rango del plan se conserva como sugerencia si el mejor está dentro', () => {
     const planned = [
       { weight: 0, reps: 4, repsMax: 6 },
       { reps: 10 },
     ];
-    const previous = [
+    const best = [
       { weight: 0, reps: 5, done: true },
       { weight: 40, reps: 12, done: true },
     ];
-    const result = prefillFromPrevious(planned, previous);
-    expect(result[0]).toEqual({ weight: 0, reps: 5, done: false });
-    expect(result[1].reps).toBe(12);
+    const result = prefillFromBest(planned, best);
+    expect(result[0]).toEqual({ weight: 0, reps: 4, repsMax: 6, done: false });
+    expect(result[1].reps).toBe(12); // reps fijas: el mayor
     expect(result[1].repsMax).toBeUndefined();
   });
 
-  it('sin sesión anterior, la sesión toma el mínimo del plan como fijo', () => {
-    const result = prefillFromPrevious([{ weight: 0, reps: 4, repsMax: 6 }], undefined);
-    expect(result[0]).toEqual({ weight: 0, reps: 4, done: false });
-    expect(result[0].repsMax).toBeUndefined();
+  it('sin resultados, la sesión sugiere el rango del plan (4-6)', () => {
+    const result = prefillFromBest([{ weight: 0, reps: 4, repsMax: 6 }], undefined);
+    expect(result[0]).toEqual({ weight: 0, reps: 4, repsMax: 6, done: false });
   });
 
-  it('una sesión anterior con rango antiguo arrastra solo las reps fijas', () => {
-    const result = prefillFromPrevious(
+  it('un rango antiguo en la historia no influye si está dentro del plan', () => {
+    const result = prefillFromBest(
       [{ weight: 0, reps: 4, repsMax: 6 }],
       [{ weight: 0, reps: 5, repsMax: 7, done: true }],
     );
-    expect(result[0]).toEqual({ weight: 0, reps: 5, done: false });
+    expect(result[0]).toEqual({ weight: 0, reps: 4, repsMax: 6, done: false });
   });
 
-  it('un rango inconsistente (plan 4-6 con anterior fijo 10) se guarda como fijo', () => {
-    const result = prefillFromPrevious(
+  it('un mejor por fuera del rango (10) hace fija la sugerencia', () => {
+    const result = prefillFromBest(
       [{ reps: 4, repsMax: 6 }],
       [{ weight: 0, reps: 10, done: true }],
     );
@@ -213,133 +213,223 @@ describe('prefillFromPrevious', () => {
     expect(result[0].repsMax).toBeUndefined();
   });
 
-  it('al subir de peso se empieza por lo programado (120 kg → 4 reps)', () => {
+  it('al subir de peso se mantiene el rango (4-6 a 120 kg)', () => {
     const planned = [{ weight: 120, reps: 4, repsMax: 6 }];
-    const previous = [{ weight: 115, reps: 6, done: true }];
-    const result = prefillFromPrevious(planned, previous);
-    expect(result[0]).toEqual({ weight: 120, reps: 4, done: false });
+    const best = [{ weight: 115, reps: 6, done: true }];
+    const result = prefillFromBest(planned, best);
+    expect(result[0]).toEqual({ weight: 120, reps: 4, repsMax: 6, done: false });
   });
 
-  it('con el mismo peso se continúa por donde se quedó', () => {
+  it('con el mismo peso el rango se mantiene aunque la mejor esté en su tope', () => {
     const planned = [{ weight: 115, reps: 4, repsMax: 6 }];
-    const previous = [{ weight: 115, reps: 6, done: true }];
-    const result = prefillFromPrevious(planned, previous);
-    expect(result[0]).toEqual({ weight: 115, reps: 6, done: false });
+    const best = [{ weight: 115, reps: 6, done: true }];
+    const result = prefillFromBest(planned, best);
+    expect(result[0]).toEqual({ weight: 115, reps: 4, repsMax: 6, done: false });
   });
 
-  it('el peso y las reps de la sesión anterior prevalecen si superan el plan', () => {
+  it('el peso superior de la historia sube la sugerencia y el rango se conserva', () => {
     const planned = [{ weight: 115, reps: 4, repsMax: 6 }];
-    const previous = [{ weight: 120, reps: 6, done: true }];
-    const result = prefillFromPrevious(planned, previous);
-    expect(result[0]).toEqual({ weight: 120, reps: 6, done: false });
+    const best = [{ weight: 120, reps: 6, done: true }];
+    const result = prefillFromBest(planned, best);
+    expect(result[0]).toEqual({ weight: 120, reps: 4, repsMax: 6, done: false });
   });
 
-  it('reps por encima del rango del plan se conservan', () => {
+  it('reps por encima del rango del plan se conservan (mejor 8 > plan 6)', () => {
     const planned = [{ weight: 115, reps: 4, repsMax: 6 }];
-    const previous = [{ weight: 115, reps: 8, done: true }];
-    const result = prefillFromPrevious(planned, previous);
+    const best = [{ weight: 115, reps: 8, done: true }];
+    const result = prefillFromBest(planned, best);
     expect(result[0]).toEqual({ weight: 115, reps: 8, done: false });
   });
 });
 
-describe('syncPlannedWeightsFromPrevious', () => {
-  it('el peso programado sube al de la sesión anterior (115 → 120)', () => {
-    const routine = makeRoutine();
-    routine.days[0].exercises[0].plannedSets = [
-      { weight: 115, reps: 4, repsMax: 6 },
-      { weight: 115, reps: 4, repsMax: 6 },
-    ];
-    const previous = makeSession({
-      id: 'prev',
-      date: '2026-09-28',
-      entries: [
-        {
-          exerciseName: 'Press banca',
-          sets: [
-            { weight: 120, reps: 6, done: true },
-            { weight: 120, reps: 6, done: true },
-          ],
-        },
-      ],
-    });
+describe('bestSetsForExercise / bestOverallForExercise', () => {
+  const mejor = makeSession({
+    id: 'buena',
+    date: '2026-09-21',
+    entries: [
+      {
+        exerciseName: 'Press banca',
+        sets: [
+          { weight: 120, reps: 6, done: true },
+          { weight: 120, reps: 6, done: true },
+        ],
+      },
+    ],
+  });
+  const mala = makeSession({
+    id: 'mala',
+    date: '2026-09-28', // más reciente y peor: no debe mandar
+    entries: [
+      {
+        exerciseName: 'Press banca',
+        sets: [
+          { weight: 110, reps: 4, done: true },
+          { weight: 110, reps: 5, done: true },
+        ],
+      },
+    ],
+  });
 
-    const changed = syncPlannedWeightsFromPrevious(routine.days[0], [previous]);
-
-    expect(changed).toBe(2);
-    expect(routine.days[0].exercises[0].plannedSets).toEqual([
-      { weight: 120, reps: 4, repsMax: 6 }, // el rango 4-6 se mantiene
-      { weight: 120, reps: 4, repsMax: 6 },
+  it('de cada serie guarda el mejor resultado, no el de la última sesión', () => {
+    const best = bestSetsForExercise([mala, mejor], { name: 'Press banca' });
+    expect(best.map((b) => b && [b.weight, b.reps])).toEqual([
+      [120, 6],
+      [120, 6],
     ]);
   });
 
-  it('nunca baja el peso programado por sí solo', () => {
-    const routine = makeRoutine(); // plan 60 / 65
-    const previous = makeSession({
-      id: 'prev',
-      date: '2026-09-28',
-      entries: [{ exerciseName: 'Press banca', sets: [{ weight: 50, reps: 8, done: true }] }],
+  it('ignora las sesiones en curso', () => {
+    const enCurso = makeSession({
+      id: 'wip',
+      status: 'in-progress',
+      date: '2026-10-01',
+      entries: [{ exerciseName: 'Press banca', sets: [{ weight: 200, reps: 20, done: true }] }],
     });
-
-    const changed = syncPlannedWeightsFromPrevious(routine.days[0], [previous]);
-
-    expect(changed).toBe(0);
-    expect(routine.days[0].exercises[0].plannedSets.map((s) => s.weight)).toEqual([60, 65]);
+    const best = bestSetsForExercise([enCurso, mejor], { name: 'Press banca' });
+    expect(best[0]?.weight).toBe(120);
   });
 
-  it('rellena el plan que no tenía peso con el entrenado', () => {
-    const routine = makeRoutine();
-    routine.days[0].exercises[0].plannedSets = [{ reps: 8 }];
-    const previous = makeSession({
-      id: 'prev',
-      date: '2026-09-28',
-      entries: [{ exerciseName: 'Press banca', sets: [{ weight: 120, reps: 6, done: true }] }],
-    });
-
-    const changed = syncPlannedWeightsFromPrevious(routine.days[0], [previous]);
-
-    expect(changed).toBe(1);
-    expect(routine.days[0].exercises[0].plannedSets[0]).toEqual({ weight: 120, reps: 8 });
+  it('los índices sin serie devuelven undefined', () => {
+    const best = bestSetsForExercise([mejor], { name: 'Press banca' });
+    expect(best).toHaveLength(2);
+    expect(best[2]).toBeUndefined();
   });
 
-  it('un peso sin registrar (0) no programa nada', () => {
-    const routine = makeRoutine();
-    const previous = makeSession({
-      id: 'prev',
-      date: '2026-09-28',
-      entries: [{ exerciseName: 'Press banca', sets: [{ weight: 0, reps: 8, done: true }] }],
-    });
-
-    const changed = syncPlannedWeightsFromPrevious(routine.days[0], [previous]);
-
-    expect(changed).toBe(0);
-    expect(routine.days[0].exercises[0].plannedSets.map((s) => s.weight)).toEqual([60, 65]);
-  });
-});
-
-describe('syncPlannedWeightsFromSession', () => {
-  it('al finalizar, el plan pasa al peso recién entrenado (solo si sube)', () => {
-    const routine = makeRoutine(); // plan 60 / 65
-    const session = makeSession({
+  it('el mejor global es el más exigente (6 × 120 kg de 6-6-5-5)', () => {
+    const sesion = makeSession({
       entries: [
         {
           exerciseName: 'Press banca',
           sets: [
-            { weight: 70, reps: 8, done: true },
-            { weight: 63, reps: 6, done: true },
+            { weight: 120, reps: 6, done: true },
+            { weight: 120, reps: 6, done: true },
+            { weight: 120, reps: 5, done: true },
+            { weight: 120, reps: 5, done: true },
           ],
         },
       ],
     });
+    const best = bestOverallForExercise([sesion], { name: 'Press banca' });
+    expect([best?.weight, best?.reps]).toEqual([120, 6]);
+  });
 
-    const changed = syncPlannedWeightsFromSession(routine.days[0], session);
+  it('en cronometradas manda la mayor duración', () => {
+    const larga = makeSession({
+      entries: [
+        { exerciseName: 'Plancha', sets: [{ weight: 0, reps: 0, durationSec: 45, done: true }] },
+      ],
+    });
+    const corta = makeSession({
+      id: 'otra',
+      date: '2026-09-21',
+      entries: [
+        { exerciseName: 'Plancha', sets: [{ weight: 0, reps: 0, durationSec: 30, done: true }] },
+      ],
+    });
+    expect(bestOverallForExercise([corta, larga], { name: 'Plancha' })?.durationSec).toBe(45);
+  });
+});
 
-    expect(changed).toBe(1); // 70 sube; 63 no baja el 65
-    expect(routine.days[0].exercises[0].plannedSets.map((s) => s.weight)).toEqual([70, 65]);
+describe('mergeWithBest — tabla de reglas (plan | mejor → sugerencia)', () => {
+  const rango = { weight: 115, reps: 4, repsMax: 6 };
+  const fijo = { weight: 35, reps: 8 };
+
+  it('plan 4-6 a 115 con mejor 5 a 115 → 4-6 a 115 (dentro del rango)', () => {
+    expect(mergeWithBest(rango, { weight: 115, reps: 5, done: true })).toEqual({
+      weight: 115,
+      reps: 4,
+      repsMax: 6,
+    });
+  });
+
+  it('plan 4-6 a 115 con mejor 3 a 115 → 4-6 a 115 (se mantiene el plan)', () => {
+    expect(mergeWithBest(rango, { weight: 115, reps: 3, done: true })).toEqual({
+      weight: 115,
+      reps: 4,
+      repsMax: 6,
+    });
+  });
+
+  it('plan 4-6 a 115 con mejor 4 a 120 → 4-6 a 120 (sube el peso)', () => {
+    expect(mergeWithBest(rango, { weight: 120, reps: 4, done: true })).toEqual({
+      weight: 120,
+      reps: 4,
+      repsMax: 6,
+    });
+  });
+
+  it('plan 4-6 a 115 con mejor 5 a 120 → 4-6 a 120 (sube el peso)', () => {
+    expect(mergeWithBest(rango, { weight: 120, reps: 5, done: true })).toEqual({
+      weight: 120,
+      reps: 4,
+      repsMax: 6,
+    });
+  });
+
+  it('plan 8 a 35 con mejor 9 a 35 → 9 a 35 (nuevas reps)', () => {
+    expect(mergeWithBest(fijo, { weight: 35, reps: 9, done: true })).toEqual({
+      weight: 35,
+      reps: 9,
+    });
+  });
+
+  it('plan 8 a 35 con mejor 8 a 40 → 8 a 40 (nuevo peso)', () => {
+    expect(mergeWithBest(fijo, { weight: 40, reps: 8, done: true })).toEqual({
+      weight: 40,
+      reps: 8,
+    });
+  });
+
+  it('plan 8 a 35 con mejor 7 a 35 → 8 a 35 (se mantienen las reps planeadas)', () => {
+    expect(mergeWithBest(fijo, { weight: 35, reps: 7, done: true })).toEqual({
+      weight: 35,
+      reps: 8,
+    });
+  });
+
+  it('plan 8 a 35 con mejor 8 a 30 → 8 a 35 (se mantiene el peso planeado)', () => {
+    expect(mergeWithBest(fijo, { weight: 30, reps: 8, done: true })).toEqual({
+      weight: 35,
+      reps: 8,
+    });
+  });
+
+  it('plan 30 s con mejor 45 s → 45 s (manda la mayor duración)', () => {
+    expect(
+      mergeWithBest(
+        { reps: 0, durationSec: 30 },
+        { weight: 0, reps: 0, durationSec: 45, done: true },
+      ),
+    ).toEqual({ reps: 0, durationSec: 45 });
+  });
+
+  it('plan 30 s con mejor 25 s → 30 s (se mantiene la duración planeada)', () => {
+    expect(
+      mergeWithBest(
+        { reps: 0, durationSec: 30 },
+        { weight: 0, reps: 0, durationSec: 25, done: true },
+      ),
+    ).toEqual({ reps: 0, durationSec: 30 });
+  });
+
+  it('sin resultados el plan no cambia (nunca se actualiza solo)', () => {
+    expect(mergeWithBest({ weight: 115, reps: 4, repsMax: 6, note: 'x' }, undefined)).toEqual({
+      weight: 115,
+      reps: 4,
+      repsMax: 6,
+      note: 'x',
+    });
+  });
+
+  it('mejor por fuera del rango → el plan pasa a fijo 8', () => {
+    expect(
+      mergeWithBest(rango, { weight: 115, reps: 8, done: true }),
+    ).toEqual({ weight: 115, reps: 8 });
   });
 });
 
 describe('buildSessionFromDay', () => {
-  it('crea una sesión en curso pre-rellenada desde la sesión anterior', () => {
+  it('crea una sesión sugerida con lo mejor del historial', () => {
     const routine = makeRoutine();
     const previous = makeSession({
       id: 'prev',
@@ -355,8 +445,6 @@ describe('buildSessionFromDay', () => {
       ],
     });
 
-    // El estado sincroniza el peso programado antes de montar la sesión.
-    syncPlannedWeightsFromPrevious(routine.days[0], [previous]);
     const session = buildSessionFromDay(routine, routine.days[0], [previous]);
 
     expect(session.status).toBe('in-progress');
@@ -364,8 +452,8 @@ describe('buildSessionFromDay', () => {
     expect(session.routineId).toBe('r1');
     expect(session.entries).toHaveLength(1);
     expect(session.entries[0].sets).toEqual([
-      { weight: 62, reps: 8, done: false },
-      { weight: 67, reps: 5, done: false },
+      { weight: 62, reps: 8, done: false }, // peso del mejor resultado
+      { weight: 67, reps: 6, done: false }, // reps plan 6 > mejor 5
     ]);
   });
 
@@ -384,7 +472,7 @@ describe('buildSessionFromDay', () => {
     ]);
   });
 
-  it('un rango en el plan (4-6) llega a la sesión como número fijo', () => {
+  it('un rango en el plan (4-6) llega a la sesión como sugerencia de rango', () => {
     const routine = makeRoutine();
     routine.days[0].exercises[0].plannedSets = [
       { weight: 60, reps: 4, repsMax: 6 },
@@ -394,12 +482,12 @@ describe('buildSessionFromDay', () => {
     const session = buildSessionFromDay(routine, routine.days[0], []);
 
     expect(session.entries[0].sets).toEqual([
-      { weight: 60, reps: 4, done: false },
+      { weight: 60, reps: 4, repsMax: 6, done: false }, // el rango se muestra
       { weight: 65, reps: 8, done: false },
     ]);
   });
 
-  it('una subida manual en el plan sobrevive a la sincronización', () => {
+  it('la subida manual del plan manda y su rango se conserva', () => {
     const routine = makeRoutine();
     routine.days[0].exercises[0].plannedSets = [
       { weight: 130, reps: 4, repsMax: 6 },
@@ -419,14 +507,11 @@ describe('buildSessionFromDay', () => {
       ],
     });
 
-    const changed = syncPlannedWeightsFromPrevious(routine.days[0], [previous]);
-    expect(changed).toBe(0); // el plan ya está por encima: no se toca
-
     const session = buildSessionFromDay(routine, routine.days[0], [previous]);
 
     expect(session.entries[0].sets).toEqual([
-      { weight: 130, reps: 4, done: false }, // carga nueva: se empieza en 4
-      { weight: 130, reps: 4, done: false },
+      { weight: 130, reps: 4, repsMax: 6, done: false }, // peso nuevo, rango intacto
+      { weight: 130, reps: 4, repsMax: 6, done: false },
     ]);
   });
 });

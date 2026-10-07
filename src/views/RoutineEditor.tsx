@@ -3,7 +3,7 @@
 // —o su duración en segundos si es una serie cronometrada (⏱).
 
 import { useState } from 'preact/hooks';
-import type { Exercise, PlannedSet, Routine, SetMode } from '../models';
+import type { Exercise, PerformedSet, PlannedSet, Routine, SetMode } from '../models';
 import { setModeOf } from '../models';
 import { navigate } from '../router';
 import {
@@ -20,6 +20,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { BottomSheet } from '../components/BottomSheet';
 import { ExercisePicker } from '../components/ExercisePicker';
 import { fmtReps, parseNumber, parseRepsRange } from '../services/format';
+import { bestSetsForExercise, mergeWithBest } from '../services/bestResults';
 
 const MUSCLE_GROUPS = [
   'Pecho',
@@ -48,6 +49,13 @@ function modeChipText(set: PlannedSet): string {
   if (mode === 'timed') return '⏱ s';
   if (mode === 'range') return 'rango';
   return 'reps';
+}
+
+/** Pista del mejor resultado de una serie: `Mejor: 120 kg · 8`. */
+function bestHint(best: PerformedSet, unit: string): string {
+  const weight = best.weight > 0 ? `${best.weight} ${unit} · ` : '';
+  if (best.durationSec !== undefined) return `Mejor: ${weight}${best.durationSec} s`;
+  return `Mejor: ${weight}${fmtReps(best.reps, best.repsMax)}`;
 }
 
 /** Descripción del modo actual, para aria-label del chip. */
@@ -203,6 +211,25 @@ export function RoutineEditor({ id }: { id: string }) {
       if (n !== null) set.durationSec = Math.max(1, Math.round(n));
     });
 
+  /**
+   * Aplica al plan de este ejercicio sus MEJORES resultados históricos
+   * (el plan nunca se actualiza solo: esto es a petición suya).
+   */
+  const updatePlanFromBest = (di: number, ei: number) => {
+    const ex = routine.days[di]?.exercises[ei];
+    if (!ex) return;
+    const bests = bestSetsForExercise(s.sessions, {
+      exerciseId: ex.exerciseId,
+      name: ex.name,
+    });
+    if (!bests.some(Boolean)) return;
+    patch((r) => {
+      const target = r.days[di]?.exercises[ei];
+      if (!target) return;
+      target.plannedSets = target.plannedSets.map((p, i) => mergeWithBest(p, bests[i]));
+    });
+  };
+
   /** Cambia el tipo de serie: fijo, rango (4-6) o cronometrada (30 s). */
   const applyPlannedMode = (mode: SetMode) => {
     if (!modeTarget) return;
@@ -335,7 +362,13 @@ export function RoutineEditor({ id }: { id: string }) {
             </p>
           )}
 
-          {day.exercises.map((ex, ei) => (
+          {day.exercises.map((ex, ei) => {
+            // Mejores resultados de este ejercicio (para las pistas y el botón).
+            const bests = bestSetsForExercise(s.sessions, {
+              exerciseId: ex.exerciseId,
+              name: ex.name,
+            });
+            return (
             <div class="exercise-edit" key={ex.id}>
               <div class="exercise-edit-head">
                 <ExercisePicker
@@ -386,7 +419,8 @@ export function RoutineEditor({ id }: { id: string }) {
 
               <div class="planned-sets">
                 {ex.plannedSets.map((set, si) => (
-                  <div class="planned-set-row" key={si}>
+                  <div class="set-block" key={si}>
+                  <div class="planned-set-row">
                     <span class="label">
                       Serie {si + 1}
                       <button
@@ -451,17 +485,33 @@ export function RoutineEditor({ id }: { id: string }) {
                     >
                       ✕
                     </button>
+                    </div>
+                    {bests[si] !== undefined && (
+                      <p class="hint best-hint">{bestHint(bests[si], s.settings.unit)}</p>
+                    )}
                   </div>
                 ))}
                 {ex.plannedSets.length === 0 && (
                   <p class="hint">Sin series planeadas (podrás apuntarlas al entrenar).</p>
                 )}
-                <button class="btn btn-sm" onClick={() => addPlannedSet(di, ei)}>
-                  ＋ Serie
-                </button>
+                <div class="set-actions">
+                  <button class="btn btn-sm" onClick={() => addPlannedSet(di, ei)}>
+                    ＋ Serie
+                  </button>
+                  <button
+                    class="btn btn-sm"
+                    disabled={!bests.some(Boolean)}
+                    aria-label={`Actualizar plan de ${ex.name} con los mejores resultados`}
+                    title="Aplica al plan tus mejores resultados (peso, reps y duración)"
+                    onClick={() => updatePlanFromBest(di, ei)}
+                  >
+                    ⬆️ Actualizar plan
+                  </button>
+                </div>
               </div>
             </div>
-          ))}
+            );
+          })}
 
           <button class="btn btn-block" style="margin-top:12px" onClick={() => addExercise(di)}>
             ＋ Añadir ejercicio

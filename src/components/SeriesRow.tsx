@@ -41,16 +41,19 @@ export function SeriesRow({
   onMenu,
 }: Props) {
   const [weightText, setWeightText] = useState(String(performed.weight));
-  // En la sesión solo hay número fijo: el campo pinta las reps conseguidas,
-  // nunca un rango (el rango vive solo en el plan).
-  const [repsText, setRepsText] = useState(String(performed.reps));
+  // La sugerencia puede ser un rango del plan (4-6): el campo lo muestra,
+  // pero solo admite teclear un número exacto (lo conseguido).
+  const [repsText, setRepsText] = useState(fmtReps(performed.reps, performed.repsMax));
   const [durationText, setDurationText] = useState(String(performed.durationSec ?? 30));
 
   // Serie cronometrada: manda durationSec y se editan segundos en vez de reps.
   const timed = performed.durationSec !== undefined;
   // Sincroniza el texto si el valor cambia desde fuera (prefill, "copiar plan"...)
   useEffect(() => setWeightText(String(performed.weight)), [performed.weight]);
-  useEffect(() => setRepsText(String(performed.reps)), [performed.reps]);
+  useEffect(
+    () => setRepsText(fmtReps(performed.reps, performed.repsMax)),
+    [performed.reps, performed.repsMax],
+  );
   useEffect(
     () => setDurationText(String(performed.durationSec ?? 30)),
     [performed.durationSec],
@@ -61,10 +64,11 @@ export function SeriesRow({
     if (n !== null && n !== performed.weight) onPatch({ weight: n });
   };
   const commitReps = (text: string) => {
-    const next = parseRepsFixed(text); // "4-6" → null: la sesión no admite rangos
+    const next = parseRepsFixed(text); // "4-6" → null: teclear solo admite número exacto
     if (next === null) return;
     if (next !== performed.reps || performed.repsMax !== undefined) {
-      onPatch({ reps: next, repsMax: undefined }); // limpia un rango heredado
+      // Al editar, la sugerencia de rango se sustituye por lo conseguido.
+      onPatch({ reps: next, repsMax: undefined });
     }
   };
   const commitDuration = (text: string) => {
@@ -150,7 +154,8 @@ export function SeriesRow({
                   onChange={(e) => commitReps(e.currentTarget.value)}
                   onBlur={(e) => {
                     if (parseRepsFixed(e.currentTarget.value) === null) {
-                      setRepsText(String(performed.reps));
+                      // Rango sin editar u otro texto inválido: vuelve a la sugerencia.
+                      setRepsText(fmtReps(performed.reps, performed.repsMax));
                     } else {
                       commitReps(e.currentTarget.value);
                     }

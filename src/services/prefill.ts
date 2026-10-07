@@ -1,40 +1,30 @@
-// Relleno inicial serie↔serie: la serie i de hoy toma lo programado en el
-// plan y lo de la sesión anterior, prevaleciendo en cada campo el mayor de
-// los dos: si la última sesión llegó a 120 kg o a más reps que el plan,
-// la nueva sesión arranca en 120 kg y esas reps.
-// La duración (series cronometradas) sigue la regla anterior > plan.
-// Las reps en sesión son SIEMPRE un número fijo (lo conseguido): el rango
-// del plan (4-6) no se arrastra. Si el plan está por encima de lo entrenado
-// (carga nueva), se empieza por el mínimo del rango; si no, se continúa
-// por donde se quedó.
+// Relleno inicial serie↔serie: la sugerencia de la sesión nueva es la
+// opción más exigente entre lo planeado en el plan y el MEJOR resultado
+// histórico de esa serie (no el de la última sesión: si hubo dos malas,
+// manda la mejor). Reglas (ver mergeWithBest):
+//   - peso: el mayor de plan y mejor resultado (115 → 120 si entrenaste 120).
+//   - reps fijas: el mayor (plan 8, mejor 9 → 9; plan 8, mejor 7 → 8).
+//   - rango del plan (4-6): se conserva como sugerencia mientras el mejor
+//     esté dentro; si el mejor lo supera (8), la sugerencia pasa a fijo 8.
+//   - duración: la mayor (plan 30 s, mejor 45 s → 45 s).
+// El campo de la sesión muestra el rango pero solo admite teclear un número
+// exacto: en cuanto se edita, se guarda como fijo.
 
 import type { PerformedSet, PlannedSet } from '../models';
+import { mergeWithBest } from './bestResults';
 
-export function prefillFromPrevious(
+export function prefillFromBest(
   planned: PlannedSet[],
-  previousSets?: PerformedSet[],
+  bestSets?: (PerformedSet | undefined)[],
 ): PerformedSet[] {
   return planned.map((p, i) => {
-    const prev = previousSets?.[i];
-    const durationSec = prev?.durationSec ?? p.durationSec;
-    // Peso: prevalece el mayor entre lo programado y lo entrenado.
-    const weight = Math.max(p.weight || 0, prev?.weight || 0);
-    // ¿Carga nueva? (el plan por encima de la última sesión, con peso registrado)
-    const increasing = prev !== undefined && prev.weight > 0 && weight > prev.weight;
-    // Reps: si la sesión anterior se pasó del plan, prevalecen sus reps;
-    // si es carga nueva, se empieza por el mínimo del rango; si no, se continúa.
-    const planCap = Math.max(p.reps, p.repsMax ?? p.reps);
-    const beyondPlan = prev !== undefined && prev.reps > planCap;
-    const reps = beyondPlan
-      ? prev.reps
-      : increasing
-        ? p.reps
-        : (prev?.reps ?? p.reps);
+    const merged = mergeWithBest(p, bestSets?.[i]);
     return {
-      weight,
-      reps,
+      weight: merged.weight ?? 0,
+      reps: merged.reps,
       done: false,
-      ...(durationSec !== undefined ? { durationSec } : {}),
+      ...(merged.repsMax !== undefined ? { repsMax: merged.repsMax } : {}),
+      ...(merged.durationSec !== undefined ? { durationSec: merged.durationSec } : {}),
     };
   });
 }

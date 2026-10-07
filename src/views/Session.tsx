@@ -103,6 +103,7 @@ export function SessionView() {
         reps: last?.reps ?? 10,
         done: false,
         extra: true,
+        ...(last?.repsMax !== undefined ? { repsMax: last.repsMax } : {}),
         ...(last?.durationSec !== undefined ? { durationSec: last.durationSec } : {}),
       });
     });
@@ -125,9 +126,10 @@ export function SessionView() {
       const target = entry.sets[si];
       if (!target) return;
       target.weight = planned.weight ?? target.weight;
-      // La sesión es siempre número fijo: del rango del plan se toma el mínimo.
+      // Copia la sugerencia del plan (rango incluido); al editarla se hará fija.
       target.reps = planned.reps;
-      delete target.repsMax;
+      if (planned.repsMax !== undefined) target.repsMax = planned.repsMax;
+      else delete target.repsMax;
       if (planned.durationSec !== undefined) target.durationSec = planned.durationSec;
       else delete target.durationSec;
     });
@@ -139,7 +141,8 @@ export function SessionView() {
       entry.sets.forEach((set) => {
         set.weight = source.weight;
         set.reps = source.reps;
-        delete set.repsMax;
+        if (source.repsMax !== undefined) set.repsMax = source.repsMax;
+        else delete set.repsMax;
         if (source.durationSec !== undefined) set.durationSec = source.durationSec;
         else delete set.durationSec;
       });
@@ -182,6 +185,7 @@ export function SessionView() {
           weight: set.weight,
           reps: set.reps,
           done: false,
+          ...(set.repsMax !== undefined ? { repsMax: set.repsMax } : {}),
           ...(set.durationSec !== undefined ? { durationSec: set.durationSec } : {}),
         })),
       });
@@ -443,7 +447,10 @@ export function SessionView() {
             setPickedExercise(null);
           }}
         />
-        <p class="hint">Si ya lo entrenaste, se rellenarán los pesos de la sesión anterior.</p>
+        <p class="hint">
+          Si ya lo entrenaste, saldrá tu mejor resultado (peso y reps) o el plan, lo más
+          exigente.
+        </p>
         <button class="btn btn-primary btn-block" onClick={addExercise}>
           Añadir
         </button>
