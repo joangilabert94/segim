@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import type { Routine, Session } from '../src/models';
 import { findEntry, findPreviousSession, normalizeName } from '../src/services/previousSession';
 import { prefillFromPrevious } from '../src/services/prefill';
-import { buildSessionFromDay } from '../src/services/session';
+import {
+  buildSessionFromDay,
+  syncPlannedWeightsFromPrevious,
+  syncPlannedWeightsFromSession,
+} from '../src/services/session';
 import { cloneRoutine } from '../src/services/cloneRoutine';
 import { suggestDay } from '../src/services/suggestDay';
 import { streak, volumeOf } from '../src/services/stats';
@@ -116,7 +120,7 @@ describe('findPreviousSession', () => {
 });
 
 describe('prefillFromPrevious', () => {
-  it('la serie i toma los valores de la serie i anterior', () => {
+  it('manda lo programado; las reps siguen a la sesión anterior', () => {
     const planned = [
       { weight: 60, reps: 8 },
       { weight: 65, reps: 6 },
@@ -127,8 +131,8 @@ describe('prefillFromPrevious', () => {
     ];
     const result = prefillFromPrevious(planned, previous);
     expect(result).toEqual([
-      { weight: 62, reps: 8, done: false },
-      { weight: 67, reps: 5, done: false },
+      { weight: 60, reps: 8, done: false }, // el peso lo programado
+      { weight: 65, reps: 5, done: false }, // las reps continúan
     ]);
   });
 
@@ -139,8 +143,8 @@ describe('prefillFromPrevious', () => {
     ];
     const previous = [{ weight: 70, reps: 8, done: true }];
     const result = prefillFromPrevious(planned, previous);
-    expect(result[0].weight).toBe(70);
-    expect(result[1].weight).toBe(65);
+    expect(result[0].weight).toBe(60); // manda lo programado
+    expect(result[1].weight).toBe(65); // sin sesión anterior: el plan
     expect(result[1].reps).toBe(6);
   });
 
@@ -208,6 +212,116 @@ describe('prefillFromPrevious', () => {
     expect(result[0].reps).toBe(10);
     expect(result[0].repsMax).toBeUndefined();
   });
+
+  it('al subir de peso se empieza por lo programado (120 kg → 4 reps)', () => {
+    const planned = [{ weight: 120, reps: 4, repsMax: 6 }];
+    const previous = [{ weight: 115, reps: 6, done: true }];
+    const result = prefillFromPrevious(planned, previous);
+    expect(result[0]).toEqual({ weight: 120, reps: 4, done: false });
+  });
+
+  it('con el mismo peso se continúa por donde se quedó', () => {
+    const planned = [{ weight: 115, reps: 4, repsMax: 6 }];
+    const previous = [{ weight: 115, reps: 6, done: true }];
+    const result = prefillFromPrevious(planned, previous);
+    expect(result[0]).toEqual({ weight: 115, reps: 6, done: false });
+  });
+});
+
+describe('syncPlannedWeightsFromPrevious', () => {
+  it('el peso programado sube al de la sesión anterior (115 → 120)', () => {
+    const routine = makeRoutine();
+    routine.days[0].exercises[0].plannedSets = [
+      { weight: 115, reps: 4, repsMax: 6 },
+      { weight: 115, reps: 4, repsMax: 6 },
+    ];
+    const previous = makeSession({
+      id: 'prev',
+      date: '2026-09-28',
+      entries: [
+        {
+          exerciseName: 'Press banca',
+          sets: [
+            { weight: 120, reps: 6, done: true },
+            { weight: 120, reps: 6, done: true },
+          ],
+        },
+      ],
+    });
+
+    const changed = syncPlannedWeightsFromPrevious(routine.days[0], [previous]);
+
+    expect(changed).toBe(2);
+    expect(routine.days[0].exercises[0].plannedSets).toEqual([
+      { weight: 120, reps: 4, repsMax: 6 }, // el rango 4-6 se mantiene
+      { weight: 120, reps: 4, repsMax: 6 },
+    ]);
+  });
+
+  it('nunca baja el peso programado por sí solo', () => {
+    const routine = makeRoutine(); // plan 60 / 65
+    const previous = makeSession({
+      id: 'prev',
+      date: '2026-09-28',
+      entries: [{ exerciseName: 'Press banca', sets: [{ weight: 50, reps: 8, done: true }] }],
+    });
+
+    const changed = syncPlannedWeightsFromPrevious(routine.days[0], [previous]);
+
+    expect(changed).toBe(0);
+    expect(routine.days[0].exercises[0].plannedSets.map((s) => s.weight)).toEqual([60, 65]);
+  });
+
+  it('rellena el plan que no tenía peso con el entrenado', () => {
+    const routine = makeRoutine();
+    routine.days[0].exercises[0].plannedSets = [{ reps: 8 }];
+    const previous = makeSession({
+      id: 'prev',
+      date: '2026-09-28',
+      entries: [{ exerciseName: 'Press banca', sets: [{ weight: 120, reps: 6, done: true }] }],
+    });
+
+    const changed = syncPlannedWeightsFromPrevious(routine.days[0], [previous]);
+
+    expect(changed).toBe(1);
+    expect(routine.days[0].exercises[0].plannedSets[0]).toEqual({ weight: 120, reps: 8 });
+  });
+
+  it('un peso sin registrar (0) no programa nada', () => {
+    const routine = makeRoutine();
+    const previous = makeSession({
+      id: 'prev',
+      date: '2026-09-28',
+      entries: [{ exerciseName: 'Press banca', sets: [{ weight: 0, reps: 8, done: true }] }],
+    });
+
+    const changed = syncPlannedWeightsFromPrevious(routine.days[0], [previous]);
+
+    expect(changed).toBe(0);
+    expect(routine.days[0].exercises[0].plannedSets.map((s) => s.weight)).toEqual([60, 65]);
+  });
+});
+
+describe('syncPlannedWeightsFromSession', () => {
+  it('al finalizar, el plan pasa al peso recién entrenado (solo si sube)', () => {
+    const routine = makeRoutine(); // plan 60 / 65
+    const session = makeSession({
+      entries: [
+        {
+          exerciseName: 'Press banca',
+          sets: [
+            { weight: 70, reps: 8, done: true },
+            { weight: 63, reps: 6, done: true },
+          ],
+        },
+      ],
+    });
+
+    const changed = syncPlannedWeightsFromSession(routine.days[0], session);
+
+    expect(changed).toBe(1); // 70 sube; 63 no baja el 65
+    expect(routine.days[0].exercises[0].plannedSets.map((s) => s.weight)).toEqual([70, 65]);
+  });
 });
 
 describe('buildSessionFromDay', () => {
@@ -227,6 +341,8 @@ describe('buildSessionFromDay', () => {
       ],
     });
 
+    // El estado sincroniza el peso programado antes de montar la sesión.
+    syncPlannedWeightsFromPrevious(routine.days[0], [previous]);
     const session = buildSessionFromDay(routine, routine.days[0], [previous]);
 
     expect(session.status).toBe('in-progress');
@@ -266,6 +382,37 @@ describe('buildSessionFromDay', () => {
     expect(session.entries[0].sets).toEqual([
       { weight: 60, reps: 4, done: false },
       { weight: 65, reps: 8, done: false },
+    ]);
+  });
+
+  it('una subida manual en el plan sobrevive a la sincronización', () => {
+    const routine = makeRoutine();
+    routine.days[0].exercises[0].plannedSets = [
+      { weight: 130, reps: 4, repsMax: 6 },
+      { weight: 130, reps: 4, repsMax: 6 },
+    ];
+    const previous = makeSession({
+      id: 'prev',
+      date: '2026-09-28',
+      entries: [
+        {
+          exerciseName: 'Press banca',
+          sets: [
+            { weight: 120, reps: 6, done: true },
+            { weight: 120, reps: 6, done: true },
+          ],
+        },
+      ],
+    });
+
+    const changed = syncPlannedWeightsFromPrevious(routine.days[0], [previous]);
+    expect(changed).toBe(0); // el plan ya está por encima: no se toca
+
+    const session = buildSessionFromDay(routine, routine.days[0], [previous]);
+
+    expect(session.entries[0].sets).toEqual([
+      { weight: 130, reps: 4, done: false }, // carga nueva: se empieza en 4
+      { weight: 130, reps: 4, done: false },
     ]);
   });
 });

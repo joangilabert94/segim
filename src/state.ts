@@ -5,7 +5,12 @@ import { useEffect, useState } from 'preact/hooks';
 import type { Exercise, Routine, RoutineDay, Session, Settings } from './models';
 import { DEFAULT_SETTINGS, newId } from './models';
 import * as db from './db/idb';
-import { buildFreeSession, buildSessionFromDay } from './services/session';
+import {
+  buildFreeSession,
+  buildSessionFromDay,
+  syncPlannedWeightsFromPrevious,
+  syncPlannedWeightsFromSession,
+} from './services/session';
 import { pickOrCreateExercise, seedCatalogFromRoutines, linkRoutinesToCatalog } from './services/catalog';
 import { applyTheme } from './theme';
 import { buildRoutinesFile, downloadRoutinesFile, mergeRoutines, parseRoutinesFile } from './services/share';
@@ -251,6 +256,34 @@ export function updateSettings(patch: Partial<Settings>): void {
 // Sesiones
 // ---------------------------------------------------------------------------
 
+/**
+ * Sincroniza el peso programado del día con lo ya entrenado (solo si sube),
+ * guardando la rutina solo si algo cambia. `apply` recibe el día a actualizar
+ * y devuelve cuántas series cambiarían.
+ */
+function syncPlanWeights(
+  routineId: string,
+  dayId: string,
+  apply: (day: RoutineDay) => number,
+): void {
+  const day = getRoutine(routineId)?.days.find((d) => d.id === dayId);
+  if (!day) return;
+  const updated = structuredClone(day);
+  if (apply(updated) === 0) return;
+  patchRoutine(routineId, (draft) => {
+    const i = draft.days.findIndex((d) => d.id === dayId);
+    if (i >= 0) draft.days[i] = updated;
+  });
+}
+
+/** El peso programado pasa al recién entrenado en `session` (si sube). */
+function syncPlanFromSession(session: Session): void {
+  if (!session.routineId || !session.dayId) return;
+  syncPlanWeights(session.routineId, session.dayId, (day) =>
+    syncPlannedWeightsFromSession(day, session, state.exercises),
+  );
+}
+
 function persistSession(session: Session): void {
   db.saveSession(session).catch((e) => logError('guardar la sesión', e));
 }
@@ -279,16 +312,25 @@ export function patchSession(id: string, mutate: (draft: Session) => void): Sess
 export function closeCurrentSession(): Session | undefined {
   const active = currentSession();
   if (!active) return undefined;
-  return patchSession(active.id, (s) => {
+  const closed = patchSession(active.id, (s) => {
     s.status = 'completed';
     s.completedAt = new Date().toISOString();
   });
+  if (closed) syncPlanFromSession(closed);
+  return closed;
 }
 
 /** Inicia una sesión desde un día de rutina (cierra la anterior si existía). */
 export function startSessionFromDay(routine: Routine, day: RoutineDay): Session {
   closeCurrentSession();
-  const session = buildSessionFromDay(routine, day, state.sessions, state.exercises);
+  // El peso programado pasa al de la sesión anterior (115 → 120 kg).
+  syncPlanWeights(routine.id, day.id, (d) =>
+    syncPlannedWeightsFromPrevious(d, state.sessions, state.exercises),
+  );
+  // La rutina puede haber cambiado justo antes (sincronización).
+  const synced = getRoutine(routine.id) ?? routine;
+  const syncedDay = synced.days.find((d) => d.id === day.id) ?? day;
+  const session = buildSessionFromDay(synced, syncedDay, state.sessions, state.exercises);
   setState({ sessions: sortSessions([...state.sessions, session]) });
   persistSession(session);
   return session;
@@ -304,10 +346,13 @@ export function startFreeSession(): Session {
 }
 
 export function finalizeSession(id: string): Session | undefined {
-  return patchSession(id, (s) => {
+  const done = patchSession(id, (s) => {
     s.status = 'completed';
     s.completedAt = new Date().toISOString();
   });
+  // El plan refleja el peso recién entrenado nada más finalizar.
+  if (done) syncPlanFromSession(done);
+  return done;
 }
 
 /** Reabre una sesión del historial para editarla (cierra la que estuviera en curso). */
