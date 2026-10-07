@@ -1,7 +1,9 @@
 // Pantalla "Hoy": día sugerido, reanudar sesión, estadísticas y últimas sesiones.
 
 import { useState } from 'preact/hooks';
+import type { RoutineDay } from '../models';
 import { navigate } from '../router';
+import { BottomSheet } from '../components/BottomSheet';
 import {
   startFreeSession,
   startSessionFromDay,
@@ -14,7 +16,10 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 
 export function Hoy() {
   const s = useStore();
-  const [pending, setPending] = useState<'day' | 'free' | null>(null);
+  const [pending, setPending] = useState<{ target: 'day' | 'free'; dayId?: string } | null>(
+    null,
+  );
+  const [pickOpen, setPickOpen] = useState(false);
 
   const active =
     s.routines.find((r) => r.id === s.settings.activeRoutineId && !r.archived) ??
@@ -27,29 +32,32 @@ export function Hoy() {
   const volumen30 = volumeInLast(s.sessions, 30);
   const racha = streak(s.sessions);
 
-  const beginSessionNow = (target: 'day' | 'free') => {
+  const beginSessionNow = (target: 'day' | 'free', dayToStart?: RoutineDay) => {
     if (target === 'free') {
       startFreeSession();
       navigate('/sesion');
       return;
     }
-    if (!active || !day) return;
-    startSessionFromDay(active, day);
+    const chosen = dayToStart ?? day;
+    if (!active || !chosen) return;
+    startSessionFromDay(active, chosen);
     navigate('/sesion');
   };
 
-  const requestBegin = (target: 'day' | 'free') => {
+  const requestBegin = (target: 'day' | 'free', dayToStart?: RoutineDay) => {
     if (inProgress) {
-      setPending(target);
+      setPending({ target, ...(dayToStart ? { dayId: dayToStart.id } : {}) });
       return;
     }
-    beginSessionNow(target);
+    beginSessionNow(target, dayToStart);
   };
 
   const handleConfirmNew = () => {
-    const target = pending ?? 'day';
+    const p = pending;
     setPending(null);
-    beginSessionNow(target);
+    if (!p || !active) return;
+    const chosen = p.dayId ? active.days.find((d) => d.id === p.dayId) : day;
+    beginSessionNow(p.target, chosen);
   };
 
   return (
@@ -150,6 +158,11 @@ export function Hoy() {
             >
               Sesión libre (sin rutina)
             </button>
+            {active && active.days.length > 1 && (
+              <button class="btn btn-block" onClick={() => setPickOpen(true)}>
+                🗓 Otro día de la rutina
+              </button>
+            )}
           </div>
         </div>
       ) : (
@@ -189,6 +202,27 @@ export function Hoy() {
           </button>
         ))
       )}
+
+      {/* Elegir otro día de la rutina (distinto al sugerido) */}
+      <BottomSheet open={pickOpen} onClose={() => setPickOpen(false)} title="Empezar otro día">
+        {active?.days
+          .filter((d) => d.id !== day?.id)
+          .map((d) => (
+            <button
+              class="sheet-action"
+              key={d.id}
+              onClick={() => {
+                setPickOpen(false);
+                requestBegin('day', d);
+              }}
+            >
+              🗓 {d.name} · {d.exercises.length} ejercicios
+            </button>
+          ))}
+        <p class="hint">
+          El día sugerido sigue estando en el botón de arriba; aquí solo aparecen los demás.
+        </p>
+      </BottomSheet>
 
       <ConfirmDialog
         open={pending !== null}
