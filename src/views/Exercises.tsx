@@ -1,7 +1,7 @@
 // Pestaña Ejercicios: gestiona el catálogo con identidad estable (id).
 
 import { useState } from 'preact/hooks';
-import type { Exercise } from '../models';
+import type { Exercise, PerformedSet } from '../models';
 import {
   applyExerciseDefinition,
   deleteExerciseFromCatalog,
@@ -9,6 +9,8 @@ import {
   useStore,
 } from '../state';
 import { normalizeName } from '../services/previousSession';
+import { bestOverallForExercise } from '../services/bestResults';
+import { fmtReps } from '../services/format';
 import { BottomSheet } from '../components/BottomSheet';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
@@ -19,6 +21,16 @@ interface EditState {
 }
 
 const EMPTY: EditState = { name: '', muscleGroup: '' };
+
+/** Referencia más exigente de un ejercicio: `6 × 120 kg` o `45 s`. */
+function fmtBest(best: PerformedSet, unit: string): string {
+  const load = best.weight > 0 ? `${best.weight} ${unit}` : undefined;
+  if (best.durationSec !== undefined) {
+    return load ? `${load} × ${best.durationSec} s` : `${best.durationSec} s`;
+  }
+  const reps = fmtReps(best.reps, best.repsMax);
+  return load ? `${reps} × ${load}` : `${reps} reps`;
+}
 
 export function Exercises() {
   const s = useStore();
@@ -99,7 +111,12 @@ export function Exercises() {
         </div>
       ) : (
         <div style="margin-top:12px">
-          {list.map((ex) => (
+          {list.map((ex) => {
+            const best = bestOverallForExercise(s.sessions, {
+              exerciseId: ex.id,
+              name: ex.name,
+            });
+            return (
             <div class="list-item" key={ex.id}>
               <div class="list-body">
                 <div class="title">{ex.name}</div>
@@ -109,6 +126,9 @@ export function Exercises() {
                     ? `en ${usage(ex.id)} rutina${usage(ex.id) === 1 ? '' : 's'}`
                     : 'sin usar en rutinas'}
                 </div>
+                {best !== undefined && (
+                  <div class="sub">🏆 Mejor: {fmtBest(best, s.settings.unit)}</div>
+                )}
               </div>
               <button
                 class="icon-btn"
@@ -131,7 +151,8 @@ export function Exercises() {
                 🗑
               </button>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
