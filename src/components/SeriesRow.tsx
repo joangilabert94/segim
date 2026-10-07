@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'preact/hooks';
 import type { PerformedSet, PlannedSet, Unit } from '../models';
-import { fmtReps, fmtRelative, parseNumber, parseRepsRange } from '../services/format';
+import { fmtReps, fmtRelative, parseNumber, parseRepsFixed } from '../services/format';
 
 /** Texto de comparación de una serie: `60 × 4-6` o `— × 30 s` (cronometrada). */
 function fmtSetForCompare(
@@ -41,20 +41,16 @@ export function SeriesRow({
   onMenu,
 }: Props) {
   const [weightText, setWeightText] = useState(String(performed.weight));
-  const [repsText, setRepsText] = useState(fmtReps(performed.reps, performed.repsMax));
+  // En la sesión solo hay número fijo: el campo pinta las reps conseguidas,
+  // nunca un rango (el rango vive solo en el plan).
+  const [repsText, setRepsText] = useState(String(performed.reps));
   const [durationText, setDurationText] = useState(String(performed.durationSec ?? 30));
 
   // Serie cronometrada: manda durationSec y se editan segundos en vez de reps.
   const timed = performed.durationSec !== undefined;
-  // Rango de reps (4-6): el campo pasa a texto libre.
-  const repsRange = !timed && performed.repsMax !== undefined && performed.repsMax > performed.reps;
-
   // Sincroniza el texto si el valor cambia desde fuera (prefill, "copiar plan"...)
   useEffect(() => setWeightText(String(performed.weight)), [performed.weight]);
-  useEffect(
-    () => setRepsText(fmtReps(performed.reps, performed.repsMax)),
-    [performed.reps, performed.repsMax],
-  );
+  useEffect(() => setRepsText(String(performed.reps)), [performed.reps]);
   useEffect(
     () => setDurationText(String(performed.durationSec ?? 30)),
     [performed.durationSec],
@@ -65,10 +61,10 @@ export function SeriesRow({
     if (n !== null && n !== performed.weight) onPatch({ weight: n });
   };
   const commitReps = (text: string) => {
-    const next = parseRepsRange(text);
+    const next = parseRepsFixed(text); // "4-6" → null: la sesión no admite rangos
     if (next === null) return;
-    if (next.reps !== performed.reps || next.repsMax !== performed.repsMax) {
-      onPatch({ reps: next.reps, repsMax: next.repsMax });
+    if (next !== performed.reps || performed.repsMax !== undefined) {
+      onPatch({ reps: next, repsMax: undefined }); // limpia un rango heredado
     }
   };
   const commitDuration = (text: string) => {
@@ -147,18 +143,14 @@ export function SeriesRow({
               <label class="num-field num-reps">
                 <input
                   type="text"
-                  inputMode={repsRange ? 'text' : 'numeric'}
+                  inputMode="numeric"
                   value={repsText}
-                  aria-label={
-                    repsRange
-                      ? `Repeticiones de la serie ${index + 1} (rango, ej. 4-6)`
-                      : `Repeticiones de la serie ${index + 1}`
-                  }
+                  aria-label={`Repeticiones de la serie ${index + 1}`}
                   onInput={(e) => setRepsText(e.currentTarget.value)}
                   onChange={(e) => commitReps(e.currentTarget.value)}
                   onBlur={(e) => {
-                    if (parseRepsRange(e.currentTarget.value) === null) {
-                      setRepsText(fmtReps(performed.reps, performed.repsMax));
+                    if (parseRepsFixed(e.currentTarget.value) === null) {
+                      setRepsText(String(performed.reps));
                     } else {
                       commitReps(e.currentTarget.value);
                     }

@@ -508,8 +508,8 @@ export function RoutineEditor({ id }: { id: string }) {
           {currentMode === 'timed' ? '✓ ' : ''}⏱ Cronometrada (segundos)
         </button>
         <p class="hint" style="margin-top:8px">
-          En un rango (4-6) eliges las mínimas y las máximas de la serie; al entrenar
-          puedes apuntar el número exacto o el propio rango.
+          En un rango (4-6) fijas las mínimas y las máximas de la serie; en la sesión
+          apuntarás siempre el número exacto que consigas.
         </p>
       </BottomSheet>
 

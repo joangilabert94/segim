@@ -32,6 +32,9 @@ type SheetState =
   | { kind: 'entry-note'; entry: number }
   | { kind: 'add-exercise' };
 
+/** Tipos de serie permitidos en una sesión: el rango (4-6) es solo del plan. */
+type SessionSetMode = Exclude<SetMode, 'range'>;
+
 export function SessionView() {
   const s = useStore();
   const [sheet, setSheet] = useState<SheetState>(null);
@@ -100,7 +103,6 @@ export function SessionView() {
         reps: last?.reps ?? 10,
         done: false,
         extra: true,
-        ...(last?.repsMax !== undefined ? { repsMax: last.repsMax } : {}),
         ...(last?.durationSec !== undefined ? { durationSec: last.durationSec } : {}),
       });
     });
@@ -123,9 +125,9 @@ export function SessionView() {
       const target = entry.sets[si];
       if (!target) return;
       target.weight = planned.weight ?? target.weight;
+      // La sesión es siempre número fijo: del rango del plan se toma el mínimo.
       target.reps = planned.reps;
-      if (planned.repsMax !== undefined) target.repsMax = planned.repsMax;
-      else delete target.repsMax;
+      delete target.repsMax;
       if (planned.durationSec !== undefined) target.durationSec = planned.durationSec;
       else delete target.durationSec;
     });
@@ -137,26 +139,22 @@ export function SessionView() {
       entry.sets.forEach((set) => {
         set.weight = source.weight;
         set.reps = source.reps;
-        if (source.repsMax !== undefined) set.repsMax = source.repsMax;
-        else delete set.repsMax;
+        delete set.repsMax;
         if (source.durationSec !== undefined) set.durationSec = source.durationSec;
         else delete set.durationSec;
       });
     });
   };
 
-  /** Cambia el tipo de serie: fijo, rango (4-6) o cronometrada (30 s). */
-  const applySetMode = (ei: number, si: number, mode: SetMode) => {
+  /** Cambia el tipo de serie de la sesión: fijo o cronometrada (sin rango). */
+  const applySetMode = (ei: number, si: number, mode: SessionSetMode) => {
     patchEntry(ei, (entry) => {
       const set = entry.sets[si];
       if (!set) return;
       if (mode === 'fixed') {
+        // También limpia un rango heredado de versiones antiguas.
         delete set.repsMax;
         delete set.durationSec;
-      } else if (mode === 'range') {
-        delete set.durationSec;
-        // Rango por defecto: mínimo actual y máximo dos por encima (10 → 10-12).
-        if (set.repsMax === undefined || set.repsMax <= set.reps) set.repsMax = set.reps + 2;
       } else if (set.durationSec === undefined) {
         set.durationSec = 30;
       }
@@ -184,7 +182,6 @@ export function SessionView() {
           weight: set.weight,
           reps: set.reps,
           done: false,
-          ...(set.repsMax !== undefined ? { repsMax: set.repsMax } : {}),
           ...(set.durationSec !== undefined ? { durationSec: set.durationSec } : {}),
         })),
       });
@@ -221,13 +218,12 @@ export function SessionView() {
     navigate(`/historial/${session.id}`);
   };
 
-  // Menú de serie: modos distintos al actual (fijo / rango / cronometrada).
+  // Menú de serie: fijo o cronometrada. El rango (4-6) es solo del plan.
   const serieSet =
     sheet?.kind === 'serie' ? session.entries[sheet.entry]?.sets[sheet.set] : undefined;
   const serieMode: SetMode = serieSet ? setModeOf(serieSet) : 'fixed';
-  const allModeOptions: { mode: SetMode; label: string }[] = [
+  const allModeOptions: { mode: SessionSetMode; label: string }[] = [
     { mode: 'fixed', label: '♯ Pasar a número fijo' },
-    { mode: 'range', label: '↔ Pasar a rango (4-6)' },
     { mode: 'timed', label: '⏱ Pasar a cronometrada (s)' },
   ];
   const modeOptions = allModeOptions.filter((o) => o.mode !== serieMode);

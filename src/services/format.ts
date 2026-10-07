@@ -123,6 +123,17 @@ export function parseRepsRange(text: string): RepsValue | null {
   return hi > lo ? { reps: lo, repsMax: hi } : { reps: lo };
 }
 
+/**
+ * Reps fijas de la sesión: acepta solo un número entero ("10", "8,5" → 8).
+ * Un rango ("4-6") no es válido aquí: el rango vive solo en el plan y
+ * la sesión registra lo realmente conseguido.
+ */
+export function parseRepsFixed(text: string): number | null {
+  const n = parseNumber(text);
+  if (n === null || n < 0) return null;
+  return Math.round(n);
+}
+
 /** Reps en pantalla: `10` o `4-6` (el rango solo si aporta información). */
 export function fmtReps(reps: number, repsMax?: number): string {
   return repsMax !== undefined && repsMax > reps ? `${reps}-${repsMax}` : String(reps);

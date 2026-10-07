@@ -62,8 +62,8 @@ export interface Routine {
 /** Serie realizada dentro de una sesión. */
 export interface PerformedSet {
   weight: number; // peso real de ESTA serie
-  reps: number; // reps reales de ESTA serie (mínimo si hay rango)
-  repsMax?: number; // si existe y > reps, la serie es un rango: 4-6
+  reps: number; // reps reales de ESTA serie: SIEMPRE número fijo (lo conseguido)
+  repsMax?: number; // solo datos antiguos: la sesión ya no admite rangos
   durationSec?: number; // si existe, la serie es cronometrada (segundos)
   done: boolean;
   note?: string;
