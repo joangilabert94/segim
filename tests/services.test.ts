@@ -120,7 +120,7 @@ describe('findPreviousSession', () => {
 });
 
 describe('prefillFromPrevious', () => {
-  it('manda lo programado; las reps siguen a la sesión anterior', () => {
+  it('prevalece el peso superior de la sesión anterior; las reps continúan', () => {
     const planned = [
       { weight: 60, reps: 8 },
       { weight: 65, reps: 6 },
@@ -131,8 +131,8 @@ describe('prefillFromPrevious', () => {
     ];
     const result = prefillFromPrevious(planned, previous);
     expect(result).toEqual([
-      { weight: 60, reps: 8, done: false }, // el peso lo programado
-      { weight: 65, reps: 5, done: false }, // las reps continúan
+      { weight: 62, reps: 8, done: false }, // 62 > 60: prevalece lo entrenado
+      { weight: 67, reps: 5, done: false }, // 67 > 65: ídem
     ]);
   });
 
@@ -143,7 +143,7 @@ describe('prefillFromPrevious', () => {
     ];
     const previous = [{ weight: 70, reps: 8, done: true }];
     const result = prefillFromPrevious(planned, previous);
-    expect(result[0].weight).toBe(60); // manda lo programado
+    expect(result[0].weight).toBe(70); // 70 > 60: prevalece lo entrenado
     expect(result[1].weight).toBe(65); // sin sesión anterior: el plan
     expect(result[1].reps).toBe(6);
   });
@@ -225,6 +225,20 @@ describe('prefillFromPrevious', () => {
     const previous = [{ weight: 115, reps: 6, done: true }];
     const result = prefillFromPrevious(planned, previous);
     expect(result[0]).toEqual({ weight: 115, reps: 6, done: false });
+  });
+
+  it('el peso y las reps de la sesión anterior prevalecen si superan el plan', () => {
+    const planned = [{ weight: 115, reps: 4, repsMax: 6 }];
+    const previous = [{ weight: 120, reps: 6, done: true }];
+    const result = prefillFromPrevious(planned, previous);
+    expect(result[0]).toEqual({ weight: 120, reps: 6, done: false });
+  });
+
+  it('reps por encima del rango del plan se conservan', () => {
+    const planned = [{ weight: 115, reps: 4, repsMax: 6 }];
+    const previous = [{ weight: 115, reps: 8, done: true }];
+    const result = prefillFromPrevious(planned, previous);
+    expect(result[0]).toEqual({ weight: 115, reps: 8, done: false });
   });
 });
 
