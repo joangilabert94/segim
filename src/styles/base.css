@@ -53,6 +53,7 @@ p {
 /* ---- Maqueta ---- */
 
 .app {
+  width: 100%;
   max-width: var(--max-w);
   margin: 0 auto;
   min-height: 100vh;
@@ -64,12 +65,13 @@ p {
 
 .view {
   flex: 1;
-  padding: 14px var(--pad) calc(var(--tabbar-h) + 44px);
+  padding: calc(14px + env(safe-area-inset-top, 0px)) var(--pad)
+    calc(var(--tabbar-h) + 44px + env(safe-area-inset-bottom, 0px));
   animation: fade-in 0.18s ease;
 }
 
 .view--session {
-  padding-bottom: 110px;
+  padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px));
 }
 
 @keyframes fade-in {
@@ -365,12 +367,12 @@ textarea.input {
 }
 
 .num-field input {
-  width: 74px;
+  width: 66px;
   min-height: 42px;
   background: var(--surface-3);
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 6px 30px 6px 10px;
+  padding: 6px 25px 6px 10px;
   text-align: right;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -391,14 +393,14 @@ textarea.input {
 }
 
 .num-reps input {
-  width: 58px;
+  width: 52px;
   padding-right: 10px;
 }
 
 /* Serie cronometrada: segundos con sufijo "s". */
 .num-dur input {
-  width: 58px;
-  padding-right: 22px;
+  width: 56px;
+  padding-right: 16px;
 }
 
 .num-suffix {
@@ -455,7 +457,7 @@ textarea.input {
   transform: translateX(-50%);
   width: calc(100% - 24px);
   max-width: calc(var(--max-w) - 24px);
-  height: var(--tabbar-h);
+  min-height: var(--tabbar-h);
   padding: 6px;
   background: var(--bar-bg);
   backdrop-filter: blur(20px) saturate(160%);

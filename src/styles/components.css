@@ -770,7 +770,10 @@
 .planned-set-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 5px;
+  /* En pantallas muy estrechas la fila pasa a dos líneas en vez de
+     desbordar el viewport (scroll horizontal en el móvil). */
+  flex-wrap: wrap;
 }
 
 /* Serie + pista de su mejor resultado */
@@ -793,7 +796,7 @@
 .planned-set-row .label {
   font-size: 0.74rem;
   color: var(--dim);
-  width: 52px;
+  width: 48px;
   font-weight: 700;
   display: flex;
   flex-direction: column;
@@ -802,7 +805,22 @@
 }
 
 .planned-set-row .label .mode-chip {
-  max-width: 52px;
+  max-width: 48px;
+}
+
+/* Los signos «×» y los botones de la fila tienen ancho fijo: así la fila
+   mide lo mismo con cualquier tamaño de fuente del sistema. */
+.planned-set-row .times {
+  width: 10px;
+  text-align: center;
+}
+
+.planned-set-row .icon-btn {
+  width: 36px;
+  height: 36px;
+  /* Agrupa la ✕ a la derecha (como en sesión); si la fila se parte en dos
+     líneas, la ✕ queda al final de la segunda en vez de huérfana a la izquierda. */
+  margin-left: auto;
 }
 
 .planned-set-row .num-field input {

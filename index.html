@@ -64,6 +64,10 @@
       #app {
         min-height: 100vh;
         display: grid;
+        /* Pista fija: el ancho de la app nunca puede superar el viewport
+           (sin esto, la pista auto se inflaba al ancho mínimo del contenido
+           y en móviles estrechos aparecía scroll horizontal). */
+        grid-template-columns: minmax(0, 1fr);
         place-items: center;
       }
       .splash {
