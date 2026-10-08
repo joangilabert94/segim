@@ -718,13 +718,88 @@
 .editor-day-head {
   display: flex;
   align-items: center;
+  /* En pantallas estrechas el nombre del día ocupa su propia línea y los
+     botones de acción pasan a la siguiente (sin recortar el nombre). */
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 10px;
 }
 
 .editor-day-head .input {
-  flex: 1;
+  flex: 1 1 180px;
+  min-width: 0;
   font-weight: 700;
+}
+
+.day-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Día plegable: el nombre es un botón que pliega/despliega con 1 click.
+   Plegado, la cabecera se queda solo con el nombre (CSS oculta el resto). */
+.editor-section.is-collapsed {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.editor-section.is-collapsed .editor-day-head {
+  margin-bottom: 0;
+}
+
+.editor-section.is-collapsed .editor-day-head > :not(.day-toggle),
+.editor-section.is-collapsed > :not(.editor-day-head) {
+  display: none;
+}
+
+.day-toggle {
+  flex: 1 1 180px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 46px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  font-weight: 700;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.day-toggle:hover,
+.day-toggle:active {
+  background: var(--surface-3);
+}
+
+.day-toggle:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
+}
+
+.day-caret {
+  flex-shrink: 0;
+  color: var(--dim);
+  font-size: 0.75rem;
+}
+
+.day-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.day-name.is-placeholder {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+/* El contenido del día entra con un fundido al desplegarlo. */
+.editor-section:not(.is-collapsed) > :not(.editor-day-head) {
+  animation: fade-in 0.16s ease;
 }
 
 .exercise-edit {

@@ -73,6 +73,11 @@ export function RoutineEditor({ id }: { id: string }) {
   const [modeTarget, setModeTarget] = useState<NoteTarget>(null);
   const [confirmDeleteDay, setConfirmDeleteDay] = useState<number | null>(null);
   const [confirmDeleteRoutine, setConfirmDeleteRoutine] = useState(false);
+  // Días plegados en el editor, guardados por id (sobreviven a reordenar o
+  // eliminar días). Al pliegar solo queda visible el nombre del día.
+  const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set());
+  // Día que se está renombrando con el lápiz (null = ninguno).
+  const [renamingDay, setRenamingDay] = useState<string | null>(null);
 
   const routine = s.routines.find((r) => r.id === id);
 
@@ -120,6 +125,15 @@ export function RoutineEditor({ id }: { id: string }) {
     });
 
   const moveDay = (di: number, dir: -1 | 1) => patch((r) => swap(r.days, di, dir));
+
+  /** Pliega o despliega un día: 1 click sobre su nombre. */
+  const toggleDay = (dayId: string) =>
+    setCollapsedDays((prev) => {
+      const next = new Set(prev);
+      if (next.has(dayId)) next.delete(dayId);
+      else next.add(dayId);
+      return next;
+    });
 
   // ---- Ejercicios ----
   const addExercise = (di: number) =>
@@ -323,37 +337,77 @@ export function RoutineEditor({ id }: { id: string }) {
       )}
 
       {routine.days.map((day, di) => (
-        <section class="editor-section" key={day.id}>
+        <section
+          class={`editor-section${collapsedDays.has(day.id) ? ' is-collapsed' : ''}`}
+          key={day.id}
+        >
           <div class="editor-day-head">
-            <input
-              class="input"
-              value={day.name}
-              aria-label={`Nombre del día ${di + 1}`}
-              onInput={(e) => renameDay(di, e.currentTarget.value)}
-            />
-            <button
-              class="icon-btn"
-              aria-label="Subir día"
-              disabled={di === 0}
-              onClick={() => moveDay(di, -1)}
-            >
-              ↑
-            </button>
-            <button
-              class="icon-btn"
-              aria-label="Bajar día"
-              disabled={di === routine.days.length - 1}
-              onClick={() => moveDay(di, 1)}
-            >
-              ↓
-            </button>
-            <button
-              class="icon-btn"
-              aria-label="Eliminar día"
-              onClick={() => setConfirmDeleteDay(di)}
-            >
-              ✕
-            </button>
+            {renamingDay === day.id ? (
+              <input
+                class="input"
+                ref={(el) => {
+                  if (!el) return;
+                  el.focus();
+                  el.select();
+                }}
+                placeholder="Nombre del día"
+                value={day.name}
+                aria-label={`Nombre del día ${di + 1}`}
+                onInput={(e) => renameDay(di, e.currentTarget.value)}
+                onBlur={() => setRenamingDay(null)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur();
+                }}
+              />
+            ) : (
+              <button
+                type="button"
+                class="day-toggle"
+                aria-expanded={!collapsedDays.has(day.id)}
+                title={collapsedDays.has(day.id) ? 'Desplegar día' : 'Plegar día'}
+                onClick={() => toggleDay(day.id)}
+              >
+                <span class="day-caret" aria-hidden="true">
+                  {collapsedDays.has(day.id) ? '▸' : '▾'}
+                </span>
+                <span class={`day-name${day.name.trim() ? '' : ' is-placeholder'}`}>
+                  {day.name.trim() || 'Día sin nombre'}
+                </span>
+              </button>
+            )}
+            <div class="day-actions">
+              <button
+                class="icon-btn"
+                aria-label="Subir día"
+                disabled={di === 0}
+                onClick={() => moveDay(di, -1)}
+              >
+                ↑
+              </button>
+              <button
+                class="icon-btn"
+                aria-label="Bajar día"
+                disabled={di === routine.days.length - 1}
+                onClick={() => moveDay(di, 1)}
+              >
+                ↓
+              </button>
+              <button
+                class="icon-btn"
+                aria-label="Renombrar día"
+                title="Renombrar día"
+                onClick={() => setRenamingDay(day.id)}
+              >
+                ✎
+              </button>
+              <button
+                class="icon-btn"
+                aria-label="Eliminar día"
+                onClick={() => setConfirmDeleteDay(di)}
+              >
+                ✕
+              </button>
+            </div>
           </div>
 
           {day.exercises.length === 0 && (
