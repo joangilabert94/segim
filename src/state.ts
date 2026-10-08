@@ -60,11 +60,8 @@ export function useStore(): AppState {
 }
 
 export function sortSessions(sessions: Session[]): Session[] {
-  return [...sessions].sort((a, b) =>
-    a.date === b.date
-      ? b.startedAt.localeCompare(a.startedAt)
-      : b.date.localeCompare(a.date),
-  );
+  // Solo importa la fecha de realización: la sesión no guarda duración.
+  return [...sessions].sort((a, b) => b.date.localeCompare(a.date));
 }
 
 const logError = (what: string, err: unknown) => console.error(`No se pudo ${what}`, err);
@@ -283,7 +280,6 @@ export function closeCurrentSession(): Session | undefined {
   if (!active) return undefined;
   return patchSession(active.id, (s) => {
     s.status = 'completed';
-    s.completedAt = new Date().toISOString();
   });
 }
 
@@ -308,8 +304,20 @@ export function startFreeSession(): Session {
 export function finalizeSession(id: string): Session | undefined {
   return patchSession(id, (s) => {
     s.status = 'completed';
-    s.completedAt = new Date().toISOString();
   });
+}
+
+/**
+ * Cambia la fecha de realización de una sesión (YYYY-MM-DD) y reordena el
+ * historial. La sesión no guarda duración: la fecha es su única marca temporal.
+ */
+export function setSessionDate(id: string, date: string): Session | undefined {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return undefined;
+  const updated = patchSession(id, (s) => {
+    s.date = date;
+  });
+  if (updated) setState({ sessions: sortSessions(state.sessions) });
+  return updated;
 }
 
 /** Reabre una sesión del historial para editarla (cierra la que estuviera en curso). */
@@ -317,7 +325,6 @@ export function reopenSession(id: string): Session | undefined {
   closeCurrentSession();
   return patchSession(id, (s) => {
     s.status = 'in-progress';
-    s.completedAt = undefined;
   });
 }
 

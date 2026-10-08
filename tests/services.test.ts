@@ -21,8 +21,6 @@ function makeSession(over: Partial<Session>): Session {
     date: '2026-09-28',
     dayName: 'Día 1',
     status: 'completed',
-    startedAt: '2026-09-28T10:00:00.000Z',
-    completedAt: '2026-09-28T11:00:00.000Z',
     entries: [],
     ...over,
   };

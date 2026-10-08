@@ -9,6 +9,7 @@ import {
   ensureExercise,
   finalizeSession,
   patchSession,
+  setSessionDate,
   useStore,
 } from '../state';
 import {
@@ -45,6 +46,8 @@ export function SessionView() {
     null,
   );
   const [confirmDeleteEntry, setConfirmDeleteEntry] = useState<number | null>(null);
+  const [dateOpen, setDateOpen] = useState(false);
+  const [dateText, setDateText] = useState('');
 
   const session = s.sessions.find((x) => x.status === 'in-progress');
 
@@ -246,6 +249,16 @@ export function SessionView() {
             {session.date !== todayISO() ? ' · reabierta' : ''}
           </span>
         </h1>
+        <button
+          class="icon-btn"
+          aria-label="Cambiar la fecha de la sesión"
+          onClick={() => {
+            setDateText(session.date);
+            setDateOpen(true);
+          }}
+        >
+          📅
+        </button>
       </header>
 
       <div class="session-progress">
@@ -453,6 +466,32 @@ export function SessionView() {
         </p>
         <button class="btn btn-primary btn-block" onClick={addExercise}>
           Añadir
+        </button>
+      </BottomSheet>
+
+      {/* Cambiar la fecha de realización de la sesión en curso */}
+      <BottomSheet open={dateOpen} onClose={() => setDateOpen(false)} title="Fecha de la sesión">
+        <label class="field" for="session-date-input">
+          <span class="field-label">Fecha de realización</span>
+          <input
+            id="session-date-input"
+            class="input"
+            type="date"
+            value={dateText}
+            onInput={(e) => setDateText(e.currentTarget.value)}
+          />
+        </label>
+        <p class="hint">
+          La sesión no mide duración: la fecha es lo único que dice cuándo entrenaste.
+        </p>
+        <button
+          class="btn btn-primary btn-block"
+          onClick={() => {
+            setSessionDate(session.id, dateText);
+            setDateOpen(false);
+          }}
+        >
+          Guardar fecha
         </button>
       </BottomSheet>
 

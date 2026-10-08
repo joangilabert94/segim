@@ -39,7 +39,6 @@ export function buildSessionFromDay(
     dayId: day.id,
     dayName: day.name,
     status: 'in-progress',
-    startedAt: new Date().toISOString(),
     entries,
   };
 }
@@ -51,7 +50,6 @@ export function buildFreeSession(): Session {
     date: todayISO(),
     dayName: 'Sesión libre',
     status: 'in-progress',
-    startedAt: new Date().toISOString(),
     entries: [],
   };
 }

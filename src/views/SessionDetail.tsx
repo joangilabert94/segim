@@ -2,9 +2,9 @@
 
 import { useState } from 'preact/hooks';
 import { navigate } from '../router';
-import { deleteSession, reopenSession, useStore } from '../state';
+import { deleteSession, reopenSession, setSessionDate, useStore } from '../state';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { fmtDateLong, fmtDuration, fmtReps, fmtVolume } from '../services/format';
+import { fmtDateLong, fmtReps, fmtVolume } from '../services/format';
 import { doneSetsCount, setsCount, volumeOf } from '../services/stats';
 
 export function SessionDetail({ id }: { id: string }) {
@@ -27,10 +27,6 @@ export function SessionDetail({ id }: { id: string }) {
   const routine = session.routineId
     ? s.routines.find((r) => r.id === session.routineId)
     : undefined;
-  const duration =
-    session.startedAt && session.completedAt
-      ? (new Date(session.completedAt).getTime() - new Date(session.startedAt).getTime()) / 1000
-      : undefined;
 
   const edit = () => {
     reopenSession(session.id);
@@ -77,11 +73,23 @@ export function SessionDetail({ id }: { id: string }) {
         </div>
       </div>
 
-      {duration !== undefined && duration > 0 && (
-        <p class="hint" style="text-align:center">
-          Duración: {fmtDuration(duration)}
+      {/* Fecha de realización editable: la sesión no guarda duración,
+          así que la fecha es lo único que define cuándo se entrenó. */}
+      <div class="card" style="margin-top:14px">
+        <label class="field" for="session-date">
+          <span class="field-label">Fecha de realización</span>
+          <input
+            id="session-date"
+            class="input"
+            type="date"
+            value={session.date}
+            onChange={(e) => setSessionDate(session.id, e.currentTarget.value)}
+          />
+        </label>
+        <p class="hint" style="margin-top:8px">
+          ¿La hiciste otro día? Corrígela aquí y el historial se reordena solo.
         </p>
-      )}
+      </div>
 
       <div class="section-title">Ejercicios</div>
 

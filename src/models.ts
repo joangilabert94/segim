@@ -97,13 +97,14 @@ export interface SessionEntry {
 
 export interface Session {
   id: string;
-  date: string; // YYYY-MM-DD (fecha de la sesión, obligatoria)
+  // Fecha de realización YYYY-MM-DD: única marca temporal de la sesión.
+  // Es editable desde el detalle; NO se guarda duración (sin arranque/final),
+  // porque no siempre se marca cuándo se empieza y se termina.
+  date: string;
   routineId?: string;
   dayId?: string;
   dayName: string; // copia del nombre del día (la rutina puede cambiar)
   status: 'in-progress' | 'completed';
-  startedAt: string; // ISO con hora
-  completedAt?: string;
   entries: SessionEntry[];
 }
 

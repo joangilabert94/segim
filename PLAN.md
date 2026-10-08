@@ -71,14 +71,12 @@ PlannedSet {
 
 Session {
   id: string;
-  date: string;          // ISO date (obligatorio: de cada sesión se guarda la fecha)
+  date: string;          // YYYY-MM-DD: fecha de realización (editable, única marca temporal)
   routineId?: string;
   dayId?: string;
   dayName: string;       // copia del nombre del día (la rutina puede cambiar)
   status: 'in-progress' | 'completed';
-  startedAt: string;
-  completedAt?: string;
-  entries: SessionEntry[];
+  entries: SessionEntry[]; // SIN duración: no se guarda ni arranque ni final
 }
 
 SessionEntry {
@@ -127,11 +125,12 @@ Settings {
 - **Cronómetro de descanso opcional**: botón **"Iniciar descanso"** (nunca automático) que abre los 6 presets; al activarlo, regresiva visible en cabecera/FAB con "reiniciar" y "parar".
 - Nota general por ejercicio.
 - Barra inferior con **"Finalizar sesión"** (guarda con `date` = hoy). La sesión `in-progress` se persiste **en cada cambio** en IndexedDB: cerrar o recargar la app no pierde nada; al volver se retoma.
+- **Fecha editable**: la cabecera tiene un botón 📅 para cambiar la fecha de realización de la sesión en curso (la sesión no guarda duración: sin marcar arranque/final).
 - Solo puede haber **una sesión en curso** a la vez (al empezar otra, la anterior se cierra con aviso).
 
 ### 4.3 Historial (`#/historial`)
 - Lista agrupada por mes: fecha, día, nº de ejercicios, volumen total (Σ peso × reps × series).
-- Detalle (`#/historial/:id`): ejercicio a ejercicio con todas las series (peso y reps de cada una), notas y volumen; botones **editar** y **eliminar**.
+- Detalle (`#/historial/:id`): ejercicio a ejercicio con todas las series (peso y reps de cada una), notas y volumen; botones **editar** y **eliminar**, y **fecha de realización editable** (input de fecha que reordena el historial).
 - Estadísticas ligeras: sesiones en los últimos 30 días, volumen total, racha.
 
 ### 4.4 Rutinas (`#/rutinas`) y editor (`#/rutinas/:id`)

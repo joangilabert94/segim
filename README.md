@@ -16,6 +16,8 @@ dispositivo. Funciona sin conexión e instalable desde el navegador.
   (con fecha relativa) y tus inputs de hoy; checks, notas, series extra y cronómetro
   de descanso opcional (presets 60/90/120/180/240/300 s, editables).
   La sesión en curso se guarda en cada cambio: puedes cerrar la pestaña y volver.
+  **No se mide la duración** (sin marcar arranque/final): solo cuenta la fecha de
+  realización, que puedes cambiar cuando quieras.
 - **Rutinas**: editor por días → ejercicios → series (cada serie con su peso y reps),
   reordenación, clonado profundo, rutina activa, archivar.
 - **Compartir rutinas**: exportar/importar un `.json` con solo rutinas y sus ejercicios
@@ -25,7 +27,7 @@ dispositivo. Funciona sin conexión e instalable desde el navegador.
   el **id**, no el nombre. Pestaña *Ejercicios* para buscar, renombrar (propaga a todas las
   rutinas) y limpiar el catálogo.
 - **Historial**: sesiones agrupadas por mes, detalle con todas las series, edición
-  (reabrir) y borrado, volumen y racha.
+  (reabrir), **fecha de realización editable** y borrado, volumen y racha.
 - **Ajustes**: **tema (automático/claro/oscuro)**, kg/lb, presets de descanso,
   **exportar/importar JSON** (base para la
   fase 2 con Google Drive) y borrado total.
