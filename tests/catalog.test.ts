@@ -3,7 +3,9 @@ import type { Exercise, Routine, Session } from '../src/models';
 import {
   findExercise,
   linkRoutinesToCatalog,
+  mergeDuplicateExercises,
   pickOrCreateExercise,
+  repairExerciseLinks,
   seedCatalogFromRoutines,
 } from '../src/services/catalog';
 import {
@@ -188,6 +190,75 @@ describe('catálogo de ejercicios', () => {
   });
 });
 
+describe('repairExerciseLinks — ids huérfanos', () => {
+  const routine = makeRoutine(); // e1 vinculado a ex-press
+
+  it('quita el id borrado de rutinas y sesiones', () => {
+    const sesion = makeSession({
+      id: 's1',
+      entries: [
+        {
+          exerciseId: 'ex-press',
+          exerciseName: 'Press banca',
+          sets: [{ weight: 60, reps: 8, done: true }],
+        },
+      ],
+    });
+
+    const res = repairExerciseLinks([routine], [sesion], []); // catálogo vacío
+
+    expect(res.changedRoutines).toBe(true);
+    expect(res.routines[0].days[0].exercises[0].exerciseId).toBeUndefined();
+    expect(res.sessions[0].entries[0].exerciseId).toBeUndefined();
+    expect(res.changedSessionIds).toEqual(['s1']);
+  });
+
+  it('religa por nombre si el catálogo tiene el mismo ejercicio con id nuevo', () => {
+    const nuevo: Exercise = {
+      id: 'ex-nuevo',
+      name: ' press BANCA ',
+      createdAt: '2026-01-01T00:00:00.000Z',
+    };
+    const sesion = makeSession({
+      id: 's1',
+      entries: [
+        {
+          exerciseId: 'ex-viejo',
+          exerciseName: 'Press banca',
+          sets: [{ weight: 60, reps: 8, done: true }],
+        },
+      ],
+    });
+
+    const res = repairExerciseLinks([routine], [sesion], [nuevo]);
+
+    expect(res.routines[0].days[0].exercises[0].exerciseId).toBe('ex-nuevo');
+    expect(res.sessions[0].entries[0].exerciseId).toBe('ex-nuevo');
+  });
+
+  it('no toca nada si los ids ya son válidos', () => {
+    const catalog: Exercise[] = [
+      { id: 'ex-press', name: 'Press banca', createdAt: '2026-01-01T00:00:00.000Z' },
+    ];
+    const sesion = makeSession({
+      entries: [
+        {
+          exerciseId: 'ex-press',
+          exerciseName: 'Press banca',
+          sets: [{ weight: 60, reps: 8, done: true }],
+        },
+      ],
+    });
+
+    const res = repairExerciseLinks([routine], [sesion], catalog);
+
+    expect(res.changedRoutines).toBe(false);
+    expect(res.changedSessionIds).toEqual([]);
+    expect(res.routines).toEqual([routine]);
+    expect(res.sessions).toEqual([sesion]);
+  });
+});
+
 describe('buildSessionFromDay — vínculos por id', () => {
   it('copia el exerciseId de la rutina y lo resuelve desde el catálogo', () => {
     const routine = makeRoutine();
@@ -222,5 +293,71 @@ describe('buildSessionFromDay — vínculos por id', () => {
       name: 'Press banca',
     });
     expect(found?.id).toBe('prev');
+  });
+});
+
+describe('mergeDuplicateExercises — catálogo sin duplicados', () => {
+  it('conserva la primera entrada y elimina las repetidas por nombre normalizado', () => {
+    const catalog: Exercise[] = [
+      { id: 'ex-a', name: 'Press banca', createdAt: '2026-01-01T00:00:00.000Z' },
+      { id: 'ex-b', name: ' press BANCA ', createdAt: '2026-02-01T00:00:00.000Z' },
+      { id: 'ex-c', name: 'Sentadilla', createdAt: '2026-01-01T00:00:00.000Z' },
+    ];
+
+    const res = mergeDuplicateExercises(catalog);
+
+    expect(res.changed).toBe(true);
+    expect(res.exercises.map((e) => e.id)).toEqual(['ex-a', 'ex-c']);
+  });
+
+  it('hereda el grupo muscular del duplicado si la primera entrada no lo tenía', () => {
+    const catalog: Exercise[] = [
+      { id: 'ex-a', name: 'Press banca', createdAt: '2026-01-01T00:00:00.000Z' },
+      {
+        id: 'ex-b',
+        name: 'Press Banca',
+        muscleGroup: 'Pecho',
+        createdAt: '2026-02-01T00:00:00.000Z',
+      },
+    ];
+
+    const res = mergeDuplicateExercises(catalog);
+
+    expect(res.exercises).toHaveLength(1);
+    expect(res.exercises[0].id).toBe('ex-a');
+    expect(res.exercises[0].muscleGroup).toBe('Pecho');
+  });
+
+  it('no toca un catálogo ya limpio', () => {
+    const catalog: Exercise[] = [
+      { id: 'ex-a', name: 'Press banca', createdAt: '2026-01-01T00:00:00.000Z' },
+      { id: 'ex-b', name: 'Sentadilla', createdAt: '2026-01-01T00:00:00.000Z' },
+    ];
+
+    const res = mergeDuplicateExercises(catalog);
+
+    expect(res.changed).toBe(false);
+    expect(res.exercises).toEqual(catalog);
+  });
+
+  it('los vínculos del duplicado pasan al superviviente al reparar', () => {
+    const catalog: Exercise[] = [
+      { id: 'ex-a', name: 'Press banca', createdAt: '2026-01-01T00:00:00.000Z' },
+      { id: 'ex-b', name: 'press banca', createdAt: '2026-02-01T00:00:00.000Z' },
+    ];
+    const sesion = makeSession({
+      entries: [
+        {
+          exerciseId: 'ex-b',
+          exerciseName: 'press banca',
+          sets: [{ weight: 60, reps: 8, done: true }],
+        },
+      ],
+    });
+
+    const merged = mergeDuplicateExercises(catalog);
+    const res = repairExerciseLinks([makeRoutine()], [sesion], merged.exercises);
+
+    expect(res.sessions[0].entries[0].exerciseId).toBe('ex-a');
   });
 });
