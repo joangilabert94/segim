@@ -12,6 +12,7 @@ dispositivo. Funciona sin conexión e instalable desde el navegador.
 ## Qué hace
 
 - **Hoy**: día sugerido de tu rutina activa, reanudar sesión en curso, racha y volumen.
+  La **sesión libre** está siempre disponible, incluso sin ninguna rutina creada.
 - **Modo entrenamiento**: cada serie muestra lo planeado, lo de la sesión anterior
   (con fecha relativa) y tus inputs de hoy; checks, notas, series extra y cronómetro
   de descanso opcional (presets 60/90/120/180/240/300 s, editables).
@@ -19,18 +20,19 @@ dispositivo. Funciona sin conexión e instalable desde el navegador.
   **No se mide la duración** (sin marcar arranque/final): solo cuenta la fecha de
   realización, que puedes cambiar cuando quieras.
 - **Rutinas**: editor por días → ejercicios → series (cada serie con su peso y reps),
-  reordenación, clonado profundo, rutina activa, archivar.
+  reordenación de días, ejercicios y series, clonado profundo, rutina activa, archivar.
 - **Compartir rutinas**: exportar/importar un `.json` con solo rutinas y sus ejercicios
   (nunca sesiones ni ajustes) desde la pestaña *Rutinas*; reimportar no duplica.
 - **Catálogo de ejercicios con id estable**: al montar una rutina autocompleta y elige un
   ejercicio existente o crea uno nuevo (queda guardado); la comparación entre sesiones usa
   el **id**, no el nombre. Pestaña *Ejercicios* para buscar, renombrar (propaga a todas las
-  rutinas) y limpiar el catálogo.
+  rutinas) y limpiar el catálogo. Al cargar o importar se **fusionan los duplicados por
+  nombre** y se reparan los vínculos de rutinas e historial.
 - **Historial**: sesiones agrupadas por mes, detalle con todas las series, edición
   (reabrir), **fecha de realización editable** y borrado, volumen y racha.
-- **Ajustes**: **tema (automático/claro/oscuro)**, kg/lb, presets de descanso,
-  **exportar/importar JSON** (base para la
-  fase 2 con Google Drive) y borrado total.
+- **Ajustes**: **tema (automático/claro/oscuro)**, cambio de unidad kg/lb que **convierte
+  los pesos guardados** (con confirmación), presets de descanso, **exportar/importar JSON**
+  validado (base para la fase 2 con Google Drive) y borrado total.
 
 ## Stack
 
@@ -82,7 +84,7 @@ src/
   views/           # Hoy, Session, History, SessionDetail, Routines, RoutineEditor, Exercises, Settings
   components/      # SeriesRow, ExercisePicker, BottomSheet, ConfirmDialog, RestControls
   styles/          # tokens, base, componentes
-tests/             # vitest (27 tests)
+tests/             # vitest (142 tests)
 ```
 
 ## Roadmap (fase 2)

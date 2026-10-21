@@ -1,24 +1,40 @@
 // Ajustes: unidad, presets de descanso, rutina activa, copias de seguridad y datos.
 
 import { useRef, useState } from 'preact/hooks';
+import type { Unit } from '../models';
 import type { BackupFile } from '../services/backup';
 import { buildBackup, downloadBackup, parseBackup } from '../services/backup';
-import { clearAllData, getState, replaceAll, updateSettings, useStore } from '../state';
+import {
+  clearAllData,
+  getState,
+  replaceAll,
+  setUnit,
+  updateSettings,
+  useStore,
+} from '../state';
 import { DEFAULT_SETTINGS } from '../models';
 import { THEME_OPTIONS } from '../services/theme';
 import { currentTheme } from '../theme';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { plural } from '../services/format';
 
-const APP_VERSION = '0.6.0';
+// Inyectada por Vite desde package.json: una sola fuente de verdad para la versión.
+const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev';
 
 export function SettingsView() {
   const s = useStore();
   const fileRef = useRef<HTMLInputElement>(null);
   const [pendingBackup, setPendingBackup] = useState<BackupFile | null>(null);
+  const [pendingUnit, setPendingUnit] = useState<Unit | null>(null);
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
 
   const nonArchived = s.routines.filter((r) => !r.archived);
+  // Si la rutina activa está archivada o ya no existe, el selector muestra el
+  // placeholder en vez de quedarse en blanco.
+  const activeRoutineSelectable = nonArchived.some(
+    (r) => r.id === s.settings.activeRoutineId,
+  );
 
   const themeHint = () => {
     const ahora = currentTheme() === 'light' ? 'claro' : 'oscuro';
@@ -59,9 +75,12 @@ export function SettingsView() {
       sessions: pendingBackup.sessions,
       settings: pendingBackup.settings,
     });
+    // Cuenta lo que queda tras fusionar el catálogo, no lo que traía el fichero:
+    // una copia con duplicados acaba con menos entradas de las anunciadas.
+    const imported = getState();
     setMessage({
       kind: 'ok',
-      text: `Importadas ${pendingBackup.routines.length} rutinas, ${pendingBackup.exercises.length} ejercicios y ${pendingBackup.sessions.length} sesiones.`,
+      text: `Importadas ${plural(imported.routines.length, 'rutina', 'rutinas')}, ${plural(imported.exercises.length, 'ejercicio', 'ejercicios')} y ${plural(imported.sessions.length, 'sesión', 'sesiones')}.`,
     });
     setPendingBackup(null);
   };
@@ -90,23 +109,30 @@ export function SettingsView() {
         <div class="segmented">
           <button
             class={s.settings.unit === 'kg' ? 'is-active' : ''}
-            onClick={() => updateSettings({ unit: 'kg' })}
+            onClick={() => {
+              if (s.settings.unit !== 'kg') setPendingUnit('kg');
+            }}
           >
             kg
           </button>
           <button
             class={s.settings.unit === 'lb' ? 'is-active' : ''}
-            onClick={() => updateSettings({ unit: 'lb' })}
+            onClick={() => {
+              if (s.settings.unit !== 'lb') setPendingUnit('lb');
+            }}
           >
             lb
           </button>
         </div>
+        <p class="hint" style="margin-top:8px">
+          Cambiar de unidad convierte también los pesos ya guardados en rutinas e historial.
+        </p>
 
         <div style="margin-top:16px">
           <span class="field-label">Rutina activa (día sugerido)</span>
           <select
             class="input"
-            value={s.settings.activeRoutineId ?? ''}
+            value={activeRoutineSelectable ? s.settings.activeRoutineId ?? '' : ''}
             onChange={(e) =>
               updateSettings({ activeRoutineId: e.currentTarget.value || undefined })
             }
@@ -215,9 +241,21 @@ export function SettingsView() {
       </div>
 
       <ConfirmDialog
+        open={pendingUnit !== null}
+        title={`Cambiar a ${pendingUnit ?? ''}`}
+        message={`Se convertirán todos los pesos guardados (1 kg = 2,205 lb). Se actualizan las rutinas y el historial; la conversión se redondea a un decimal.`}
+        confirmLabel="Convertir"
+        onConfirm={() => {
+          if (pendingUnit) setUnit(pendingUnit);
+          setPendingUnit(null);
+        }}
+        onCancel={() => setPendingUnit(null)}
+      />
+
+      <ConfirmDialog
         open={pendingBackup !== null}
         title="Importar copia"
-        message={`Se reemplazarán los datos actuales por los de la copia (${pendingBackup?.routines.length ?? 0} rutinas, ${pendingBackup?.sessions.length ?? 0} sesiones).`}
+        message={`Se reemplazarán los datos actuales por los de la copia (${plural(pendingBackup?.routines.length ?? 0, 'rutina', 'rutinas')}, ${plural(pendingBackup?.sessions.length ?? 0, 'sesión', 'sesiones')}).`}
         confirmLabel="Importar"
         onConfirm={applyBackup}
         onCancel={() => setPendingBackup(null)}

@@ -12,6 +12,7 @@ import { RoutineEditor } from './views/RoutineEditor';
 import { Exercises } from './views/Exercises';
 import { SettingsView } from './views/Settings';
 import { matchPath, navigate } from './router';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 const TABS = [
   { path: '/', ico: '🏠', label: 'Hoy' },
@@ -29,7 +30,7 @@ function usePath(): string {
 
 export function App() {
   const path = usePath();
-  useStore(); // re-renderiza ante cambios de datos
+  const s = useStore(); // re-renderiza ante cambios de datos
 
   const inSession = path === '/sesion';
 
@@ -57,7 +58,17 @@ export function App() {
 
   return (
     <div class="app">
-      <main class={inSession ? 'view view--session' : 'view'}>{view}</main>
+      <main class={inSession ? 'view view--session' : 'view'}>
+        {s.loadError && (
+          <div class="inline-msg is-error" role="alert" style="margin-bottom:12px">
+            {s.loadError}{' '}
+            <button class="btn btn-sm" onClick={() => navigate('/ajustes')}>
+              Ir a Ajustes
+            </button>
+          </div>
+        )}
+        <ErrorBoundary key={path}>{view}</ErrorBoundary>
+      </main>
 
       {!inSession && (
         <nav class="tabbar" aria-label="Navegación principal">

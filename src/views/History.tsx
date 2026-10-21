@@ -2,7 +2,7 @@
 
 import { navigate } from '../router';
 import { useStore } from '../state';
-import { fmtDate, fmtMonth, fmtVolume, fmtWeekday, parseISODate } from '../services/format';
+import { fmtDate, fmtMonth, fmtVolume, fmtWeekday, parseISODate, plural } from '../services/format';
 import { setsCount, sessionsInLast, streak, volumeInLast, volumeOf } from '../services/stats';
 
 export function History() {
@@ -27,7 +27,9 @@ export function History() {
       <header class="view-head">
         <h1>
           Historial
-          <span class="sub">{sessions.length} sesiones guardadas</span>
+          <span class="sub">
+            {plural(sessions.length, 'sesión guardada', 'sesiones guardadas')}
+          </span>
         </h1>
       </header>
 
@@ -81,8 +83,9 @@ export function History() {
                       )}
                     </div>
                     <div class="sub">
-                      {fmtDate(ses.date)} · {ses.entries.length} ejercicios ·{' '}
-                      {setsCount(ses)} series
+                      {fmtDate(ses.date)} ·{' '}
+                      {plural(ses.entries.length, 'ejercicio', 'ejercicios')} ·{' '}
+                      {plural(setsCount(ses), 'serie', 'series')}
                       {ses.status === 'completed' &&
                         ` · ${fmtVolume(volumeOf(ses), s.settings.unit)}`}
                     </div>

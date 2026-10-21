@@ -10,7 +10,16 @@ import {
   useStore,
 } from '../state';
 import { suggestDay } from '../services/suggestDay';
-import { fmtDate, fmtDateLong, fmtReps, greeting, fmtVolume, todayISO } from '../services/format';
+import {
+  fmtDate,
+  fmtDateLong,
+  fmtReps,
+  fmtVolume,
+  fmtWeight,
+  greeting,
+  plural,
+  todayISO,
+} from '../services/format';
 import { sessionsInLast, streak, volumeInLast, setsCount } from '../services/stats';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
@@ -27,6 +36,8 @@ export function Hoy() {
   const day = active ? suggestDay(active, s.sessions) : undefined;
   const inProgress = s.sessions.find((x) => x.status === 'in-progress');
   const recent = s.sessions.filter((x) => x.status === 'completed').slice(0, 5);
+  const plannedSets =
+    day?.exercises.reduce((total, ex) => total + ex.plannedSets.length, 0) ?? 0;
 
   const sesiones30 = sessionsInLast(s.sessions, 30).length;
   const volumen30 = volumeInLast(s.sessions, 30);
@@ -55,7 +66,14 @@ export function Hoy() {
   const handleConfirmNew = () => {
     const p = pending;
     setPending(null);
-    if (!p || !active) return;
+    if (!p) return;
+    // La sesión libre no necesita rutina: se puede empezar siempre, aunque el
+    // catálogo de rutinas esté vacío.
+    if (p.target === 'free') {
+      beginSessionNow('free');
+      return;
+    }
+    if (!active) return;
     const chosen = p.dayId ? active.days.find((d) => d.id === p.dayId) : day;
     beginSessionNow(p.target, chosen);
   };
@@ -93,7 +111,8 @@ export function Hoy() {
             🏃 {inProgress.dayName} <span class="chip chip--accent">sin finalizar</span>
           </div>
           <p class="card-sub">
-            Empezada {fmtDate(inProgress.date)} · {setsCount(inProgress)} series
+            Empezada {fmtDate(inProgress.date)} ·{' '}
+            {plural(setsCount(inProgress), 'serie', 'series')}
           </p>
           <div class="routine-actions">
             <button class="btn btn-primary btn-block" onClick={() => navigate('/sesion')}>
@@ -114,10 +133,11 @@ export function Hoy() {
           <p class="card-sub">
             {day.exercises.length === 0
               ? 'Este día todavía no tiene ejercicios.'
-              : `${day.exercises.length} ejercicios · ${day.exercises.reduce(
-                (a, e) => a + e.plannedSets.length,
-                0,
-              )} series planeadas`}
+              : `${plural(day.exercises.length, 'ejercicio', 'ejercicios')} · ${plural(
+                  plannedSets,
+                  'serie planeada',
+                  'series planeadas',
+                )}`}
           </p>
 
           {day.exercises.length > 0 && (
@@ -129,8 +149,8 @@ export function Hoy() {
                     {ex.plannedSets
                       .map((p) =>
                         p.durationSec !== undefined
-                          ? `${p.weight !== undefined ? p.weight : '—'}×${p.durationSec}s`
-                          : `${p.weight !== undefined ? p.weight : '—'}×${fmtReps(p.reps, p.repsMax)}`,
+                          ? `${p.weight !== undefined ? fmtWeight(p.weight) : '—'}×${p.durationSec}s`
+                          : `${p.weight !== undefined ? fmtWeight(p.weight) : '—'}×${fmtReps(p.reps, p.repsMax)}`,
                       )
                       .join(', ')}
                   </span>
@@ -157,26 +177,44 @@ export function Hoy() {
                 🗓 Otro día de la rutina
               </button>
             )}
-            <button
-              class="btn btn-block"
-              onClick={() => requestBegin('free')}
-            >
-              Sesión libre (sin rutina)
-            </button>
           </div>
         </div>
       ) : (
         <div class="card">
           <div class="empty" style="padding:18px 8px">
             <span class="empty-ico">📋</span>
-            <h3>Crea tu primera rutina</h3>
-            <p>Define tus días, ejercicios y las series con su peso y repeticiones.</p>
-            <button class="btn btn-primary" onClick={() => navigate('/rutinas')}>
-              Ir a Rutinas
+            <h3>
+              {active
+                ? 'Tu rutina no tiene días'
+                : s.routines.length > 0
+                  ? 'Todas tus rutinas están archivadas'
+                  : 'Crea tu primera rutina'}
+            </h3>
+            <p>
+              {active
+                ? 'Añade un día con sus ejercicios y series para poder empezar desde aquí.'
+                : s.routines.length > 0
+                  ? 'Desarchiva una rutina para recuperar el día sugerido. También puedes entrenar sin rutina.'
+                  : 'Define tus días, ejercicios y las series con su peso y repeticiones.'}
+            </p>
+            <button
+              class="btn btn-primary"
+              onClick={() => navigate(active ? `/rutinas/${active.id}` : '/rutinas')}
+            >
+              {active ? 'Editar rutina' : s.routines.length > 0 ? 'Ver rutinas' : 'Ir a Rutinas'}
             </button>
           </div>
         </div>
       )}
+
+      {/* Sesión libre: disponible incluso sin ninguna rutina creada. */}
+      <button
+        class="btn btn-block"
+        style="margin-top:12px"
+        onClick={() => requestBegin('free')}
+      >
+        Sesión libre (sin rutina)
+      </button>
 
       <div class="section-title">Últimas sesiones</div>
       {recent.length === 0 ? (
@@ -195,7 +233,8 @@ export function Hoy() {
             <div class="list-body">
               <div class="title">{ses.dayName}</div>
               <div class="sub">
-                {ses.entries.length} ejercicios · {setsCount(ses)} series
+                {plural(ses.entries.length, 'ejercicio', 'ejercicios')} ·{' '}
+                {plural(setsCount(ses), 'serie', 'series')}
               </div>
             </div>
             <span class="list-arrow">›</span>
@@ -216,7 +255,7 @@ export function Hoy() {
                 requestBegin('day', d);
               }}
             >
-              🗓 {d.name} · {d.exercises.length} ejercicios
+              🗓 {d.name} · {plural(d.exercises.length, 'ejercicio', 'ejercicios')}
             </button>
           ))}
         <p class="hint">

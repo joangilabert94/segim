@@ -14,6 +14,7 @@ import {
 import { cloneRoutine } from '../services/cloneRoutine';
 import { upsertRoutine } from '../state';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { plural } from '../services/format';
 
 export function Routines() {
   const s = useStore();
@@ -137,8 +138,8 @@ export function Routines() {
                 </div>
               </div>
               <p class="card-sub">
-                {routine.days.length} día{routine.days.length === 1 ? '' : 's'} · {nExercises}{' '}
-                ejercicios
+                {plural(routine.days.length, 'día', 'días')} ·{' '}
+                {plural(nExercises, 'ejercicio', 'ejercicios')}
               </p>
 
               <div class="routine-actions">
@@ -148,7 +149,7 @@ export function Routines() {
                 <button class="btn btn-sm" onClick={() => handleClone(routine.id)}>
                   ⧉ Clonar
                 </button>
-                {!isActive && (
+                {!isActive && !routine.archived && (
                   <button
                     class="btn btn-sm"
                     onClick={() => updateSettings({ activeRoutineId: routine.id })}
@@ -158,7 +159,15 @@ export function Routines() {
                 )}
                 <button
                   class="btn btn-sm"
-                  onClick={() => patchRoutine(routine.id, (r) => void (r.archived = !r.archived))}
+                  onClick={() => {
+                    const nextArchived = !routine.archived;
+                    patchRoutine(routine.id, (r) => void (r.archived = nextArchived));
+                    // Archivar la rutina activa no puede dejarla como activa
+                    // invisible: Hoy solo sugiere rutinas no archivadas.
+                    if (nextArchived && isActive) {
+                      updateSettings({ activeRoutineId: undefined });
+                    }
+                  }}
                 >
                   {routine.archived ? '♻️ Desarchivar' : '📦 Archivar'}
                 </button>

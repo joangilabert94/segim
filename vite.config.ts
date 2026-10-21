@@ -6,6 +6,10 @@ const base = process.env.BASE_PATH ?? '/';
 
 export default defineConfig({
   base,
+  // La versión sale de package.json (npm la expone al ejecutar los scripts).
+  define: {
+    __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? 'dev'),
+  },
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',

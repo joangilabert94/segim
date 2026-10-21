@@ -4,7 +4,7 @@ import { useState } from 'preact/hooks';
 import { navigate } from '../router';
 import { deleteSession, reopenSession, setSessionDate, useStore } from '../state';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { fmtDateLong, fmtReps, fmtVolume } from '../services/format';
+import { fmtDateLong, fmtReps, fmtVolume, fmtWeight } from '../services/format';
 import { doneSetsCount, setsCount, volumeOf } from '../services/stats';
 
 export function SessionDetail({ id }: { id: string }) {
@@ -105,7 +105,7 @@ export function SessionDetail({ id }: { id: string }) {
                 </span>
                 <span>
                   <b>
-                    {set.weight} {s.settings.unit} ×{' '}
+                    {fmtWeight(set.weight)} {s.settings.unit} ×{' '}
                     {set.durationSec !== undefined
                       ? `${set.durationSec} s`
                       : fmtReps(set.reps, set.repsMax)}

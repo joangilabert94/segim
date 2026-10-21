@@ -2,7 +2,7 @@
 // Cada serie planeada tiene su propio peso (opcional) y sus propias reps
 // —o su duración en segundos si es una serie cronometrada (⏱).
 
-import { useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { Exercise, PerformedSet, PlannedSet, Routine, SetMode } from '../models';
 import { setModeOf } from '../models';
 import { navigate } from '../router';
@@ -19,8 +19,9 @@ import { upsertRoutine } from '../state';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { BottomSheet } from '../components/BottomSheet';
 import { ExercisePicker } from '../components/ExercisePicker';
-import { fmtReps, parseNumber, parseRepsRange } from '../services/format';
+import { fmtReps, fmtWeight, fmtWeightInput, parseNumber, parseRepsRange } from '../services/format';
 import { bestSetsForExercise, mergeWithBest } from '../services/bestResults';
+import { findExercise } from '../services/catalog';
 
 const MUSCLE_GROUPS = [
   'Pecho',
@@ -53,7 +54,7 @@ function modeChipText(set: PlannedSet): string {
 
 /** Pista del mejor resultado de una serie: `Mejor: 120 kg · 8`. */
 function bestHint(best: PerformedSet, unit: string): string {
-  const weight = best.weight > 0 ? `${best.weight} ${unit} · ` : '';
+  const weight = best.weight > 0 ? `${fmtWeight(best.weight)} ${unit} · ` : '';
   if (best.durationSec !== undefined) return `Mejor: ${weight}${best.durationSec} s`;
   return `Mejor: ${weight}${fmtReps(best.reps, best.repsMax)}`;
 }
@@ -78,8 +79,47 @@ export function RoutineEditor({ id }: { id: string }) {
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set());
   // Día que se está renombrando con el lápiz (null = ninguno).
   const [renamingDay, setRenamingDay] = useState<string | null>(null);
+  // Texto en curso de los campos de serie planificada. Se guarda tal cual se
+  // teclea (p. ej. "1," o "4-") para no reescribirlo a media edición; el
+  // store se actualiza en cada pulsación válida y al salir se formatea.
+  const [setDrafts, setSetDrafts] = useState<Record<string, string>>({});
+  // Selecciona el nombre UNA vez al abrir el campo. Antes era un ref inline:
+  // Preact lo reeecutaba en cada render y seleccionaba todo con cada tecla.
+  const dayNameInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!renamingDay) return;
+    const el = dayNameInputRef.current;
+    if (!el) return;
+    el.focus();
+    el.select();
+  }, [renamingDay]);
 
   const routine = s.routines.find((r) => r.id === id);
+
+  // Mejores resultados por ejercicio. La firma de refs evita recalcularlos al
+  // escribir el nombre de la rutina (cada tecla re-renderiza el editor).
+  const refsKey = routine
+    ? routine.days
+        .flatMap((day) => day.exercises.map((ex) => `${ex.exerciseId ?? ''}|${ex.name}`))
+        .join('§')
+    : '';
+  const bestsByExercise = useMemo(() => {
+    const map = new Map<string, (PerformedSet | undefined)[]>();
+    if (!routine) return map;
+    for (const day of routine.days) {
+      for (const ex of day.exercises) {
+        map.set(
+          ex.id,
+          bestSetsForExercise(s.sessions, {
+            exerciseId: ex.exerciseId,
+            name: ex.name,
+          }),
+        );
+      }
+    }
+    return map;
+    // `refsKey` resume los vínculos/nombres que afectan a la búsqueda.
+  }, [s.sessions, refsKey]);
 
   if (!routine) {
     return (
@@ -94,6 +134,17 @@ export function RoutineEditor({ id }: { id: string }) {
   }
 
   const patch = (mutate: (draft: Routine) => void) => patchRoutine(id, mutate);
+
+  const updateDraft = (key: string, value: string) =>
+    setSetDrafts((drafts) => ({ ...drafts, [key]: value }));
+
+  const clearDraft = (key: string) =>
+    setSetDrafts((drafts) => {
+      if (!(key in drafts)) return drafts;
+      const next = { ...drafts };
+      delete next[key];
+      return next;
+    });
 
   // Modo de la serie seleccionada en la hoja "Tipo de serie".
   const currentMode: SetMode | null = modeTarget
@@ -165,10 +216,28 @@ export function RoutineEditor({ id }: { id: string }) {
     linkExercise(di, ei, ex);
   };
 
-  /** Al salir del campo: propaga nombre/grupo al catálogo y al resto de rutinas. */
+  /**
+   * Al salir del campo: si el nombre ya existe en el catálogo, vincula la
+   * entrada a ese ejercicio (no crea un duplicado ni renombra el otro); si no,
+   * propaga nombre/grupo al catálogo y al resto de rutinas.
+   */
   const commitExercise = (di: number, ei: number) => {
     const ex = routine.days[di]?.exercises[ei];
-    if (!ex?.exerciseId) return;
+    if (!ex) return;
+    const trimmed = ex.name.trim();
+    if (!trimmed) return;
+    const existing = findExercise(s.exercises, trimmed);
+    if (existing && existing.id !== ex.exerciseId) {
+      linkExercise(di, ei, existing);
+      return;
+    }
+    if (!ex.exerciseId) {
+      // Nombre escrito a mano que aún no está en el catálogo: se crea y se
+      // vincula al salir del campo, para que la sesión compare por id.
+      const created = ensureExercise(trimmed, ex.muscleGroup);
+      linkExercise(di, ei, created);
+      return;
+    }
     applyExerciseDefinition(ex.exerciseId, {
       name: ex.name,
       muscleGroup: ex.muscleGroup ?? '',
@@ -189,7 +258,8 @@ export function RoutineEditor({ id }: { id: string }) {
     patch((r) => swap(r.days[di].exercises, ei, dir));
 
   // ---- Series planeadas ----
-  const addPlannedSet = (di: number, ei: number) =>
+  const addPlannedSet = (di: number, ei: number) => {
+    setSetDrafts({});
     patch((r) => {
       const sets = r.days[di].exercises[ei].plannedSets;
       const last = sets[sets.length - 1];
@@ -200,6 +270,7 @@ export function RoutineEditor({ id }: { id: string }) {
         ...(last?.durationSec !== undefined ? { durationSec: last.durationSec } : {}),
       });
     });
+  };
 
   const setPlannedWeight = (di: number, ei: number, si: number, text: string) =>
     patch((r) => {
@@ -248,6 +319,7 @@ export function RoutineEditor({ id }: { id: string }) {
   const applyPlannedMode = (mode: SetMode) => {
     if (!modeTarget) return;
     const { day: di, ex: ei, set: si } = modeTarget;
+    setSetDrafts({});
     patch((r) => {
       const set = r.days[di]?.exercises[ei]?.plannedSets[si];
       if (!set) return;
@@ -265,10 +337,18 @@ export function RoutineEditor({ id }: { id: string }) {
     setModeTarget(null);
   };
 
-  const removePlannedSet = (di: number, ei: number, si: number) =>
+  const removePlannedSet = (di: number, ei: number, si: number) => {
+    setSetDrafts({});
     patch((r) => {
       r.days[di].exercises[ei].plannedSets.splice(si, 1);
     });
+  };
+
+  const movePlannedSet = (di: number, ei: number, si: number, dir: -1 | 1) => {
+    // Los borradores van indexados por posición: al reordenar dejan de valer.
+    setSetDrafts({});
+    patch((r) => swap(r.days[di].exercises[ei].plannedSets, si, dir));
+  };
 
   const openSetNote = (di: number, ei: number, si: number) => {
     setNoteText(routine.days[di]?.exercises[ei]?.plannedSets[si]?.note ?? '');
@@ -345,11 +425,7 @@ export function RoutineEditor({ id }: { id: string }) {
             {renamingDay === day.id ? (
               <input
                 class="input"
-                ref={(el) => {
-                  if (!el) return;
-                  el.focus();
-                  el.select();
-                }}
+                ref={dayNameInputRef}
                 placeholder="Nombre del día"
                 value={day.name}
                 aria-label={`Nombre del día ${di + 1}`}
@@ -418,10 +494,7 @@ export function RoutineEditor({ id }: { id: string }) {
 
           {day.exercises.map((ex, ei) => {
             // Mejores resultados de este ejercicio (para las pistas y el botón).
-            const bests = bestSetsForExercise(s.sessions, {
-              exerciseId: ex.exerciseId,
-              name: ex.name,
-            });
+            const bests = bestsByExercise.get(ex.id) ?? [];
             return (
             <div class="exercise-edit" key={ex.id}>
               <div class="exercise-edit-head">
@@ -472,7 +545,11 @@ export function RoutineEditor({ id }: { id: string }) {
               </div>
 
               <div class="planned-sets">
-                {ex.plannedSets.map((set, si) => (
+                {ex.plannedSets.map((set, si) => {
+                  const weightKey = `${ex.id}-${si}-w`;
+                  const repsKey = `${ex.id}-${si}-r`;
+                  const durKey = `${ex.id}-${si}-d`;
+                  return (
                   <div class="set-block" key={si}>
                   <div class="planned-set-row">
                     <span class="label">
@@ -490,10 +567,17 @@ export function RoutineEditor({ id }: { id: string }) {
                       <input
                         type="text"
                         inputMode="decimal"
-                        value={set.weight !== undefined ? String(set.weight) : ''}
+                        value={
+                          setDrafts[weightKey] ??
+                          (set.weight !== undefined ? fmtWeightInput(set.weight) : '')
+                        }
                         placeholder="peso"
                         aria-label={`Peso planeado de la serie ${si + 1}`}
-                        onChange={(e) => setPlannedWeight(di, ei, si, e.currentTarget.value)}
+                        onInput={(e) => {
+                          updateDraft(weightKey, e.currentTarget.value);
+                          setPlannedWeight(di, ei, si, e.currentTarget.value);
+                        }}
+                        onBlur={() => clearDraft(weightKey)}
                       />
                       <span class="num-suffix">{s.settings.unit}</span>
                     </label>
@@ -503,9 +587,13 @@ export function RoutineEditor({ id }: { id: string }) {
                         <input
                           type="text"
                           inputMode="numeric"
-                          value={String(set.durationSec)}
+                          value={setDrafts[durKey] ?? String(set.durationSec)}
                           aria-label={`Duración planeada de la serie ${si + 1} en segundos`}
-                          onChange={(e) => setPlannedDuration(di, ei, si, e.currentTarget.value)}
+                          onInput={(e) => {
+                            updateDraft(durKey, e.currentTarget.value);
+                            setPlannedDuration(di, ei, si, e.currentTarget.value);
+                          }}
+                          onBlur={() => clearDraft(durKey)}
                         />
                         <span class="num-suffix">s</span>
                       </label>
@@ -518,9 +606,13 @@ export function RoutineEditor({ id }: { id: string }) {
                               ? 'text'
                               : 'numeric'
                           }
-                          value={fmtReps(set.reps, set.repsMax)}
+                          value={setDrafts[repsKey] ?? fmtReps(set.reps, set.repsMax)}
                           aria-label={`Repeticiones planeadas de la serie ${si + 1}`}
-                          onChange={(e) => setPlannedReps(di, ei, si, e.currentTarget.value)}
+                          onInput={(e) => {
+                            updateDraft(repsKey, e.currentTarget.value);
+                            setPlannedReps(di, ei, si, e.currentTarget.value);
+                          }}
+                          onBlur={() => clearDraft(repsKey)}
                         />
                       </label>
                     )}
@@ -532,6 +624,24 @@ export function RoutineEditor({ id }: { id: string }) {
                     >
                       {set.note ? '✎' : '＋'}
                     </button>
+                    <span class="set-move">
+                      <button
+                        class="icon-btn set-move-btn"
+                        aria-label={`Subir serie ${si + 1}`}
+                        disabled={si === 0}
+                        onClick={() => movePlannedSet(di, ei, si, -1)}
+                      >
+                        ↑
+                      </button>
+                      <button
+                        class="icon-btn set-move-btn"
+                        aria-label={`Bajar serie ${si + 1}`}
+                        disabled={si === ex.plannedSets.length - 1}
+                        onClick={() => movePlannedSet(di, ei, si, 1)}
+                      >
+                        ↓
+                      </button>
+                    </span>
                     <button
                       class="icon-btn"
                       aria-label={`Eliminar serie ${si + 1}`}
@@ -544,7 +654,8 @@ export function RoutineEditor({ id }: { id: string }) {
                       <p class="hint best-hint">{bestHint(bests[si], s.settings.unit)}</p>
                     )}
                   </div>
-                ))}
+                    );
+                  })}
                 {ex.plannedSets.length === 0 && (
                   <p class="hint">Sin series planeadas (podrás apuntarlas al entrenar).</p>
                 )}

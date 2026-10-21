@@ -1060,6 +1060,19 @@
   background: var(--surface-3);
 }
 
+/* Reordenar series: dos botones compactos que no roban el ancho de la fila. */
+.planned-set-row .set-move {
+  display: flex;
+  align-items: center;
+}
+
+.planned-set-row .set-move .icon-btn {
+  width: 28px;
+  height: 28px;
+  margin-left: 0;
+  font-size: 0.8rem;
+}
+
 .planned-set-row .note-indicator {
   color: var(--accent-text);
   font-size: 0.85rem;

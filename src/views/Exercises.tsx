@@ -1,6 +1,6 @@
 // Pestaña Ejercicios: gestiona el catálogo con identidad estable (id).
 
-import { useState } from 'preact/hooks';
+import { useMemo, useState } from 'preact/hooks';
 import type { Exercise, PerformedSet } from '../models';
 import {
   applyExerciseDefinition,
@@ -19,8 +19,9 @@ import {
   metricSeries,
   progressSeries,
   type ProgressMetric,
+  type ProgressPoint,
 } from '../services/progression';
-import { fmtReps } from '../services/format';
+import { fmtReps, fmtWeight } from '../services/format';
 import { BottomSheet } from '../components/BottomSheet';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ProgressChart } from '../components/ProgressChart';
@@ -43,7 +44,7 @@ const METRIC_CAPTIONS: Record<ProgressMetric, string> = {
 
 /** Referencia más exigente de un ejercicio: `6 × 120 kg` o `45 s`. */
 function fmtBest(best: PerformedSet, unit: string): string {
-  const load = best.weight > 0 ? `${best.weight} ${unit}` : undefined;
+  const load = best.weight > 0 ? `${fmtWeight(best.weight)} ${unit}` : undefined;
   if (best.durationSec !== undefined) {
     return load ? `${load} × ${best.durationSec} s` : `${best.durationSec} s`;
   }
@@ -55,26 +56,40 @@ export function Exercises() {
   const s = useStore();
   const [query, setQuery] = useState('');
   const [edit, setEdit] = useState<EditState | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
   const [toDelete, setToDelete] = useState<Exercise | null>(null);
   const [openIds, setOpenIds] = useState<Set<string>>(new Set()); // ejercicios con gráfica abierta (independientes)
   const [metric, setMetric] = useState<ProgressMetric>('e1rm'); // métrica elegida (si hay datos)
+
+  // Récords y progresión de cada ejercicio: se recalculan solo al cambiar el
+  // historial o el catálogo, no con cada tecla del buscador.
+  const statsById = useMemo(() => {
+    const map = new Map<
+      string,
+      { best: PerformedSet | undefined; points: ProgressPoint[] }
+    >();
+    for (const ex of s.exercises) {
+      const ref = { exerciseId: ex.id, name: ex.name };
+      map.set(ex.id, {
+        best: bestOverallForExercise(s.sessions, ref),
+        points: progressSeries(s.sessions, ref),
+      });
+    }
+    return map;
+  }, [s.sessions, s.exercises]);
 
   const target = normalizeName(query);
   const list = s.exercises
     .filter((e) => target === '' || normalizeName(e.name).includes(target))
     .sort((a, b) => a.name.localeCompare(b.name, 'es'));
 
-  /** Nº de rutinas (sin archivar) que usan un ejercicio. */
+  /** Nº de rutinas (sin archivar) que usan un ejercicio (una vez por rutina). */
   const usage = (id: string) =>
-    s.routines.reduce(
-      (total, r) =>
-        total +
-        r.days.reduce(
-          (n, d) => n + d.exercises.filter((e) => e.exerciseId === id).length,
-          0,
-        ),
-      0,
-    );
+    s.routines.filter(
+      (routine) =>
+        !routine.archived &&
+        routine.days.some((day) => day.exercises.some((ex) => ex.exerciseId === id)),
+    ).length;
 
   const toggleOpen = (id: string) =>
     setOpenIds((prev) => {
@@ -89,14 +104,19 @@ export function Exercises() {
     const name = edit.name.trim();
     if (!name) return;
     if (edit.id) {
-      applyExerciseDefinition(edit.id, {
+      const applied = applyExerciseDefinition(edit.id, {
         name,
         muscleGroup: edit.muscleGroup,
       });
+      if (!applied) {
+        setEditError('Ya existe otro ejercicio con ese nombre. Elige uno distinto.');
+        return;
+      }
     } else {
       ensureExercise(name, edit.muscleGroup);
     }
     setEdit(null);
+    setEditError(null);
   };
 
   return (
@@ -108,7 +128,13 @@ export function Exercises() {
             {s.exercises.length} en el catálogo · identidad por id
           </span>
         </h1>
-        <button class="btn btn-primary" onClick={() => setEdit({ ...EMPTY })}>
+        <button
+          class="btn btn-primary"
+          onClick={() => {
+            setEditError(null);
+            setEdit({ ...EMPTY });
+          }}
+        >
           ＋ Nuevo
         </button>
       </header>
@@ -128,7 +154,13 @@ export function Exercises() {
             Se rellena solo cuando creas rutinas, o puedes añadir ejercicios a mano. Se usa
             para autocompletar y para comparar sesiones por igualdad de id.
           </p>
-          <button class="btn btn-primary" onClick={() => setEdit({ ...EMPTY })}>
+          <button
+            class="btn btn-primary"
+            onClick={() => {
+              setEditError(null);
+              setEdit({ ...EMPTY });
+            }}
+          >
             Crear ejercicio
           </button>
         </div>
@@ -141,9 +173,10 @@ export function Exercises() {
       ) : (
         <div style="margin-top:12px">
           {list.map((ex) => {
-            const ref = { exerciseId: ex.id, name: ex.name };
-            const best = bestOverallForExercise(s.sessions, ref);
-            const points = progressSeries(s.sessions, ref);
+            const usedBy = usage(ex.id);
+            const stat = statsById.get(ex.id);
+            const best = stat?.best;
+            const points = stat?.points ?? [];
             const metrics = availableMetrics(points);
             // Métrica elegida si este ejercicio tiene datos de ella; si no, la por defecto.
             const active = metrics.includes(metric) ? metric : defaultMetric(points);
@@ -175,8 +208,8 @@ export function Exercises() {
                 </button>
                 <div class="sub">
                   {ex.muscleGroup ? `${ex.muscleGroup} · ` : ''}
-                  {usage(ex.id) > 0
-                    ? `en ${usage(ex.id)} rutina${usage(ex.id) === 1 ? '' : 's'}`
+                  {usedBy > 0
+                    ? `en ${usedBy} rutina${usedBy === 1 ? '' : 's'}`
                     : 'sin usar en rutinas'}
                 </div>
                 {best !== undefined && (
@@ -191,13 +224,14 @@ export function Exercises() {
               <button
                 class="icon-btn"
                 aria-label={`Editar ${ex.name}`}
-                onClick={() =>
+                onClick={() => {
+                  setEditError(null);
                   setEdit({
                     id: ex.id,
                     name: ex.name,
                     muscleGroup: ex.muscleGroup ?? '',
-                  })
-                }
+                  });
+                }}
               >
                 ✎
               </button>
@@ -278,7 +312,10 @@ export function Exercises() {
 
       <BottomSheet
         open={edit !== null}
-        onClose={() => setEdit(null)}
+        onClose={() => {
+          setEdit(null);
+          setEditError(null);
+        }}
         title={edit?.id ? 'Editar ejercicio' : 'Nuevo ejercicio'}
       >
         <label class="field">
@@ -300,6 +337,7 @@ export function Exercises() {
             }
           />
         </label>
+        {editError && <div class="inline-msg is-error">{editError}</div>}
         <button class="btn btn-primary btn-block" onClick={save}>
           Guardar
         </button>

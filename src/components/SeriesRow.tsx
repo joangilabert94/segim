@@ -3,7 +3,14 @@
 
 import { useEffect, useState } from 'preact/hooks';
 import type { PerformedSet, PlannedSet, Unit } from '../models';
-import { fmtReps, fmtRelative, parseNumber, parseRepsFixed } from '../services/format';
+import {
+  fmtReps,
+  fmtRelative,
+  fmtWeight,
+  fmtWeightInput,
+  parseNumber,
+  parseRepsFixed,
+} from '../services/format';
 
 /** Texto de comparación de una serie: `60 × 4-6` o `— × 30 s` (cronometrada). */
 function fmtSetForCompare(
@@ -12,7 +19,7 @@ function fmtSetForCompare(
   repsMax?: number,
   durationSec?: number,
 ): string {
-  const w = weight !== undefined ? weight : '—';
+  const w = weight !== undefined ? fmtWeight(weight) : '—';
   return durationSec !== undefined
     ? `${w} × ${durationSec} s`
     : `${w} × ${fmtReps(reps, repsMax)}`;
@@ -40,16 +47,16 @@ export function SeriesRow({
   onPatch,
   onMenu,
 }: Props) {
-  const [weightText, setWeightText] = useState(String(performed.weight));
-  // La sugerencia puede ser un rango del plan (4-6): el campo lo muestra,
-  // pero solo admite teclear un número exacto (lo conseguido).
+  const [weightText, setWeightText] = useState(fmtWeightInput(performed.weight));
+  // La sugerencia normal es un número fijo. Solo datos antiguos pueden traer
+  // un rango (4-6); el campo lo muestra, pero al teclear se guarda fijo.
   const [repsText, setRepsText] = useState(fmtReps(performed.reps, performed.repsMax));
   const [durationText, setDurationText] = useState(String(performed.durationSec ?? 30));
 
   // Serie cronometrada: manda durationSec y se editan segundos en vez de reps.
   const timed = performed.durationSec !== undefined;
   // Sincroniza el texto si el valor cambia desde fuera (prefill, "copiar plan"...)
-  useEffect(() => setWeightText(String(performed.weight)), [performed.weight]);
+  useEffect(() => setWeightText(fmtWeightInput(performed.weight)), [performed.weight]);
   useEffect(
     () => setRepsText(fmtReps(performed.reps, performed.repsMax)),
     [performed.reps, performed.repsMax],
@@ -119,7 +126,7 @@ export function SeriesRow({
                 onChange={(e) => commitWeight(e.currentTarget.value)}
                 onBlur={(e) => {
                   const n = parseNumber(e.currentTarget.value);
-                  if (n === null) setWeightText(String(performed.weight));
+                  if (n === null) setWeightText(fmtWeightInput(performed.weight));
                   else commitWeight(e.currentTarget.value);
                 }}
               />

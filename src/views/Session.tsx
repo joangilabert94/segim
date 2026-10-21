@@ -18,6 +18,7 @@ import {
   matchesExercise,
   refOfEntry,
 } from '../services/previousSession';
+import { bestSetsForExercise } from '../services/bestResults';
 import { fmtDate, fmtRelative, todayISO } from '../services/format';
 import { doneSetsCount, setsCount } from '../services/stats';
 import { SeriesRow } from '../components/SeriesRow';
@@ -75,8 +76,11 @@ export function SessionView() {
   // Datos de comparación por entrada (ejercicio)
   const comparisons = session.entries.map((entry) => {
     const ref = refOfEntry(entry);
+    // Solo sesiones de esa fecha o anteriores: al reabrir una sesión antigua,
+    // el "anterior" no puede ser un entrenamiento posterior.
     const prevSession = findPreviousSession(s.sessions, ref, {
       excludeId: session.id,
+      maxDate: session.date,
     });
     const prevEntry = prevSession ? findEntry(prevSession, ref) : undefined;
     const plannedEx = day?.exercises.find((e) =>
@@ -106,7 +110,6 @@ export function SessionView() {
         reps: last?.reps ?? 10,
         done: false,
         extra: true,
-        ...(last?.repsMax !== undefined ? { repsMax: last.repsMax } : {}),
         ...(last?.durationSec !== undefined ? { durationSec: last.durationSec } : {}),
       });
     });
@@ -129,10 +132,10 @@ export function SessionView() {
       const target = entry.sets[si];
       if (!target) return;
       target.weight = planned.weight ?? target.weight;
-      // Copia la sugerencia del plan (rango incluido); al editarla se hará fija.
+      // El rango del plan se copia como número fijo (su mínimo): la serie
+      // realizada siempre registra las reps exactas conseguidas.
       target.reps = planned.reps;
-      if (planned.repsMax !== undefined) target.repsMax = planned.repsMax;
-      else delete target.repsMax;
+      delete target.repsMax;
       if (planned.durationSec !== undefined) target.durationSec = planned.durationSec;
       else delete target.durationSec;
     });
@@ -144,8 +147,7 @@ export function SessionView() {
       entry.sets.forEach((set) => {
         set.weight = source.weight;
         set.reps = source.reps;
-        if (source.repsMax !== undefined) set.repsMax = source.repsMax;
-        else delete set.repsMax;
+        delete set.repsMax;
         if (source.durationSec !== undefined) set.durationSec = source.durationSec;
         else delete set.durationSec;
       });
@@ -176,21 +178,24 @@ export function SessionView() {
         ? pickedExercise
         : ensureExercise(name);
     const ref = { exerciseId: known.id, name: known.name };
-    patchSession(session.id, (draft) => {
-      const prev = findPreviousSession(s.sessions, ref, {
-        excludeId: session.id,
+    // Sugerencia con el mejor resultado real (solo series hechas), igual que
+    // al empezar desde una rutina. Sin historial, el ejercicio entra sin series.
+    const best = bestSetsForExercise(s.sessions, ref, { maxDate: session.date });
+    const sets = best.reduce<PerformedSet[]>((acc, set) => {
+      if (!set) return acc;
+      acc.push({
+        weight: set.weight,
+        reps: set.reps,
+        done: false,
+        ...(set.durationSec !== undefined ? { durationSec: set.durationSec } : {}),
       });
-      const prevEntry = prev ? findEntry(prev, ref) : undefined;
+      return acc;
+    }, []);
+    patchSession(session.id, (draft) => {
       draft.entries.push({
         exerciseId: known.id,
         exerciseName: known.name,
-        sets: (prevEntry?.sets ?? []).map((set) => ({
-          weight: set.weight,
-          reps: set.reps,
-          done: false,
-          ...(set.repsMax !== undefined ? { repsMax: set.repsMax } : {}),
-          ...(set.durationSec !== undefined ? { durationSec: set.durationSec } : {}),
-        })),
+        sets,
       });
     });
     setExerciseName('');
@@ -320,19 +325,25 @@ export function SessionView() {
             {entry.note && <div class="exercise-note">✎ {entry.note}</div>}
 
             <div class="series-list">
-              {entry.sets.map((set, si) => (
+              {entry.sets.map((set, si) => {
+                // Una serie sin marcar en la sesión anterior no es un resultado:
+                // no se muestra como "Anterior" ni se usa como referencia.
+                const prevSet = prevEntry?.sets[si];
+                const previousSet = prevSet?.done ? prevSet : undefined;
+                return (
                 <SeriesRow
                   key={si}
                   index={si}
                   unit={s.settings.unit}
                   performed={set}
                   planned={plannedEx?.plannedSets[si]}
-                  previousSet={prevEntry?.sets[si]}
-                  previousDate={prevEntry ? prevSession?.date : undefined}
+                  previousSet={previousSet}
+                  previousDate={previousSet ? prevSession?.date : undefined}
                   onPatch={(patch) => patchSet(ei, si, patch)}
                   onMenu={() => setSheet({ kind: 'serie', entry: ei, set: si })}
                 />
-              ))}
+                );
+              })}
             </div>
 
             <div class="exercise-foot">

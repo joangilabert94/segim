@@ -25,3 +25,13 @@ loadState().then(() => {
 if ('serviceWorker' in navigator) {
   registerSW({ immediate: true });
 }
+
+// Pide almacenamiento persistente: sin esto el navegador puede desalojar
+// IndexedDB si el dispositivo se queda sin espacio. No es bloqueante.
+const storage = navigator.storage;
+if (storage && typeof storage.persist === 'function') {
+  storage
+    .persisted()
+    .then((persisted) => (persisted ? true : storage.persist()))
+    .catch(() => undefined);
+}

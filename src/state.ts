@@ -2,11 +2,19 @@
 // Patrón mínimo: estado único, suscriptores y acciones que mutan y guardan.
 
 import { useEffect, useState } from 'preact/hooks';
-import type { Exercise, Routine, RoutineDay, Session, Settings } from './models';
-import { DEFAULT_SETTINGS, newId } from './models';
+import type { Exercise, Routine, RoutineDay, Session, Settings, Unit } from './models';
+import { DEFAULT_SETTINGS, deepClone, newId } from './models';
 import * as db from './db/idb';
 import { buildFreeSession, buildSessionFromDay } from './services/session';
-import { pickOrCreateExercise, seedCatalogFromRoutines, linkRoutinesToCatalog } from './services/catalog';
+import {
+  mergeDuplicateExercises,
+  pickOrCreateExercise,
+  seedCatalogFromRoutines,
+  linkRoutinesToCatalog,
+  repairExerciseLinks,
+} from './services/catalog';
+import { normalizeName } from './services/previousSession';
+import { convertRoutines, convertSessions } from './services/units';
 import { applyTheme } from './theme';
 import { buildRoutinesFile, downloadRoutinesFile, mergeRoutines, parseRoutinesFile } from './services/share';
 
@@ -16,6 +24,8 @@ export interface AppState {
   sessions: Session[]; // ordenadas por fecha descendente
   settings: Settings;
   loaded: boolean;
+  /** Aviso visible si IndexedDB no se pudo leer (datos dañados o bloqueados). */
+  loadError?: string;
 }
 
 let state: AppState = {
@@ -77,24 +87,43 @@ export async function loadState(): Promise<void> {
     ]);
     // Datos antiguos sin catálogo: lo sembramos desde las rutinas y
     // vinculamos los ejercicios existentes por id.
-    const catalog = seedCatalogFromRoutines(exercises, rawRoutines);
+    const seeded = seedCatalogFromRoutines(exercises, rawRoutines);
+    // Une entradas duplicadas por nombre antes de reparar vínculos: así las
+    // rutinas y sesiones que apuntaban a cualquiera de ellas convergen en una.
+    const deduped = mergeDuplicateExercises(seeded);
+    const catalog = deduped.exercises;
     const linked = linkRoutinesToCatalog(rawRoutines, catalog);
-    if (catalog !== exercises) {
+    // Repara ids huérfanos (ejercicios borrados o fusionados) y enlaza por
+    // nombre las sesiones antiguas: evita que el historial quede desconectado.
+    const repaired = repairExerciseLinks(linked.routines, sessions, catalog);
+    if (catalog !== exercises || deduped.changed) {
       db.saveExercises(catalog).catch((e) => logError('guardar el catálogo', e));
     }
-    if (linked.changed) {
-      db.saveRoutines(linked.routines).catch((e) => logError('guardar las rutinas', e));
+    if (linked.changed || repaired.changedRoutines) {
+      db.saveRoutines(repaired.routines).catch((e) => logError('guardar las rutinas', e));
+    }
+    for (const sessionId of repaired.changedSessionIds) {
+      const changed = repaired.sessions.find((s) => s.id === sessionId);
+      if (changed) {
+        db.saveSession(changed).catch((e) => logError('guardar la sesión', e));
+      }
     }
     setState({
-      routines: linked.routines,
+      routines: repaired.routines,
       exercises: catalog,
-      sessions: sortSessions(sessions),
+      sessions: sortSessions(repaired.sessions),
       settings,
       loaded: true,
     });
   } catch (err) {
     logError('cargar los datos', err);
-    setState({ loaded: true });
+    // No ocultar el problema: la app sigue usable, pero avisa de que el estado
+    // mostrado está vacío y de que conviene importar una copia desde Ajustes.
+    setState({
+      loaded: true,
+      loadError:
+        'No se pudieron leer los datos guardados en este dispositivo. Importa una copia desde Ajustes o borra los datos para empezar de cero.',
+    });
   }
 }
 
@@ -139,7 +168,7 @@ export function upsertRoutine(routine: Routine): void {
 export function patchRoutine(id: string, mutate: (draft: Routine) => void): Routine | undefined {
   const current = getRoutine(id);
   if (!current) return undefined;
-  const draft = structuredClone(current);
+  const draft = deepClone(current);
   mutate(draft);
   draft.updatedAt = new Date().toISOString();
   upsertRoutine(draft);
@@ -186,14 +215,25 @@ export function ensureExercise(name: string, muscleGroup?: string): Exercise {
 /**
  * Renombra / reagrupa un ejercicio en el catálogo y en TODAS las rutinas
  * que lo referencian (las sesiones históricas conservan su nombre de origen).
+ * Devuelve `false` si el nombre ya pertenece a otro ejercicio del catálogo:
+ * permitirlo partiría la identidad en dos entradas con el mismo nombre.
  */
 export function applyExerciseDefinition(
   id: string,
   patch: { name?: string; muscleGroup?: string },
-): void {
+): boolean {
   const name = patch.name?.trim() || undefined;
   const muscleChanged = patch.muscleGroup !== undefined;
   const muscle = patch.muscleGroup?.trim() || undefined;
+
+  if (
+    name &&
+    state.exercises.some(
+      (ex) => ex.id !== id && normalizeName(ex.name) === normalizeName(name),
+    )
+  ) {
+    return false;
+  }
 
   const apply = <T extends { exerciseId?: string; name: string; muscleGroup?: string }>(item: T): T => {
     if (item.exerciseId !== id) return item;
@@ -226,12 +266,30 @@ export function applyExerciseDefinition(
   });
   persistExercises();
   persistRoutines();
+  return true;
 }
 
-/** Quita un ejercicio del catálogo (las rutinas y sesiones conservan sus copias). */
+/**
+ * Quita un ejercicio del catálogo. Las rutinas y sesiones conservan su nombre y
+ * sus series, pero pierden el vínculo al id borrado (se reparan por nombre), de
+ * modo que una sesión nueva no herede un id inexistente.
+ */
 export function deleteExerciseFromCatalog(id: string): void {
-  setState({ exercises: state.exercises.filter((e) => e.id !== id) });
+  const exercises = state.exercises.filter((e) => e.id !== id);
+  const repaired = repairExerciseLinks(state.routines, state.sessions, exercises);
+  setState({
+    exercises,
+    routines: repaired.routines,
+    sessions: repaired.sessions,
+  });
   persistExercises();
+  if (repaired.changedRoutines) persistRoutines();
+  for (const sessionId of repaired.changedSessionIds) {
+    const changed = repaired.sessions.find((s) => s.id === sessionId);
+    if (changed) {
+      db.saveSession(changed).catch((e) => logError('guardar la sesión', e));
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -242,6 +300,24 @@ export function updateSettings(patch: Partial<Settings>): void {
   const settings = { ...state.settings, ...patch };
   setState({ settings });
   db.saveSettings(settings).catch((e) => logError('guardar los ajustes', e));
+}
+
+/**
+ * Cambia la unidad convirtiendo todos los pesos guardados (kg ↔ lb).
+ * No se usa `updateSettings` porque hay que reescribir rutinas y sesiones:
+ * los números no llevan unidad y limitarse a cambiar la etiqueta haría que
+ * 60 kg se mostrara como 60 lb.
+ */
+export function setUnit(unit: Unit): void {
+  if (unit === state.settings.unit) return;
+  const from = state.settings.unit;
+  const routines = convertRoutines(state.routines, from, unit);
+  const sessions = convertSessions(state.sessions, from, unit);
+  const settings = { ...state.settings, unit };
+  setState({ routines, sessions, settings });
+  persistRoutines();
+  db.saveSettings(settings).catch((e) => logError('guardar los ajustes', e));
+  sessions.forEach(persistSession);
 }
 
 // ---------------------------------------------------------------------------
@@ -266,7 +342,7 @@ export function currentSession(): Session | undefined {
 export function patchSession(id: string, mutate: (draft: Session) => void): Session | undefined {
   const current = getSession(id);
   if (!current) return undefined;
-  const draft = structuredClone(current);
+  const draft = deepClone(current);
   mutate(draft);
   const next = state.sessions.map((s) => (s.id === id ? draft : s));
   setState({ sessions: next });
@@ -380,12 +456,15 @@ export function replaceAll(data: {
   sessions: Session[];
   settings: Settings;
 }): void {
-  const exercises = data.exercises ?? [];
+  const deduped = mergeDuplicateExercises(data.exercises ?? []);
+  const routines = data.routines;
+  const repaired = repairExerciseLinks(routines, data.sessions, deduped.exercises);
   setState({
-    routines: data.routines,
-    exercises,
-    sessions: sortSessions(data.sessions),
+    routines: repaired.routines,
+    exercises: deduped.exercises,
+    sessions: sortSessions(repaired.sessions),
     settings: { ...DEFAULT_SETTINGS, ...data.settings },
+    loadError: undefined,
   });
   persistRoutines();
   db.saveSettings(state.settings).catch((e) => logError('guardar los ajustes', e));
@@ -402,6 +481,12 @@ export function replaceAll(data: {
 }
 
 export function clearAllData(): void {
-  setState({ routines: [], exercises: [], sessions: [], settings: DEFAULT_SETTINGS });
+  setState({
+    routines: [],
+    exercises: [],
+    sessions: [],
+    settings: DEFAULT_SETTINGS,
+    loadError: undefined,
+  });
   db.clearAll().catch((e) => logError('borrar los datos', e));
 }
