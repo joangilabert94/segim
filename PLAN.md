@@ -2,10 +2,11 @@
 
 > Documento vivo. Cada cambio acordado se refleja aquí antes de tocar código.
 >
-> **Estado (2 oct 2026): fases 0–4 completadas + catálogo de ejercicios.** v1 implementada
-> y verificada: `npm run typecheck` ✓ · `npm test` (27 tests) ✓ · `npm run build` ✓
-> (19,6 kB JS + 4,1 kB CSS gzip, PWA offline instalable). Pendiente solo el despliegue
-> real en GitHub Pages (workflow listo) y la fase 2 (Google Drive).
+> **Estado (21 oct 2026): v0.6.1.** fases 0–4 completadas, catálogo de ejercicios,
+> revisión de robustez y correcciones de la auditoría. Verificada:
+> `npm run typecheck` ✓ · `npm test` (142 tests) ✓ · `npm run build` ✓
+> (31,6 kB JS + 5,4 kB CSS gzip, PWA offline instalable). El despliegue va por
+> etiqueta de versión (`v0.6.1`); pendiente solo la fase 2 (Google Drive).
 
 ## 1. Objetivo
 
@@ -253,7 +254,8 @@ Fase 2 futura (no incluida): sincronización opcional con Google Drive — `db` 
 
 - **Identidad de ejercicios**: resuelta con **catálogo + `exerciseId` estable** (fase «catálogo").
   Los datos antiguos sin id siguen funcionando por nombre normalizado hasta que se editen
-  (o hasta el sembrado/vinculado automático en la primera carga).
+  (o hasta el sembrado/vinculado automático en la primera carga). Al cargar o importar una
+  copia se fusionan los duplicados por nombre y se reparan los vínculos de rutinas y sesiones.
 - **Mapeo por índice serie↔serie**: es lo más simple y predecible; si cambia el nº de series entre semanas se marca qué series no tienen previos.
 - **Edición de sesiones pasadas**: permitida desde el historial (reabrir la sesión); la comparación usa la última sesión *completada* anterior.
 - **IndexedDB vs localStorage**: IndexedDB por el volumen de sesiones con series y notas (límite ~5 MB en localStorage).
