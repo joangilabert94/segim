@@ -20,11 +20,16 @@ export function buildSessionFromDay(
   sessions: Session[],
   catalog: Exercise[] = [],
 ): Session {
+  const date = todayISO();
   const entries: SessionEntry[] = day.exercises.map((ex) => {
     // Vínculo estable: el id de la rutina o el del catálogo por nombre
     const exerciseId =
       ex.exerciseId ?? findExercise(catalog, ex.name)?.id;
-    const best = bestSetsForExercise(sessions, { exerciseId, name: ex.name });
+    const best = bestSetsForExercise(
+      sessions,
+      { exerciseId, name: ex.name },
+      { maxDate: date },
+    );
     return {
       exerciseId,
       exerciseName: ex.name,
@@ -34,7 +39,7 @@ export function buildSessionFromDay(
 
   return {
     id: newId(),
-    date: todayISO(),
+    date,
     routineId: routine.id,
     dayId: day.id,
     dayName: day.name,

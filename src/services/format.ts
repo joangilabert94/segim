@@ -8,6 +8,14 @@ const fmtLong = new Intl.DateTimeFormat('es-ES', {
 });
 const fmtMonthYear = new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' });
 const fmtWeekdayShort = new Intl.DateTimeFormat('es-ES', { weekday: 'short' });
+// Dos decimales: hay discos de 1,25 kg y el peso no debe redondearse al mostrarse.
+const fmtWeightText = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 2 });
+// Sin separador de miles: se usa dentro de inputs editables, donde "1.234,5"
+// no se podría volver a interpretar con parseNumber.
+const fmtWeightPlain = new Intl.NumberFormat('es-ES', {
+  maximumFractionDigits: 2,
+  useGrouping: false,
+});
 
 /** Fecha local de hoy en formato YYYY-MM-DD. */
 export function todayISO(date: Date = new Date()): string {
@@ -55,7 +63,11 @@ export function fmtWeekday(iso: string): string {
 /** Fecha relativa: hoy / ayer / hace N días / hace N semanas / semana pasada. */
 export function fmtRelative(iso: string, from: string = todayISO()): string {
   const diff = daysBetween(iso, from);
-  if (diff <= 0) return 'hoy';
+  if (diff < 0) {
+    const days = -diff;
+    return days === 1 ? 'mañana' : `en ${days} días`;
+  }
+  if (diff === 0) return 'hoy';
   if (diff === 1) return 'ayer';
   if (diff >= 5 && diff <= 9) return 'semana pasada';
   if (diff < 14) return `hace ${diff} días`;
@@ -67,6 +79,16 @@ export function fmtRelative(iso: string, from: string = todayISO()): string {
 export function fmtVolume(value: number, unit: string): string {
   const rounded = Math.round(value);
   return `${rounded.toLocaleString('es-ES')} ${unit}`;
+}
+
+/** Peso para mostrar: 60 → "60", 60.5 → "60,5". */
+export function fmtWeight(value: number): string {
+  return fmtWeightText.format(value);
+}
+
+/** Peso para un input editable: sin separador de miles (60,5). */
+export function fmtWeightInput(value: number): string {
+  return fmtWeightPlain.format(value);
 }
 
 /** Duración en segundos → "1:30" / "12:05" / "1:02:03" */
@@ -132,6 +154,14 @@ export function parseRepsFixed(text: string): number | null {
   const n = parseNumber(text);
   if (n === null || n < 0) return null;
   return Math.round(n);
+}
+
+/**
+ * Cantidad + sustantivo concordados: `plural(1, 'serie', 'series')` → "1 serie".
+ * Evita los "1 series" y "1 rutinas" en contadores y mensajes.
+ */
+export function plural(n: number, one: string, many: string): string {
+  return `${n} ${n === 1 ? one : many}`;
 }
 
 /** Reps en pantalla: `10` o `4-6` (el rango solo si aporta información). */

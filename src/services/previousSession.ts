@@ -33,36 +33,52 @@ export function refOfEntry(entry: SessionEntry): ExerciseRef {
 const toRef = (ref: string | ExerciseRef): ExerciseRef =>
   typeof ref === 'string' ? { name: ref } : ref;
 
-/** Entrada de la sesión correspondiente a un ejercicio. */
+/**
+ * Entrada de la sesión correspondiente a un ejercicio. Si el mismo ejercicio
+ * aparece varias veces en la sesión (dos bloques del mismo movimiento), se
+ * devuelve una entrada combinada con todas sus series: así los récords y la
+ * progresión no ignoran los bloques a partir del segundo.
+ */
 export function findEntry(
   session: Session,
   ref: string | ExerciseRef,
 ): SessionEntry | undefined {
   const target = toRef(ref);
-  return session.entries.find((e) => matchesExercise(refOfEntry(e), target));
+  const matches = session.entries.filter((e) => matchesExercise(refOfEntry(e), target));
+  if (matches.length === 0) return undefined;
+  if (matches.length === 1) return matches[0];
+  return {
+    exerciseId: matches[0].exerciseId,
+    exerciseName: matches[0].exerciseName,
+    sets: matches.flatMap((e) => e.sets),
+  };
 }
 
 /**
- * Última sesión COMPLETADA (distinta de `excludeId`, y anterior a `beforeDate`
- * si se indica) que contenga el ejercicio dado.
- * `sessions` debe estar ordenadas por fecha descendente (lo está en el estado).
+ * Última sesión COMPLETADA con el ejercicio y con al menos una serie hecha.
+ * `excludeId` descarta la propia sesión; `beforeDate` exige fecha estrictamente
+ * anterior y `maxDate` fecha igual o anterior (útil al reabrir una sesión: su
+ * "anterior" nunca debe ser una sesión posterior del historial).
+ * `sessions` debe estar ordenada por fecha descendente (lo está en el estado).
  */
 export function findPreviousSession(
   sessions: Session[],
   ref: string | ExerciseRef,
-  options: { beforeDate?: string; excludeId?: string } = {},
+  options: { beforeDate?: string; maxDate?: string; excludeId?: string } = {},
 ): Session | undefined {
   const target = toRef(ref);
-  const { beforeDate, excludeId } = options;
+  const { beforeDate, maxDate, excludeId } = options;
   const candidates = sessions
     .filter(
       (s) =>
         s.status === 'completed' &&
         s.id !== excludeId &&
-        (beforeDate === undefined || s.date < beforeDate),
+        (beforeDate === undefined || s.date < beforeDate) &&
+        (maxDate === undefined || s.date <= maxDate),
     )
     .sort((a, b) => b.date.localeCompare(a.date));
-  return candidates.find((s) =>
-    s.entries.some((e) => e.sets.length > 0 && matchesExercise(refOfEntry(e), target)),
-  );
+  return candidates.find((s) => {
+    const entry = findEntry(s, target);
+    return entry !== undefined && entry.sets.some((set) => set.done);
+  });
 }

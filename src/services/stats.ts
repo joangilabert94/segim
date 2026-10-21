@@ -6,7 +6,8 @@ import { daysBetween, todayISO } from './format';
 /**
  * Volumen de una sesión: Σ peso × reps de las series marcadas como hechas.
  * Las series cronometradas (durationSec) no aportan volumen: no tienen reps.
- * En un rango (4-6) se cuenta el extremo alto: es el máximo posible hecho.
+ * En datos antiguos con rango (4-6) se cuenta el extremo alto; las sesiones
+ * nuevas ya no guardan rangos: registran un número fijo de reps.
  */
 export function volumeOf(session: Session): number {
   let total = 0;
@@ -33,10 +34,11 @@ export function doneSetsCount(session: Session): number {
   );
 }
 
-/** Sesiones completadas de los últimos `days` días (incluye hoy). */
+/** Sesiones completadas de los últimos `days` días naturales (incluye hoy). */
 export function sessionsInLast(sessions: Session[], days: number): Session[] {
   const from = new Date();
-  from.setDate(from.getDate() - days);
+  // Hoy cuenta como día 1: "30 días" debe abarcar exactamente 30 fechas, no 31.
+  from.setDate(from.getDate() - (days - 1));
   const fromISO = todayISO(from);
   return sessions.filter((s) => s.status === 'completed' && s.date >= fromISO);
 }

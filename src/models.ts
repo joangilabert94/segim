@@ -121,6 +121,15 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: 'auto',
 };
 
+/**
+ * Copia profunda de datos planos. `structuredClone` no existe en navegadores
+ * antiguos (iOS < 15.4); el fallback JSON cubre los tipos que guarda la app.
+ */
+export function deepClone<T>(value: T): T {
+  if (typeof structuredClone === 'function') return structuredClone(value);
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
 /** Identificador único (uuid cuando está disponible). */
 export function newId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {

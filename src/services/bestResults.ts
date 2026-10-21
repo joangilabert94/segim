@@ -21,16 +21,27 @@ function atLeastAsDemanding(a: PerformedSet, b: PerformedSet): boolean {
  * El mejor resultado de cada índice de serie de un ejercicio en todo el
  * historial (sesiones completadas). Índice i = serie i+1; si una serie no
  * existió en alguna sesión, no aporta.
+ *
+ * Solo cuentan las series marcadas como hechas: una serie sin marcar es una
+ * sugerencia del plan o algo que se dejó a medias, nunca un resultado real.
+ * Se conserva el índice original (incluidas las no hechas como huecos) para
+ * que la serie i siga emparejándose con la serie i de la sesión nueva.
+ * `maxDate` limita el historial a sesiones de esa fecha o anteriores (al
+ * reabrir una sesión antigua no deben usarse resultados posteriores).
  */
 export function bestSetsForExercise(
   sessions: Session[],
   ref: ExerciseRef,
+  options: { maxDate?: string } = {},
 ): (PerformedSet | undefined)[] {
-  const lists: PerformedSet[][] = [];
+  const { maxDate } = options;
+  const lists: (PerformedSet | undefined)[][] = [];
   for (const session of sessions) {
     if (session.status !== 'completed') continue;
+    if (maxDate !== undefined && session.date > maxDate) continue;
     const entry = findEntry(session, ref);
-    if (entry && entry.sets.length > 0) lists.push(entry.sets);
+    if (!entry || entry.sets.length === 0) continue;
+    lists.push(entry.sets.map((set) => (set.done ? set : undefined)));
   }
   let size = 0;
   for (const list of lists) size = Math.max(size, list.length);
@@ -63,6 +74,7 @@ export function bestOverallForExercise(
     const entry = findEntry(session, ref);
     if (!entry) continue;
     for (const set of entry.sets) {
+      if (!set.done) continue;
       if (best === undefined || atLeastAsDemanding(set, best)) best = set;
     }
   }

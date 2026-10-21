@@ -2,7 +2,7 @@
 // sin dependencias ni medición del DOM (viewBox escalable).
 // El padre elige la métrica y valida que tenga datos; aquí solo se pinta.
 
-import { fmtDate, fmtDuration } from '../services/format';
+import { fmtDate, fmtDuration, plural } from '../services/format';
 import {
   fmtMetricValue,
   metricSeries,
@@ -59,7 +59,7 @@ export function ProgressChart({ points, metric, unit, label }: Props) {
   const aria =
     n === 1
       ? `${label}: ${metric} ${fmtMetricValue(first.value, metric, unit)} el ${fmtDate(first.date)}`
-      : `${label}: de ${fmtMetricValue(first.value, metric, unit)} el ${fmtDate(first.date)} a ${fmtMetricValue(last.value, metric, unit)} el ${fmtDate(last.date)}, en ${n} sesiones`;
+      : `${label}: de ${fmtMetricValue(first.value, metric, unit)} el ${fmtDate(first.date)} a ${fmtMetricValue(last.value, metric, unit)} el ${fmtDate(last.date)}, en ${plural(n, 'sesión', 'sesiones')}`;
 
   return (
     <svg

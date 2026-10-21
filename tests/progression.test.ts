@@ -4,6 +4,7 @@ import {
   availableMetrics,
   defaultMetric,
   e1rmOf,
+  fmtMetricValue,
   metricSeries,
   progressSeries,
 } from '../src/services/progression';
@@ -159,6 +160,18 @@ describe('progressSeries', () => {
       REF,
     );
     expect(points.map((p) => p.date)).toEqual(['2026-10-10']);
+  });
+});
+
+describe('fmtMetricValue', () => {
+  it('usa coma decimal y la unidad', () => {
+    expect(fmtMetricValue(133.33, 'e1rm', 'kg')).toBe('133,3 kg');
+    expect(fmtMetricValue(120, 'weight', 'lb')).toBe('120 lb');
+  });
+
+  it('tiempo y reps sin decimales', () => {
+    expect(fmtMetricValue(90, 'duration', 'kg')).toBe('1:30');
+    expect(fmtMetricValue(12, 'reps', 'kg')).toBe('12');
   });
 });
 

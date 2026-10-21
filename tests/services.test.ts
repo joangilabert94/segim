@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Routine, Session } from '../src/models';
+import { deepClone } from '../src/models';
 import { findEntry, findPreviousSession, normalizeName } from '../src/services/previousSession';
 import { prefillFromBest } from '../src/services/prefill';
 import { buildSessionFromDay } from '../src/services/session';
@@ -10,8 +11,17 @@ import {
 } from '../src/services/bestResults';
 import { cloneRoutine } from '../src/services/cloneRoutine';
 import { suggestDay } from '../src/services/suggestDay';
-import { streak, volumeOf } from '../src/services/stats';
-import { fmtReps, parseRepsFixed, parseRepsRange } from '../src/services/format';
+import { sessionsInLast, streak, volumeOf } from '../src/services/stats';
+import {
+  fmtRelative,
+  fmtReps,
+  fmtWeight,
+  fmtWeightInput,
+  parseRepsFixed,
+  parseRepsRange,
+  plural,
+  todayISO,
+} from '../src/services/format';
 
 // ---- Fixtures ----
 
@@ -55,6 +65,28 @@ function makeRoutine(): Routine {
 }
 
 // ---- Tests ----
+
+describe('deepClone', () => {
+  it('no comparte referencias con el original', () => {
+    const original = { days: [{ exercises: [{ sets: [1, 2] }] }] };
+    const copy = deepClone(original);
+    copy.days[0].exercises[0].sets.push(3);
+    expect(original.days[0].exercises[0].sets).toEqual([1, 2]);
+  });
+
+  it('funciona sin structuredClone (navegadores antiguos)', () => {
+    vi.stubGlobal('structuredClone', undefined);
+    const original = { a: [1, 2], b: { c: 'x' } };
+    const copy = deepClone(original);
+    expect(copy).toEqual(original);
+    copy.a.push(3);
+    expect(original.a).toEqual([1, 2]);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+});
 
 describe('normalizeName', () => {
   it('normaliza mayúsculas, acentos y espacios', () => {
@@ -118,6 +150,84 @@ describe('findPreviousSession', () => {
   });
 });
 
+describe('auditoría: solo cuentan las series marcadas como hechas', () => {
+  const skipped = makeSession({
+    id: 'skipped',
+    date: '2026-10-15', // la más reciente, pero no se hizo nada
+    entries: [
+      {
+        exerciseId: 'ex',
+        exerciseName: 'Press banca',
+        sets: [
+          { weight: 200, reps: 1, done: false },
+          { weight: 200, reps: 1, done: false },
+        ],
+      },
+    ],
+  });
+  const real = makeSession({
+    id: 'real',
+    date: '2026-10-01',
+    entries: [
+      {
+        exerciseId: 'ex',
+        exerciseName: 'Press banca',
+        sets: [
+          { weight: 100, reps: 8, done: true },
+          { weight: 100, reps: 7, done: true },
+        ],
+      },
+    ],
+  });
+  const ref = { exerciseId: 'ex', name: 'Press banca' };
+
+  it('el récord global ignora las series sin marcar', () => {
+    expect(bestOverallForExercise([skipped, real], ref)).toMatchObject({
+      weight: 100,
+      reps: 8,
+      done: true,
+    });
+  });
+
+  it('el mejor por serie conserva el índice y descarta las no hechas', () => {
+    const best = bestSetsForExercise([skipped, real], ref);
+    expect(best.map((b) => b && [b.weight, b.reps])).toEqual([
+      [100, 8],
+      [100, 7],
+    ]);
+  });
+
+  it('la sugerencia de una sesión nueva no usa series no hechas', () => {
+    const best = bestSetsForExercise([skipped, real], ref);
+    expect(prefillFromBest([{ weight: 60, reps: 8 }], best)[0]).toMatchObject({ weight: 100 });
+  });
+
+  it('la "sesión anterior" ignora una sesión donde no se hizo el ejercicio', () => {
+    expect(findPreviousSession([skipped, real], ref)?.id).toBe('real');
+  });
+
+  it('maxDate no deja comparar con sesiones posteriores', () => {
+    expect(
+      findPreviousSession([skipped, real], ref, { maxDate: '2026-10-02' })?.id,
+    ).toBe('real');
+    expect(
+      bestSetsForExercise([skipped, real], ref, { maxDate: '2026-10-02' })[0]?.weight,
+    ).toBe(100);
+  });
+
+  it('findEntry combina dos bloques del mismo ejercicio en la sesión', () => {
+    const twice = makeSession({
+      id: 'twice',
+      entries: [
+        { exerciseId: 'ex', exerciseName: 'Press banca', sets: [{ weight: 60, reps: 10, done: true }] },
+        { exerciseId: 'ex', exerciseName: 'Press banca', sets: [{ weight: 120, reps: 3, done: true }] },
+      ],
+    });
+    expect(findEntry(twice, ref)?.sets).toHaveLength(2);
+    expect(bestOverallForExercise([twice], ref)?.weight).toBe(120);
+  });
+});
+
 describe('prefillFromBest — sugerencia de la sesión', () => {
   it('cada campo toma el mayor entre el plan y el mejor resultado', () => {
     const planned = [
@@ -174,7 +284,7 @@ describe('prefillFromBest — sugerencia de la sesión', () => {
     expect(result[0]).toEqual({ weight: 0, reps: 0, done: false, durationSec: 30 });
   });
 
-  it('el rango del plan se conserva como sugerencia si el mejor está dentro', () => {
+  it('un rango en el plan llega a la sesión como número fijo: el mínimo', () => {
     const planned = [
       { weight: 0, reps: 4, repsMax: 6 },
       { reps: 10 },
@@ -184,22 +294,24 @@ describe('prefillFromBest — sugerencia de la sesión', () => {
       { weight: 40, reps: 12, done: true },
     ];
     const result = prefillFromBest(planned, best);
-    expect(result[0]).toEqual({ weight: 0, reps: 4, repsMax: 6, done: false });
+    expect(result[0]).toEqual({ weight: 0, reps: 4, done: false });
+    expect(result[0].repsMax).toBeUndefined(); // la sesión nunca guarda rangos
     expect(result[1].reps).toBe(12); // reps fijas: el mayor
     expect(result[1].repsMax).toBeUndefined();
   });
 
-  it('sin resultados, la sesión sugiere el rango del plan (4-6)', () => {
+  it('sin resultados, la sesión sugiere el mínimo del rango del plan (4)', () => {
     const result = prefillFromBest([{ weight: 0, reps: 4, repsMax: 6 }], undefined);
-    expect(result[0]).toEqual({ weight: 0, reps: 4, repsMax: 6, done: false });
+    expect(result[0]).toEqual({ weight: 0, reps: 4, done: false });
+    expect(result[0].repsMax).toBeUndefined();
   });
 
-  it('un rango antiguo en la historia no influye si está dentro del plan', () => {
+  it('un rango antiguo en la historia no introduce un rango en la sesión', () => {
     const result = prefillFromBest(
       [{ weight: 0, reps: 4, repsMax: 6 }],
       [{ weight: 0, reps: 5, repsMax: 7, done: true }],
     );
-    expect(result[0]).toEqual({ weight: 0, reps: 4, repsMax: 6, done: false });
+    expect(result[0]).toEqual({ weight: 0, reps: 4, done: false });
   });
 
   it('un mejor por fuera del rango (10) hace fija la sugerencia', () => {
@@ -211,25 +323,25 @@ describe('prefillFromBest — sugerencia de la sesión', () => {
     expect(result[0].repsMax).toBeUndefined();
   });
 
-  it('al subir de peso se mantiene el rango (4-6 a 120 kg)', () => {
+  it('al subir de peso se sugiere el mínimo del rango (4 a 120 kg)', () => {
     const planned = [{ weight: 120, reps: 4, repsMax: 6 }];
     const best = [{ weight: 115, reps: 6, done: true }];
     const result = prefillFromBest(planned, best);
-    expect(result[0]).toEqual({ weight: 120, reps: 4, repsMax: 6, done: false });
+    expect(result[0]).toEqual({ weight: 120, reps: 4, done: false });
   });
 
-  it('con el mismo peso el rango se mantiene aunque la mejor esté en su tope', () => {
+  it('con el mismo peso se sugiere el mínimo aunque la mejor esté en su tope', () => {
     const planned = [{ weight: 115, reps: 4, repsMax: 6 }];
     const best = [{ weight: 115, reps: 6, done: true }];
     const result = prefillFromBest(planned, best);
-    expect(result[0]).toEqual({ weight: 115, reps: 4, repsMax: 6, done: false });
+    expect(result[0]).toEqual({ weight: 115, reps: 4, done: false });
   });
 
-  it('el peso superior de la historia sube la sugerencia y el rango se conserva', () => {
+  it('el peso superior de la historia sube la sugerencia (sin rango en la sesión)', () => {
     const planned = [{ weight: 115, reps: 4, repsMax: 6 }];
     const best = [{ weight: 120, reps: 6, done: true }];
     const result = prefillFromBest(planned, best);
-    expect(result[0]).toEqual({ weight: 120, reps: 4, repsMax: 6, done: false });
+    expect(result[0]).toEqual({ weight: 120, reps: 4, done: false });
   });
 
   it('reps por encima del rango del plan se conservan (mejor 8 > plan 6)', () => {
@@ -470,7 +582,7 @@ describe('buildSessionFromDay', () => {
     ]);
   });
 
-  it('un rango en el plan (4-6) llega a la sesión como sugerencia de rango', () => {
+  it('un rango en el plan (4-6) llega a la sesión como 4 fijo', () => {
     const routine = makeRoutine();
     routine.days[0].exercises[0].plannedSets = [
       { weight: 60, reps: 4, repsMax: 6 },
@@ -480,12 +592,12 @@ describe('buildSessionFromDay', () => {
     const session = buildSessionFromDay(routine, routine.days[0], []);
 
     expect(session.entries[0].sets).toEqual([
-      { weight: 60, reps: 4, repsMax: 6, done: false }, // el rango se muestra
+      { weight: 60, reps: 4, done: false }, // el rango vive solo en el plan
       { weight: 65, reps: 8, done: false },
     ]);
   });
 
-  it('la subida manual del plan manda y su rango se conserva', () => {
+  it('la subida manual del plan manda y la sesión toma su mínimo', () => {
     const routine = makeRoutine();
     routine.days[0].exercises[0].plannedSets = [
       { weight: 130, reps: 4, repsMax: 6 },
@@ -508,8 +620,8 @@ describe('buildSessionFromDay', () => {
     const session = buildSessionFromDay(routine, routine.days[0], [previous]);
 
     expect(session.entries[0].sets).toEqual([
-      { weight: 130, reps: 4, repsMax: 6, done: false }, // peso nuevo, rango intacto
-      { weight: 130, reps: 4, repsMax: 6, done: false },
+      { weight: 130, reps: 4, done: false }, // peso nuevo; rango solo en el plan
+      { weight: 130, reps: 4, done: false },
     ]);
   });
 });
@@ -599,6 +711,45 @@ describe('parseRepsRange / fmtReps', () => {
   });
 });
 
+describe('fmtRelative', () => {
+  it('distingue hoy, ayer y el pasado reciente', () => {
+    expect(fmtRelative('2026-10-21', '2026-10-21')).toBe('hoy');
+    expect(fmtRelative('2026-10-20', '2026-10-21')).toBe('ayer');
+    expect(fmtRelative('2026-10-18', '2026-10-21')).toBe('hace 3 días');
+  });
+
+  it('las fechas futuras no se muestran como "hoy"', () => {
+    expect(fmtRelative('2026-10-22', '2026-10-21')).toBe('mañana');
+    expect(fmtRelative('2026-10-25', '2026-10-21')).toBe('en 4 días');
+  });
+});
+
+describe('formato de pesos (es-ES)', () => {
+  it('usa coma decimal para mostrar', () => {
+    expect(fmtWeight(60)).toBe('60');
+    expect(fmtWeight(60.5)).toBe('60,5');
+    expect(fmtWeight(12345.5)).toBe('12.345,5');
+  });
+
+  it('conserva dos decimales (discos de 1,25 kg)', () => {
+    expect(fmtWeight(1.25)).toBe('1,25');
+    expect(fmtWeightInput(90.25)).toBe('90,25');
+  });
+
+  it('en inputs no agrupa miles (para poder releerlos)', () => {
+    expect(fmtWeightInput(60.5)).toBe('60,5');
+    expect(fmtWeightInput(1234.5)).toBe('1234,5');
+  });
+});
+
+describe('plural — concordancia de cantidades', () => {
+  it('usa singular solo con 1', () => {
+    expect(plural(1, 'serie', 'series')).toBe('1 serie');
+    expect(plural(2, 'serie', 'series')).toBe('2 series');
+    expect(plural(0, 'sesión', 'sesiones')).toBe('0 sesiones');
+  });
+});
+
 describe('stats', () => {
   it('volumen = Σ peso × reps de series hechas', () => {
     const session = makeSession({
@@ -646,12 +797,26 @@ describe('stats', () => {
     expect(volumeOf(session)).toBe(600); // 100 × 6, la sin marcar no cuenta
   });
 
+  it('"últimos 30 días" son exactamente 30 fechas (incluye hoy)', () => {
+    const offset = (n: number) => {
+      const d = new Date();
+      d.setDate(d.getDate() - n);
+      return todayISO(d);
+    };
+    const sessions = [
+      makeSession({ id: 'hoy', date: offset(0) }),
+      makeSession({ id: 'hace29', date: offset(29) }),
+      makeSession({ id: 'hace30', date: offset(30) }),
+    ];
+    expect(sessionsInLast(sessions, 30).map((s) => s.id)).toEqual(['hoy', 'hace29']);
+  });
+
   it('racha de días consecutivos', () => {
     const hoy = new Date();
     const iso = (offset: number) => {
       const d = new Date(hoy);
       d.setDate(d.getDate() - offset);
-      return d.toISOString().slice(0, 10);
+      return todayISO(d); // fecha LOCAL: toISOString() es UTC y hacía el test inestable
     };
     const sesiones = [
       makeSession({ id: '1', date: iso(0) }),

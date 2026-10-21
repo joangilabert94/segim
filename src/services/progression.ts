@@ -5,7 +5,7 @@
 // (id del catálogo; si falta, nombre normalizado).
 
 import type { Session } from '../models';
-import { fmtDuration } from './format';
+import { fmtDuration, fmtWeight } from './format';
 import { findEntry, type ExerciseRef } from './previousSession';
 
 /** Métricas que puede pintar la gráfica de progresión. */
@@ -153,7 +153,7 @@ export function fmtMetricValue(
 ): string {
   if (metric === 'duration') return fmtDuration(Math.round(value));
   if (metric === 'reps') return `${Math.round(value)}`;
-  return `${Math.round(value)} ${unit}`;
+  return `${fmtWeight(Math.round(value * 10) / 10)} ${unit}`;
 }
 
 /**
