@@ -10,9 +10,20 @@ import {
 } from '../state';
 import { normalizeName } from '../services/previousSession';
 import { bestOverallForExercise } from '../services/bestResults';
+import {
+  METRIC_LABELS,
+  availableMetrics,
+  defaultMetric,
+  fmtMetricDelta,
+  fmtMetricValue,
+  metricSeries,
+  progressSeries,
+  type ProgressMetric,
+} from '../services/progression';
 import { fmtReps } from '../services/format';
 import { BottomSheet } from '../components/BottomSheet';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { ProgressChart } from '../components/ProgressChart';
 
 interface EditState {
   id?: string; // si existe, se renombra; si no, es uno nuevo
@@ -21,6 +32,14 @@ interface EditState {
 }
 
 const EMPTY: EditState = { name: '', muscleGroup: '' };
+
+/** Subtítulo del valor grande del panel de progresión, por métrica. */
+const METRIC_CAPTIONS: Record<ProgressMetric, string> = {
+  e1rm: '1RM estimado · última sesión',
+  weight: 'Peso máximo · última sesión',
+  duration: 'Mejor tiempo · última sesión',
+  reps: 'Máx. reps · última sesión',
+};
 
 /** Referencia más exigente de un ejercicio: `6 × 120 kg` o `45 s`. */
 function fmtBest(best: PerformedSet, unit: string): string {
@@ -37,6 +56,8 @@ export function Exercises() {
   const [query, setQuery] = useState('');
   const [edit, setEdit] = useState<EditState | null>(null);
   const [toDelete, setToDelete] = useState<Exercise | null>(null);
+  const [openIds, setOpenIds] = useState<Set<string>>(new Set()); // ejercicios con gráfica abierta (independientes)
+  const [metric, setMetric] = useState<ProgressMetric>('e1rm'); // métrica elegida (si hay datos)
 
   const target = normalizeName(query);
   const list = s.exercises
@@ -54,6 +75,14 @@ export function Exercises() {
         ),
       0,
     );
+
+  const toggleOpen = (id: string) =>
+    setOpenIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const save = () => {
     if (!edit) return;
@@ -112,14 +141,38 @@ export function Exercises() {
       ) : (
         <div style="margin-top:12px">
           {list.map((ex) => {
-            const best = bestOverallForExercise(s.sessions, {
-              exerciseId: ex.id,
-              name: ex.name,
-            });
+            const ref = { exerciseId: ex.id, name: ex.name };
+            const best = bestOverallForExercise(s.sessions, ref);
+            const points = progressSeries(s.sessions, ref);
+            const metrics = availableMetrics(points);
+            // Métrica elegida si este ejercicio tiene datos de ella; si no, la por defecto.
+            const active = metrics.includes(metric) ? metric : defaultMetric(points);
+            const isOpen = openIds.has(ex.id);
+            const e1rms = metricSeries(points, 'e1rm');
+            const lastE1rm = e1rms[e1rms.length - 1];
+            const serie = active !== undefined ? metricSeries(points, active) : [];
+            const latest = serie[serie.length - 1];
+            const prev = serie[serie.length - 2];
+            const delta = prev && latest ? latest.value - prev.value : undefined;
             return (
-            <div class="list-item" key={ex.id}>
+            <div class="list-item has-panel" key={ex.id}>
               <div class="list-body">
-                <div class="title">{ex.name}</div>
+                <button
+                  type="button"
+                  class="list-toggle"
+                  aria-expanded={isOpen}
+                  aria-label={
+                    isOpen
+                      ? `Contraer la progresión de ${ex.name}`
+                      : `Ver la progresión de ${ex.name}`
+                  }
+                  onClick={() => toggleOpen(ex.id)}
+                >
+                  <span class="day-caret" aria-hidden="true">
+                    {isOpen ? '▾' : '▸'}
+                  </span>
+                  <span class="title">{ex.name}</span>
+                </button>
                 <div class="sub">
                   {ex.muscleGroup ? `${ex.muscleGroup} · ` : ''}
                   {usage(ex.id) > 0
@@ -127,7 +180,12 @@ export function Exercises() {
                     : 'sin usar en rutinas'}
                 </div>
                 {best !== undefined && (
-                  <div class="sub">🏆 Mejor: {fmtBest(best, s.settings.unit)}</div>
+                  <div class="sub">
+                    🏆 Mejor: {fmtBest(best, s.settings.unit)}
+                    {lastE1rm
+                      ? ` · 📈 1RM ${fmtMetricValue(lastE1rm.value, 'e1rm', s.settings.unit)}`
+                      : ''}
+                  </div>
                 )}
               </div>
               <button
@@ -150,6 +208,63 @@ export function Exercises() {
               >
                 🗑
               </button>
+              {isOpen && (
+                <div class="progress-panel">
+                  {active === undefined || latest === undefined ? (
+                    <p class="progress-empty">
+                      Todavía sin datos: registra una sesión con este ejercicio y aquí
+                      verás su progresión.
+                    </p>
+                  ) : (
+                    <>
+                      <div class="progress-head">
+                        <div class="progress-value">
+                          <span class="pv-num">
+                            {fmtMetricValue(latest.value, active, s.settings.unit)}
+                          </span>
+                          <span class="pv-label">{METRIC_CAPTIONS[active]}</span>
+                        </div>
+                        {delta !== undefined && (
+                          <span
+                            class={`progress-delta${
+                              delta > 0 ? ' is-up' : delta < 0 ? ' is-down' : ''
+                            }`}
+                          >
+                            {fmtMetricDelta(delta, active, s.settings.unit)}
+                          </span>
+                        )}
+                      </div>
+                      {metrics.length > 1 && (
+                        <div class="segmented segmented--full">
+                          {metrics.map((m) => (
+                            <button
+                              type="button"
+                              key={m}
+                              class={m === active ? 'is-active' : ''}
+                              aria-pressed={m === active}
+                              onClick={() => setMetric(m)}
+                            >
+                              {METRIC_LABELS[m]}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <ProgressChart
+                        points={points}
+                        metric={active}
+                        unit={s.settings.unit}
+                        label={ex.name}
+                      />
+                      {active === 'e1rm' && (
+                        <p class="progress-note">
+                          1RM estimado con Epley: peso × (1 + reps/30). Solo series con
+                          carga.
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
             </div>
             );
           })}
