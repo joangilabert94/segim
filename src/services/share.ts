@@ -4,6 +4,7 @@
 
 import type { Exercise, Routine } from '../models';
 import { findExercise } from './catalog';
+import { parseExercise, parseRoutine } from './validation';
 
 export const ROUTINES_KIND = 'gymrutinas-routines';
 
@@ -18,15 +19,24 @@ export interface RoutinesFile {
 const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null;
 
-const isRoutine = (v: unknown): v is Routine => {
-  if (!isObject(v)) return false;
-  return typeof v.id === 'string' && Array.isArray(v.days);
-};
+/** Convierte lo que sea válido; descarta el resto sin romper la importación. */
+const validRoutines = (items: unknown[]): Routine[] =>
+  items.flatMap((item, i) => {
+    try {
+      return [parseRoutine(item, `La rutina ${i + 1}`)];
+    } catch {
+      return [];
+    }
+  });
 
-const isExercise = (v: unknown): v is Exercise => {
-  if (!isObject(v)) return false;
-  return typeof v.id === 'string' && typeof v.name === 'string';
-};
+const validExercises = (items: unknown[]): Exercise[] =>
+  items.flatMap((item, i) => {
+    try {
+      return [parseExercise(item, `El ejercicio ${i + 1}`)];
+    } catch {
+      return [];
+    }
+  });
 
 /**
  * Ejercicios del catálogo que usan esas rutinas: los referenciados por id y
@@ -75,8 +85,10 @@ export function downloadRoutinesFile(file: RoutinesFile): void {
   const a = document.createElement('a');
   a.href = url;
   a.download = `gymrutinas-rutinas-${file.exportedAt.slice(0, 10)}.json`;
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 /**
@@ -104,12 +116,17 @@ export function parseRoutinesFile(text: string): RoutinesFile {
     throw new Error('El fichero no contiene rutinas.');
   }
 
+  const routines = validRoutines(data.routines);
+  if (routines.length === 0) {
+    throw new Error('El fichero no contiene ninguna rutina válida.');
+  }
+
   return {
     kind: ROUTINES_KIND,
     version: 1,
     exportedAt: typeof data.exportedAt === 'string' ? data.exportedAt : new Date().toISOString(),
-    routines: data.routines.filter(isRoutine),
-    exercises: Array.isArray(data.exercises) ? data.exercises.filter(isExercise) : [],
+    routines,
+    exercises: Array.isArray(data.exercises) ? validExercises(data.exercises) : [],
   };
 }
 
