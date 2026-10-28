@@ -1,5 +1,6 @@
 // Copia de seguridad en JSON: exportar a fichero e importar desde fichero.
-// Es la base de la fase 2 (sincronización opcional con Google Drive).
+// El mismo `BackupFile` es el que se sube a Google Drive (services/drive),
+// así que restore desde Drive y restore desde archivo validan igual.
 //
 // Al importar se valida TODA la estructura antes de tocar IndexedDB: una copia
 // dañada se rechaza con un mensaje claro en vez de romper la app al recargar.
@@ -15,6 +16,38 @@ export interface BackupFile {
   exercises: Exercise[];
   sessions: Session[];
   settings: Settings;
+}
+
+// ---------------------------------------------------------------------------
+// Destinos de copia
+// ---------------------------------------------------------------------------
+// Contrato mínimo para añadir destinos (Google Drive) sin tocar la UI: el JSON
+// sigue siendo el formato de intercambio y el destino solo decide dónde vive.
+
+export interface BackupTargetStatus {
+  /** false si este build no tiene configurado el destino (p. ej. sin Client ID). */
+  available: boolean;
+  /** Hay una copia vinculada en el destino. */
+  connected: boolean;
+  /** Última subida correcta (ISO), según el destino. */
+  lastSyncAt?: string;
+}
+
+export interface BackupTarget {
+  readonly label: string;
+  /**
+   * Sube la copia y devuelve la fecha que reporta el destino (o la actual).
+   * `interactive` permite abrir la ventana de consentimiento de Google y, por
+   * tanto, solo debe usarse dentro de un clic del usuario.
+   */
+  upload(
+    backup: BackupFile,
+    options?: { interactive?: boolean },
+  ): Promise<{ syncedAt: string; warning?: string }>;
+  /** Descarga la última copia del destino, ya validada con `parseBackup`. */
+  downloadLatest(options?: { interactive?: boolean }): Promise<BackupFile>;
+  /** Estado local del destino, sin llamadas de red. */
+  status(): Promise<BackupTargetStatus>;
 }
 
 export function buildBackup(data: {

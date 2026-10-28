@@ -2,17 +2,17 @@
 
 > Documento vivo. Cada cambio acordado se refleja aquí antes de tocar código.
 >
-> **Estado (21 oct 2026): v0.6.1.** fases 0–4 completadas, catálogo de ejercicios,
-> revisión de robustez y correcciones de la auditoría. Verificada:
-> `npm run typecheck` ✓ · `npm test` (142 tests) ✓ · `npm run build` ✓
-> (31,6 kB JS + 5,4 kB CSS gzip, PWA offline instalable). El despliegue va por
-> etiqueta de versión (`v0.6.1`); pendiente solo la fase 2 (Google Drive).
+> **Estado (28 oct 2026): v0.7.0.** fases 0–4 completadas, catálogo de ejercicios,
+> revisión de robustez y **fase 2: copia de seguridad en Google Drive**. Verificada:
+> `npm run typecheck` ✓ · `npm test` (170 tests) ✓ · `npm run build` ✓
+> (35,6 kB JS + 5,5 kB CSS gzip, PWA offline instalable). El despliegue va por
+> etiqueta de versión (`v0.7.0`).
 
 ## 1. Objetivo
 
 Aplicación PWA mobile-first para gestionar rutinas de gimnasio y registrar sesiones de entrenamiento: rutinas multi-día, modo "entrenamiento" con series/pesos/reps planeados vs. reales, comparación con la sesión anterior (progresión semana a semana), historial con fechas, clonado de rutinas y persistencia **local** (IndexedDB) con exportación/importación JSON. Desplegable en GitHub Pages y usable offline desde cualquier dispositivo.
 
-Fase 2 (fuera de este plan, pero dejaremos la puerta abierta): almacenamiento opcional en Google Drive.
+Fase 2 (v0.7.0, ya implementada): copia de seguridad manual en el Google Drive del usuario — ver §9.1.
 
 ## 2. Stack técnico
 
@@ -24,6 +24,7 @@ Fase 2 (fuera de este plan, pero dejaremos la puerta abierta): almacenamiento op
 | Persistencia | **IndexedDB** con `idb-keyval` (~600 B) + repositorios tipados propios | Offline total, sin backend; suficiente para cientos de sesiones |
 | Estilos | **CSS moderno propio** (custom properties, grid, `clamp()`) | Sin framework; tema oscuro mobile-first, control total del diseño |
 | PWA | **`vite-plugin-pwa`** (Workbox `generateSW`) | Manifest + cache del shell para offline e instalable, configuración mínima |
+| Copia en la nube (opcional) | **Drive API v3 + Google Identity Services** por `fetch` | Copia en el Drive del usuario sin backend, sin SDK y con permiso por fichero |
 | Tests | **Vitest** sobre lógica pura (comparación por serie, clonado, cálculos) | Barato de mantener y protege la parte no trivial |
 
 Objetivo de peso: **< 50 KB comprimido** (JS+CSS), FCP instantánea.
@@ -154,7 +155,9 @@ Settings {
 - Unidad kg/lb.
 - Editar los 6 presets de descanso.
 - **Exportar backup** (JSON descargado) / **Importar backup** (restaurar — incluye
-  rutinas, catálogo de ejercicios, sesiones y ajustes). Base de la fase 2 con Google Drive.
+  rutinas, catálogo de ejercicios, sesiones y ajustes).
+- **Copia en Google Drive** (opcional y manual): conectar/desconectar, *Subir ahora* y
+  *Restaurar*. Deja `gymrutinas-backup.json` (última) y las 10 copias fechadas más recientes.
 - Borrar todos los datos, versión, instrucciones de instalación PWA.
 
 ## 5. Lógica clave (servicios puros, testeadas)
@@ -198,6 +201,7 @@ src/
   state.ts                 # estado global + mutaciones + persistencia
   db/
     idb.ts                 # wrappers idb-keyval (exercises/routines/sessions/settings)
+    driveStore.ts          # metadatos de la conexión con Drive (fileId, última subida)
   services/
     previousSession.ts     # identidad por id con fallback a nombre
     catalog.ts             # catálogo: buscar/crear, sembrado y vinculado
@@ -206,7 +210,11 @@ src/
     cloneRoutine.ts
     suggestDay.ts
     stats.ts
-    backup.ts              # export/import JSON (incluye el catálogo)
+    backup.ts              # export/import JSON + contrato BackupTarget
+    drive/
+      api.ts               # Drive v3 por REST: subir, descargar, listar, borrar
+      auth.ts              # Google Identity Services: token en memoria (~1 h)
+      target.ts            # BackupTarget: última copia + 10 fechadas con rotación
     format.ts              # fechas/números es-ES
   views/
     Hoy.tsx
@@ -227,7 +235,7 @@ src/
     tokens.css
     base.css
     components.css
-tests/                     # vitest: comparación por id, catálogo, prefill, clonado, stats
+tests/                     # vitest (170): comparación por id, catálogo, prefill, clonado, stats, Drive
 README.md
 ```
 
@@ -247,8 +255,36 @@ README.md
 | **2. Sesión** | Modo entrenamiento: prefill serie↔serie, comparación Plan/Ant./Hoy por serie, checks, notas, series extra, atajos de relleno, cronómetro con presets, persistencia incremental, finalizar | Núcleo de la app funcionando |
 | **3. Historial y datos** | Lista/detalle/edición de sesiones, métricas y racha, ajustes (unidad, presets), export/import JSON | Ciclo completo de datos |
 | **4. Pulido y salida** | Diseño fino y microinteracciones, iconos, instalabilidad, offline real, README, tests de lógica | **v1 publicada** |
+| **5. Google Drive** (v0.7.0) | OAuth con Google Identity Services, cliente REST, copia visible + 10 fechadas con rotación, restauración validada | Copia de seguridad en la nube (manual) |
 
-Fase 2 futura (no incluida): sincronización opcional con Google Drive — `db` + `backup.ts` queda diseñado como puente para añadir un `StorageAdapter` sin tocar la UI.
+### 9.1 Fase 2 — Copia en Google Drive (v0.7.0)
+
+Implementada como **copia de seguridad manual**, no como sincronización.
+
+- **Qué se sube**: el mismo `BackupFile` del export/import (rutinas, catálogo, todas
+  las sesiones —incluida la que está en curso— y ajustes). Nada más.
+- **Dónde**: carpeta `GymRutinas` del Drive del usuario: `gymrutinas-backup.json`
+  (última copia, la que se restaura) y `copia-AAAA-MM-DD-HHmm.json` (se conservan las
+  10 más recientes; el resto se borra al subir). Drive mantiene además el historial de
+  versiones del fichero.
+- **Permiso**: `https://www.googleapis.com/auth/drive.file`, **no sensible**: la app solo
+  ve los ficheros que ella crea. Sin client secret y sin backend.
+- **Sesión**: modelo token de Google Identity Services. El access token dura ~1 h y vive
+  solo en memoria; se renueva con `prompt: 'none'` (sin UI) mientras el consentimiento
+  siga vivo y, si Google exige interacción, al pulsar el botón.
+- **Restaurar**: descarga, valida con `parseBackup` (una copia dañada se rechaza sin tocar
+  los datos) y pide confirmación mostrando fecha y recuentos.
+- **Sin mezcla de datos**: no hay merge ni resolución de conflictos; restaurar sustituye.
+  Por eso quedó fuera de alcance la copia automática.
+- **Metadatos**: `drive:meta` (fileId, carpeta, última subida) se guarda aparte y
+  **sobrevive a "borrar todos los datos"**, para no duplicar ni sobrescribir el fichero
+  remoto por accidente.
+- **Configuración**: `VITE_GOOGLE_CLIENT_ID` en `.env.local` (local) y como variable del
+  repositorio en el workflow de Pages. Orígenes autorizados:
+  `https://joangilabert94.github.io` y `http://localhost:5173`.
+- **Límites conocidos** (modo *Testing*): 100 usuarios de prueba y reautorización cada
+  7 días; publicar y verificar la marca elimina ambos. La copia es **visible** en el Drive
+  del usuario (la variante oculta con `drive.appdata` queda como opción futura).
 
 ## 10. Riesgos y decisiones tomadas
 
@@ -260,6 +296,16 @@ Fase 2 futura (no incluida): sincronización opcional con Google Drive — `db` 
 - **Edición de sesiones pasadas**: permitida desde el historial (reabrir la sesión); la comparación usa la última sesión *completada* anterior.
 - **IndexedDB vs localStorage**: IndexedDB por el volumen de sesiones con series y notas (límite ~5 MB en localStorage).
 - Una sola sesión en curso a la vez (modelo simple, sin confusiones).
+- **OAuth sin backend**: no hay refresh token; el token dura ~1 h y renovarlo exige un
+  gesto del usuario. Por eso la copia es manual a propósito.
+- **Modo Testing de Google**: 100 usuarios y consentimiento cada 7 días hasta publicar y
+  verificar la marca (con `drive.file` no hay auditoría de seguridad).
+- **Multi-dispositivo**: sin merge; dos dispositivos comparten un único fichero y la
+  última subida gana.
+- **Datos fuera del dispositivo**: solo si el usuario conecta Drive; el token no se
+  persiste y se puede revocar en cualquier momento.
+- **Service worker**: no se cachean respuestas de Google; solo se precachean los
+  estáticos del build.
 
 ---
 

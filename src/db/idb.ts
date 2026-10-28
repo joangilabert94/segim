@@ -10,6 +10,9 @@ const K_ROUTINES = 'routines';
 const K_EXERCISES = 'exercises';
 const K_SETTINGS = 'settings';
 const K_SESSION_PREFIX = 'session:';
+/** Metadatos de Google Drive (ver db/driveStore.ts): NO son datos del usuario. */
+export const K_DRIVE_META = 'drive:meta';
+const DRIVE_PREFIX = 'drive:';
 
 const sessionKey = (id: string) => `${K_SESSION_PREFIX}${id}`;
 
@@ -55,8 +58,17 @@ export async function saveSettings(settings: Settings): Promise<void> {
   await set(K_SETTINGS, settings);
 }
 
-/** Borra todos los datos de la app. */
+/**
+ * Borra todos los datos de la app.
+ *
+ * La conexión con Google Drive se conserva a propósito: si se perdiera la
+ * referencia al fichero, la siguiente copia podría duplicarlo en Drive o,
+ * peor, sobrescribir una copia buena. El usuario siempre puede desconectarla
+ * explícitamente desde Ajustes.
+ */
 export async function clearAll(): Promise<void> {
   const all = await keys();
-  await Promise.all(all.map((k) => del(k)));
+  await Promise.all(
+    all.filter((k) => typeof k !== 'string' || !k.startsWith(DRIVE_PREFIX)).map((k) => del(k)),
+  );
 }

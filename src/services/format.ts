@@ -7,6 +7,7 @@ const fmtLong = new Intl.DateTimeFormat('es-ES', {
   month: 'long',
 });
 const fmtMonthYear = new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' });
+const fmtTime = new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' });
 const fmtWeekdayShort = new Intl.DateTimeFormat('es-ES', { weekday: 'short' });
 // Dos decimales: hay discos de 1,25 kg y el peso no debe redondearse al mostrarse.
 const fmtWeightText = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 2 });
@@ -46,6 +47,16 @@ export function fmtDate(iso: string): string {
 export function fmtDateLong(iso: string): string {
   const s = fmtLong.format(parseISODate(iso));
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/**
+ * "28 oct, 18:42" — para instantes completos (las copias de Drive traen hora).
+ * Devuelve cadena vacía si la fecha no es válida, para no pintar "Invalid Date".
+ */
+export function fmtDateTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  return `${fmtDayMonth.format(date)}, ${fmtTime.format(date)}`;
 }
 
 /** "Octubre de 2026" — para agrupar el historial por mes. */

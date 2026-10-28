@@ -32,7 +32,39 @@ dispositivo. Funciona sin conexión e instalable desde el navegador.
   (reabrir), **fecha de realización editable** y borrado, volumen y racha.
 - **Ajustes**: **tema (automático/claro/oscuro)**, cambio de unidad kg/lb que **convierte
   los pesos guardados** (con confirmación), presets de descanso, **exportar/importar JSON**
-  validado (base para la fase 2 con Google Drive) y borrado total.
+  validado, **copia de seguridad en Google Drive** (opcional y manual) y borrado total.
+
+## Copia de seguridad en Google Drive (opcional)
+
+Desde Ajustes puedes conectar tu cuenta de Google y subir todas tus rutinas, sesiones y
+ajustes a **tu** Drive. Nada pasa por un servidor: la app habla directamente con la API de
+Google con un token que vive solo en memoria.
+
+```
+GymRutinas/
+  gymrutinas-backup.json        ← última copia (es la que se restaura)
+  copia-2026-10-28-1842.json    ← copias fechadas (se conservan las 10 últimas)
+```
+
+- Copia **manual**: se sube al pulsar *Subir ahora*; no hay sincronización automática.
+- Permiso **`drive.file`** (no sensible): la app solo ve los ficheros que ella crea.
+- *Restaurar* valida el JSON con el mismo criterio que el import por fichero y pide
+  confirmación antes de reemplazar los datos locales.
+- El token de Google dura ~1 h; al caducar, el botón vuelve a autorizar sin repetir el
+  consentimiento mientras la sesión de Google siga activa.
+- *Desconectar* revoca el permiso; los ficheros siguen en tu Drive.
+
+### Configurarlo
+
+1. Crea un **Client ID de OAuth** (tipo "Aplicación web") en Google Cloud, con la Drive API
+   habilitada y estos orígenes autorizados: `https://joangilabert94.github.io` y
+   `http://localhost:5173`.
+2. En local, define `VITE_GOOGLE_CLIENT_ID` en `.env.local` (ignorado por Git).
+3. En GitHub Pages, define la **variable del repositorio** `VITE_GOOGLE_CLIENT_ID`
+   (Settings → Secrets and variables → Actions → Variables).
+
+Con el proyecto en modo *Testing* solo conectan las cuentas de prueba (hasta 100) y la
+autorización caduca a los 7 días; publicar y verificar la marca elimina ambos límites.
 
 ## Stack
 
@@ -81,15 +113,18 @@ src/
   router.ts        # hash router
   timer.ts         # cronómetro de descanso
   services/        # lógica pura (catálogo, comparación, prefill, clonado, stats, backup)
+  services/drive/  # copia en Google Drive (api REST, auth, BackupTarget)
+  db/driveStore.ts # metadatos de la conexión con Google Drive
   views/           # Hoy, Session, History, SessionDetail, Routines, RoutineEditor, Exercises, Settings
   components/      # SeriesRow, ExercisePicker, BottomSheet, ConfirmDialog, RestControls
   styles/          # tokens, base, componentes
-tests/             # vitest (142 tests)
+tests/             # vitest (170 tests)
 ```
 
-## Roadmap (fase 2)
+## Roadmap
 
-- Sincronización **opcional** con Google Drive usando las copias JSON
-  (la capa `db` + `backup.ts` ya está preparada como puente `StorageAdapter`).
+- ✓ **Copia de seguridad en Google Drive** (v0.7.0, manual; ver arriba).
+- Sincronización automática entre dispositivos (requiere backend que custodie refresh
+  tokens: un access token de navegador dura ~1 h y renovarlo exige un gesto).
 - Estadísticas y gráficas de progresión.
 - Exportar/importar el catálogo hacia plantillas compartibles.

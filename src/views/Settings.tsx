@@ -1,9 +1,12 @@
 // Ajustes: unidad, presets de descanso, rutina activa, copias de seguridad y datos.
 
-import { useRef, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import type { Unit } from '../models';
-import type { BackupFile } from '../services/backup';
+import type { BackupFile, BackupTargetStatus } from '../services/backup';
 import { buildBackup, downloadBackup, parseBackup } from '../services/backup';
+import { driveTarget } from '../services/drive/target';
+import { revokeAccess } from '../services/drive/auth';
+import { driveMetaStore } from '../db/driveStore';
 import {
   clearAllData,
   getState,
@@ -16,7 +19,7 @@ import { DEFAULT_SETTINGS } from '../models';
 import { THEME_OPTIONS } from '../services/theme';
 import { currentTheme } from '../theme';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { plural } from '../services/format';
+import { fmtDateTime, plural } from '../services/format';
 
 // Inyectada por Vite desde package.json: una sola fuente de verdad para la versión.
 const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev';
@@ -28,6 +31,15 @@ export function SettingsView() {
   const [pendingUnit, setPendingUnit] = useState<Unit | null>(null);
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
+  // Copia en Google Drive (fase 2). `busy` bloquea los botones mientras hay
+  // una petición en curso para no lanzar dos subidas a la vez.
+  const [drive, setDrive] = useState<BackupTargetStatus | null>(null);
+  const [driveBusy, setDriveBusy] = useState<'upload' | 'restore' | 'disconnect' | null>(null);
+  const [driveMessage, setDriveMessage] = useState<{
+    kind: 'ok' | 'error';
+    text: string;
+  } | null>(null);
+  const [pendingDrive, setPendingDrive] = useState<BackupFile | null>(null);
 
   const nonArchived = s.routines.filter((r) => !r.archived);
   // Si la rutina activa está archivada o ya no existe, el selector muestra el
@@ -35,6 +47,73 @@ export function SettingsView() {
   const activeRoutineSelectable = nonArchived.some(
     (r) => r.id === s.settings.activeRoutineId,
   );
+
+  const refreshDrive = async () => {
+    try {
+      setDrive(await driveTarget.status());
+    } catch {
+      // Si IndexedDB falla, la sección no puede romper el resto de Ajustes.
+      setDrive({ available: true, connected: false });
+    }
+  };
+
+  useEffect(() => {
+    void refreshDrive();
+  }, []);
+
+  const driveErrorText = (err: unknown) =>
+    err instanceof Error ? err.message : 'No se pudo hablar con Google Drive.';
+
+  /** Conectar y subir comparten acción: la primera subida es la que conecta. */
+  const subirADrive = async () => {
+    setDriveBusy('upload');
+    setDriveMessage(null);
+    try {
+      const result = await driveTarget.upload(buildBackup(getState()), { interactive: true });
+      await refreshDrive();
+      setDriveMessage({
+        kind: 'ok',
+        text: result.warning
+          ? `Copia subida (${fmtDateTime(result.syncedAt)}), pero la copia fechada falló: ${result.warning}`
+          : `Copia subida a tu Drive (${fmtDateTime(result.syncedAt)}).`,
+      });
+    } catch (err) {
+      setDriveMessage({ kind: 'error', text: driveErrorText(err) });
+    } finally {
+      setDriveBusy(null);
+    }
+  };
+
+  const pedirRestauracion = async () => {
+    setDriveBusy('restore');
+    setDriveMessage(null);
+    try {
+      // Descarga y valida: si la copia de Drive está dañada, no se toca nada.
+      setPendingDrive(await driveTarget.downloadLatest({ interactive: true }));
+    } catch (err) {
+      setDriveMessage({ kind: 'error', text: driveErrorText(err) });
+    } finally {
+      setDriveBusy(null);
+    }
+  };
+
+  const desconectarDrive = async () => {
+    setDriveBusy('disconnect');
+    setDriveMessage(null);
+    try {
+      await revokeAccess();
+      await driveMetaStore.clear();
+      await refreshDrive();
+      setDriveMessage({
+        kind: 'ok',
+        text: 'Google Drive desconectado. La copia sigue en tu Drive por si la necesitas.',
+      });
+    } catch (err) {
+      setDriveMessage({ kind: 'error', text: driveErrorText(err) });
+    } finally {
+      setDriveBusy(null);
+    }
+  };
 
   const themeHint = () => {
     const ahora = currentTheme() === 'light' ? 'claro' : 'oscuro';
@@ -67,13 +146,13 @@ export function SettingsView() {
     if (fileRef.current) fileRef.current.value = '';
   };
 
-  const applyBackup = () => {
-    if (!pendingBackup) return;
+  const applyBackup = (backup: BackupFile | null) => {
+    if (!backup) return;
     replaceAll({
-      routines: pendingBackup.routines,
-      exercises: pendingBackup.exercises,
-      sessions: pendingBackup.sessions,
-      settings: pendingBackup.settings,
+      routines: backup.routines,
+      exercises: backup.exercises,
+      sessions: backup.sessions,
+      settings: backup.settings,
     });
     // Cuenta lo que queda tras fusionar el catálogo, no lo que traía el fichero:
     // una copia con duplicados acaba con menos entradas de las anunciadas.
@@ -83,6 +162,7 @@ export function SettingsView() {
       text: `Importadas ${plural(imported.routines.length, 'rutina', 'rutinas')}, ${plural(imported.exercises.length, 'ejercicio', 'ejercicios')} y ${plural(imported.sessions.length, 'sesión', 'sesiones')}.`,
     });
     setPendingBackup(null);
+    setPendingDrive(null);
   };
 
   const setPreset = (index: number, text: string) => {
@@ -226,6 +306,63 @@ export function SettingsView() {
         {message && <div class={`inline-msg is-${message.kind}`}>{message.text}</div>}
       </div>
 
+      <div class="section-title">Copia en Google Drive</div>
+
+      <div class="card">
+        {drive?.available === false ? (
+          <p class="card-sub">
+            Esta versión no tiene configurado el acceso a Google Drive. Las copias en la nube se
+            activan al publicar la app con el Client ID del proyecto.
+          </p>
+        ) : (
+          <>
+            <p class="card-sub" style="margin-bottom:12px">
+              {drive?.connected
+                ? `Copia manual en tu propio Drive. Última subida: ${
+                    drive.lastSyncAt ? fmtDateTime(drive.lastSyncAt) : 'desconocida'
+                  }.`
+                : 'Sube todas tus sesiones, rutinas y ajustes a tu propio Google Drive. Solo se toca el fichero que crea esta app.'}
+            </p>
+            <div class="btn-row">
+              <button class="btn" style="flex:1" onClick={subirADrive} disabled={driveBusy !== null}>
+                {driveBusy === 'upload'
+                  ? 'Subiendo…'
+                  : drive?.connected
+                    ? '☁️ Subir ahora'
+                    : '☁️ Conectar con Drive'}
+              </button>
+              {drive?.connected && (
+                <button
+                  class="btn"
+                  style="flex:1"
+                  onClick={pedirRestauracion}
+                  disabled={driveBusy !== null}
+                >
+                  {driveBusy === 'restore' ? 'Descargando…' : '⬇️ Restaurar'}
+                </button>
+              )}
+            </div>
+            {drive?.connected && (
+              <button
+                class="btn btn-block"
+                style="margin-top:10px"
+                onClick={desconectarDrive}
+                disabled={driveBusy !== null}
+              >
+                Desconectar Google Drive
+              </button>
+            )}
+            <p class="hint" style="margin-top:10px">
+              Se conservan las últimas 10 copias fechadas. Al conectar se abre la ventana de
+              Google: elige tu cuenta y acepta el permiso (solo ficheros de esta app).
+            </p>
+            {driveMessage && (
+              <div class={`inline-msg is-${driveMessage.kind}`}>{driveMessage.text}</div>
+            )}
+          </>
+        )}
+      </div>
+
       <div class="section-title">Instalar y cómo funciona</div>
 
       <div class="card">
@@ -256,8 +393,7 @@ export function SettingsView() {
         open={pendingBackup !== null}
         title="Importar copia"
         message={`Se reemplazarán los datos actuales por los de la copia (${plural(pendingBackup?.routines.length ?? 0, 'rutina', 'rutinas')}, ${plural(pendingBackup?.sessions.length ?? 0, 'sesión', 'sesiones')}).`}
-        confirmLabel="Importar"
-        onConfirm={applyBackup}
+        confirmLabel="Importar"          onConfirm={() => applyBackup(pendingBackup)}
         onCancel={() => setPendingBackup(null)}
       />
 
@@ -273,6 +409,21 @@ export function SettingsView() {
           setMessage({ kind: 'ok', text: 'Todos los datos han sido borrados.' });
         }}
         onCancel={() => setConfirmClear(false)}
+      />
+
+      <ConfirmDialog
+        open={pendingDrive !== null}
+        title="Restaurar desde Google Drive"
+        message={`Se reemplazarán los datos actuales por la copia del ${
+          pendingDrive ? fmtDateTime(pendingDrive.exportedAt) || 'sin fecha' : ''
+        } (${plural(pendingDrive?.routines.length ?? 0, 'rutina', 'rutinas')}, ${plural(
+          pendingDrive?.sessions.length ?? 0,
+          'sesión',
+          'sesiones',
+        )}).`}
+        confirmLabel="Restaurar"
+        onConfirm={() => applyBackup(pendingDrive)}
+        onCancel={() => setPendingDrive(null)}
       />
     </>
   );

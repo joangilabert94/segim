@@ -41,6 +41,11 @@ jobs:
         run: npm run build
         env:
           BASE_PATH: /${{ github.event.repository.name }}/
+          # Client ID público de Google (NO es un secreto: viaja en el bundle y
+          # Google lo restringe por origen). Se define en Settings → Secrets and
+          # variables → Actions → Variables. Si falta, la sección de Google
+          # Drive se muestra como no disponible en vez de romper el build.
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
 
       - uses: actions/configure-pages@v6
 
