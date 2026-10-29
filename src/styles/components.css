@@ -345,6 +345,16 @@
   padding: 1px 5px;
 }
 
+.tag-up {
+  font-style: normal;
+  font-size: 0.66rem;
+  font-weight: 800;
+  background: var(--ok-soft);
+  color: var(--ok);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+
 .tag-note {
   font-style: normal;
   font-size: 0.78rem;

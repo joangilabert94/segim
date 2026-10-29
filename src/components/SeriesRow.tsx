@@ -3,11 +3,12 @@ import type { PerformedSet, PlannedSet, Unit } from '../models';
 import {
   fmtReps,
   fmtRelative,
+  fmtWeight,
   fmtWeightInput,
   parseNumber,
   parseRepsFixed,
 } from '../services/format';
-import { EXTERNAL_LOAD, fmtLoad, loadSuffix, type LoadProfile } from '../services/load';
+import { compareLoad, EXTERNAL_LOAD, fmtLoad, loadSuffix, type LoadProfile } from '../services/load';
 
 function fmtSetForCompare(set: PlannedSet, profile: LoadProfile): string {
   const w = fmtLoad(set.weight, profile);
@@ -74,6 +75,14 @@ export function SeriesRow({
 
   const planText = planned === undefined ? '—' : fmtSetForCompare(planned, profile);
   const prevText = previousSet ? fmtSetForCompare(previousSet, profile) : '—';
+  const heavier =
+    previousSet !== undefined &&
+    !timed &&
+    previousSet.durationSec === undefined &&
+    compareLoad(performed.weight, previousSet.weight, profile) > 0;
+  const upText = heavier
+    ? `↑ ${profile.load === 'assisted' ? '−' : '+'}${fmtWeight(Math.abs(performed.weight - previousSet.weight))}`
+    : undefined;
 
   return (
     <div class={`series-row ${performed.done ? 'is-done' : ''}`}>
@@ -91,6 +100,11 @@ export function SeriesRow({
           <span class="series-label">
             Serie {index + 1}
             {performed.extra && <em class="tag-extra">extra</em>}
+            {upText && (
+              <em class="tag-up" title="Más exigente que en la sesión anterior">
+                {upText}
+              </em>
+            )}
             {performed.note && <em class="tag-note" title={performed.note}>✎</em>}
           </span>
           <div class="series-inputs">

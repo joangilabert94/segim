@@ -17,11 +17,9 @@ import { BottomSheet } from '../components/BottomSheet';
 import { ExercisePicker } from '../components/ExercisePicker';
 import { fmtReps, fmtWeightInput, parseNumber, parseRepsRange } from '../services/format';
 import { fmtLoadUnit, loadSuffix, profileLookup, type LoadProfile } from '../services/load';
-import {
-  recentSince,
-  setHistoryForExercise,
-  suggestFromHistory,
-} from '../services/bestResults';
+import { recentSince, setHistoryForExercise } from '../services/bestResults';
+import { lastRecentSets, suggestExercise } from '../services/doubleProgression';
+import { todayISO } from '../services/format';
 import { findExercise, isExerciseShared } from '../services/catalog';
 
 const MUSCLE_GROUPS = [
@@ -51,11 +49,17 @@ function modeChipText(set: PlannedSet): string {
   return 'reps';
 }
 
-function suggestionHint(set: PlannedSet, profile: LoadProfile, unit: Unit): string {
+function suggestionHint(
+  set: PlannedSet,
+  profile: LoadProfile,
+  unit: Unit,
+  progressed: boolean,
+): string {
+  const label = progressed ? 'Sube ↑' : 'Sugerido';
   const weight =
     set.weight || profile.load !== 'external' ? `${fmtLoadUnit(set.weight, profile, unit)} · ` : '';
-  if (set.durationSec !== undefined) return `Sugerido: ${weight}${set.durationSec} s`;
-  return `Sugerido: ${weight}${fmtReps(set.reps, set.repsMax)}`;
+  if (set.durationSec !== undefined) return `${label}: ${weight}${set.durationSec} s`;
+  return `${label}: ${weight}${fmtReps(set.reps, set.repsMax)}`;
 }
 
 const samePlannedSet = (a: PlannedSet, b: PlannedSet) =>
@@ -102,19 +106,17 @@ export function RoutineEditor({ id }: { id: string }) {
         .join('§')
     : '';
   const historyByExercise = useMemo(() => {
-    const map = new Map<string, PerformedSet[][]>();
+    const map = new Map<string, { history: PerformedSet[][]; lastSets?: PerformedSet[] }>();
     if (!routine) return map;
-    const sinceDate = recentSince();
+    const today = todayISO();
+    const sinceDate = recentSince(today);
     for (const day of routine.days) {
       for (const ex of day.exercises) {
-        map.set(
-          ex.id,
-          setHistoryForExercise(
-            s.sessions,
-            { exerciseId: ex.exerciseId, name: ex.name },
-            { sinceDate },
-          ),
-        );
+        const ref = { exerciseId: ex.exerciseId, name: ex.name };
+        map.set(ex.id, {
+          history: setHistoryForExercise(s.sessions, ref, { sinceDate }),
+          lastSets: lastRecentSets(s.sessions, ref, today),
+        });
       }
     }
     return map;
@@ -298,14 +300,16 @@ export function RoutineEditor({ id }: { id: string }) {
   const updatePlanFromBest = (di: number, ei: number) => {
     const ex = routine.days[di]?.exercises[ei];
     if (!ex) return;
-    const history = historyByExercise.get(ex.id) ?? [];
+    const past = historyByExercise.get(ex.id);
     patch((r) => {
       const target = r.days[di]?.exercises[ei];
       if (!target) return;
-      const profile = profileOf(target.exerciseId);
-      target.plannedSets = target.plannedSets.map((p, i) =>
-        suggestFromHistory(p, history[i], profile),
-      );
+      target.plannedSets = suggestExercise(
+        target.plannedSets,
+        past?.history ?? [],
+        past?.lastSets,
+        profileOf(target.exerciseId),
+      ).sets;
     });
   };
 
@@ -485,11 +489,15 @@ export function RoutineEditor({ id }: { id: string }) {
           )}
 
           {day.exercises.map((ex, ei) => {
-            const history = historyByExercise.get(ex.id) ?? [];
+            const past = historyByExercise.get(ex.id);
             const profile = profileOf(ex.exerciseId);
-            const suggestions = ex.plannedSets.map((p, i) =>
-              suggestFromHistory(p, history[i], profile),
+            const suggestion = suggestExercise(
+              ex.plannedSets,
+              past?.history ?? [],
+              past?.lastSets,
+              profile,
             );
+            const suggestions = suggestion.sets;
             const canUpdate = suggestions.some((sug, i) => !samePlannedSet(sug, ex.plannedSets[i]));
             return (
             <div class="exercise-edit" key={ex.id}>
@@ -648,7 +656,7 @@ export function RoutineEditor({ id }: { id: string }) {
                     </div>
                     {!samePlannedSet(suggestions[si], set) && (
                       <p class="hint best-hint">
-                        {suggestionHint(suggestions[si], profile, s.settings.unit)}
+                        {suggestionHint(suggestions[si], profile, s.settings.unit, suggestion.progressed)}
                       </p>
                     )}
                   </div>
