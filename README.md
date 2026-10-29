@@ -152,7 +152,7 @@ src/
   views/           # Hoy, Session, History, SessionDetail, Routines, RoutineEditor, Exercises, Settings
   components/      # SeriesRow, ExercisePicker, BottomSheet, ConfirmDialog, RestControls
   styles/          # tokens, base, componentes
-tests/             # vitest (198 tests)
+tests/             # vitest (220 tests)
 ```
 
 ## Roadmap

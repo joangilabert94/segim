@@ -5,7 +5,7 @@
 > **Estado (29 oct 2026): v0.8.4.** Fases 0–4 completadas, catálogo de ejercicios, revisión
 > de robustez, **fase 2: copia de seguridad en Google Drive** (manual o automática, con
 > retardos), **renombrado de la app a Segim** e **iconos rediseñados** (PNG + SVG con
-> generador propio). Verificado: `npm run typecheck` ✓ · `npm test` (198 tests) ✓ ·
+> generador propio). Verificado: `npm run typecheck` ✓ · `npm test` (220 tests) ✓ ·
 > `npm run build` ✓ (PWA offline instalable). Incluye la **política de privacidad**
 > pública (`/segim/privacidad.html`) que Google exige para publicar la app. El despliegue
 > va por etiqueta de versión (`v0.8.4`).
@@ -243,7 +243,7 @@ src/
     tokens.css
     base.css
     components.css
-tests/                     # vitest (194): comparación por id, catálogo, prefill, clonado, stats, Drive
+tests/                     # vitest (220): comparación por id, catálogo, prefill, clonado, stats, Drive
 README.md
 ```
 
