@@ -2,17 +2,18 @@
 
 > Documento vivo. Cada cambio acordado se refleja aquí antes de tocar código.
 >
-> **Estado (28 oct 2026): v0.7.0.** fases 0–4 completadas, catálogo de ejercicios,
-> revisión de robustez y **fase 2: copia de seguridad en Google Drive**. Verificada:
-> `npm run typecheck` ✓ · `npm test` (170 tests) ✓ · `npm run build` ✓
-> (35,6 kB JS + 5,5 kB CSS gzip, PWA offline instalable). El despliegue va por
-> etiqueta de versión (`v0.7.0`).
+> **Estado (29 oct 2026): v0.8.0.** Fases 0–4 completadas, catálogo de ejercicios, revisión
+> de robustez, **fase 2: copia de seguridad en Google Drive** (manual o automática, con
+> retardos), **renombrado de la app a Segim** e **iconos rediseñados** (PNG + SVG con
+> generador propio). Verificado: `npm run typecheck` ✓ · `npm test` (194 tests) ✓ ·
+> `npm run build` ✓ (~36,6 kB JS + 5,5 kB CSS gzip, PWA offline instalable). El despliegue
+> va por etiqueta de versión (`v0.8.0`).
 
 ## 1. Objetivo
 
 Aplicación PWA mobile-first para gestionar rutinas de gimnasio y registrar sesiones de entrenamiento: rutinas multi-día, modo "entrenamiento" con series/pesos/reps planeados vs. reales, comparación con la sesión anterior (progresión semana a semana), historial con fechas, clonado de rutinas y persistencia **local** (IndexedDB) con exportación/importación JSON. Desplegable en GitHub Pages y usable offline desde cualquier dispositivo.
 
-Fase 2 (v0.7.0, ya implementada): copia de seguridad en el Google Drive del usuario, manual o al terminar cada sesión — ver §9.1.
+Fase 2 (v0.7.0, ampliada en v0.8.0): copia de seguridad en el Google Drive del usuario, manual o automática (al cerrar sesión y, con retardo, al editar) — ver §9.1.
 
 ## 2. Stack técnico
 
@@ -193,7 +194,7 @@ vite.config.ts             # plugin-pwa, base desde BASE_PATH
 vitest.config.ts
 .github/workflows/deploy.yml
 scripts/generate-icons.mjs # generador de iconos PNG (sin dependencias)
-public/icons/              # iconos maskable para manifest
+public/icons/              # iconos PNG (normal y maskable) + icon.svg de la pestaña
 src/
   main.tsx                 # bootstrap + registro SW
   app.tsx                  # layout + tab bar + router
@@ -237,7 +238,7 @@ src/
     tokens.css
     base.css
     components.css
-tests/                     # vitest (170): comparación por id, catálogo, prefill, clonado, stats, Drive
+tests/                     # vitest (194): comparación por id, catálogo, prefill, clonado, stats, Drive
 README.md
 ```
 
@@ -322,6 +323,21 @@ Implementada como **copia de seguridad** (manual o automática), no como sincron
   persiste y se puede revocar en cualquier momento.
 - **Service worker**: no se cachean respuestas de Google; solo se precachean los
   estáticos del build.
+
+---
+
+## 11. Estado del repositorio y pendientes
+
+- **Versión**: `v0.8.0` — iconos rediseñados, copia automática en Drive con retardos y
+  renombrado de la app a Segim. El despliegue va por etiqueta: publicar `v0.8.0` actualiza
+  GitHub Pages.
+- **Iconos**: generador propio sin dependencias (`npm run icons`) con antialiasing 4×4,
+  mancuerna diagonal, sombra y exportación de `public/icons/icon.svg` para la pestaña.
+- **Configuración local**: `VITE_GOOGLE_CLIENT_ID` en `.env.local` (ignorado por Git);
+  en CI es una variable del repositorio. Sin ella, Ajustes muestra Drive "no configurado".
+- **Caducidad de Google**: en modo Testing el consentimiento expira a los 7 días.
+- **Decisiones aparcadas**: publicar y verificar la app en Google (quita Testing y los 7
+  días), copias ocultas (`appDataFolder`) y más automatismos de subida.
 
 ---
 

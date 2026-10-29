@@ -93,8 +93,14 @@ npm run dev        # servidor de desarrollo
 npm test           # tests de lógica pura (vitest)
 npm run typecheck  # tsc --noEmit
 npm run build      # typecheck + build de producción en dist/
-npm run icons      # regenera los iconos PNG (scripts/generate-icons.mjs)
+npm run icons      # regenera los iconos PNG y el icon.svg (scripts/generate-icons.mjs)
 ```
+
+Los iconos se generan por código, sin dependencias ni herramientas externas: el script
+pinta a 4× y reduce para suavizar los bordes, y exporta también `public/icons/icon.svg`
+para la pestaña del navegador. Si cambias el diseño, edita `scripts/generate-icons.mjs`
+y vuelve a ejecutar `npm run icons`.
+
 
 ## Despliegue en GitHub Pages
 
@@ -137,7 +143,7 @@ tests/             # vitest (170 tests)
 
 ## Roadmap
 
-- ✓ **Copia de seguridad en Google Drive** (v0.7.0; manual o automática).
+- ✓ **Copia de seguridad en Google Drive** (v0.8.0; manual o automática, con retardos).
 - Sincronización automática entre dispositivos (requiere backend que custodie refresh
   tokens: un access token de navegador dura ~1 h y renovarlo exige un gesto).
 - Estadísticas y gráficas de progresión.

@@ -1,5 +1,10 @@
-// Genera los iconos PNG de la PWA sin dependencias (zlib viene de Node).
+// Genera los iconos de la PWA sin dependencias (zlib viene de Node).
 // Uso: node scripts/generate-icons.mjs
+//
+// Diseño: lienzo oscuro redondeado con una luz tenue detrás de una mancuerna
+// diagonal de formas redondeadas y degradados. Se dibuja a 4x y se reduce, así
+// los bordes quedan suavizados (el icono anterior se pintaba pixel a pixel sin
+// antialiasing). El mismo diseño se exporta a SVG para la pestaña del navegador.
 
 import { deflateSync } from 'node:zlib';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -41,8 +46,8 @@ function encodePNG(width, height, rgba) {
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(width, 0);
   ihdr.writeUInt32BE(height, 4);
-  ihdr[8] = 8; // bit depth
-  ihdr[9] = 6; // color type RGBA
+  ihdr[8] = 8; // profundidad de bits
+  ihdr[9] = 6; // color: RGBA
   const stride = width * 4 + 1;
   const raw = Buffer.alloc(stride * height);
   for (let y = 0; y < height; y++) {
@@ -57,64 +62,280 @@ function encodePNG(width, height, rgba) {
   ]);
 }
 
-// ---- Dibujo ----
+// ---- Composición (en un lienzo de 512 × 512) ----
 
-const BG = [13, 17, 14, 255];
-const ACCENT = [198, 242, 78, 255];
-const BAR = [233, 240, 235, 255];
+const CANVAS = 512;
+const CENTER = CANVAS / 2;
+const TILT = -34; // grados: la mancuerna sube hacia la derecha
+const SS = 4; // supermuestreo por eje (4 × 4 muestras por píxel)
+
+const hex = (value) => [
+  parseInt(value.slice(1, 3), 16),
+  parseInt(value.slice(3, 5), 16),
+  parseInt(value.slice(5, 7), 16),
+];
+
+// Degradado lineal de dos paradas, `t` de 0 a 1.
+const ramp = (from, to) => {
+  const a = hex(from);
+  const b = hex(to);
+  return (t) => {
+    const k = Math.min(1, Math.max(0, t));
+    return [
+      a[0] + (b[0] - a[0]) * k,
+      a[1] + (b[1] - a[1]) * k,
+      a[2] + (b[2] - a[2]) * k,
+    ];
+  };
+};
+
+const BG = ramp('#18211c', '#080b09');
+const GLOW = '#c6f24e';
+const BAR = ramp('#f6faf5', '#c3d1c6');
+const PLATE = ramp('#dcff80', '#a3d92c');
+const PLATE_EDGE = ramp('#b7e847', '#84b41f');
+
+// Formas de la mancuerna en coordenadas locales (centro 0,0), antes de inclinar.
+// `r` es el radio de las esquinas; un rectángulo con r = alto/2 es una cápsula.
+const DUMBBELL = [
+  { x: 0, y: 0, w: 300, h: 30, r: 15, fill: BAR },
+  { x: -80, y: 0, w: 40, h: 136, r: 17, fill: PLATE },
+  { x: 80, y: 0, w: 40, h: 136, r: 17, fill: PLATE },
+  { x: -134, y: 0, w: 54, h: 202, r: 22, fill: PLATE },
+  { x: 134, y: 0, w: 54, h: 202, r: 22, fill: PLATE },
+];
+
+// Distancia con signo a un rectángulo redondeado (negativa dentro).
+function roundRectDistance(px, py, cx, cy, halfW, halfH, radius) {
+  const dx = Math.abs(px - cx) - (halfW - radius);
+  const dy = Math.abs(py - cy) - (halfH - radius);
+  const ox = Math.max(dx, 0);
+  const oy = Math.max(dy, 0);
+  return Math.sqrt(ox * ox + oy * oy) + Math.min(Math.max(dx, dy), 0) - radius;
+}
+
+// Desenfoque por cajas repetido (aproxima una gaussiana) sobre un canal alfa.
+function blurAlpha(mask, width, height, radius, passes = 3) {
+  if (radius < 1) return mask;
+  let src = mask;
+  let dst = new Float32Array(mask.length);
+  for (let pass = 0; pass < passes; pass++) {
+    // Horizontal
+    for (let y = 0; y < height; y++) {
+      const row = y * width;
+      let sum = 0;
+      for (let x = -radius; x <= radius; x++) sum += src[row + Math.min(width - 1, Math.max(0, x))];
+      const norm = 1 / (radius * 2 + 1);
+      for (let x = 0; x < width; x++) {
+        dst[row + x] = sum * norm;
+        sum -= src[row + Math.min(width - 1, Math.max(0, x - radius))];
+        sum += src[row + Math.min(width - 1, Math.max(0, x + radius + 1))];
+      }
+    }
+    // Vertical
+    for (let x = 0; x < width; x++) {
+      let sum = 0;
+      for (let y = -radius; y <= radius; y++) sum += dst[Math.min(height - 1, Math.max(0, y)) * width + x];
+      const norm = 1 / (radius * 2 + 1);
+      for (let y = 0; y < height; y++) {
+        src[y * width + x] = sum * norm;
+        sum -= dst[Math.min(height - 1, Math.max(0, y - radius)) * width + x];
+        sum += dst[Math.min(height - 1, Math.max(0, y + radius + 1)) * width + x];
+      }
+    }
+  }
+  return src;
+}
+
+function rotate(px, py, degrees) {
+  const a = (degrees * Math.PI) / 180;
+  const cos = Math.cos(a);
+  const sin = Math.sin(a);
+  return [px * cos - py * sin, px * sin + py * cos];
+}
+
+// Paradas de un degradado local: `t` en 0 es el borde superior de la forma.
+const gradientT = (localY, height) => (localY + height / 2) / height;
 
 function renderIcon(size, { rounded, contentScale = 1 }) {
-  const buf = Buffer.alloc(size * size * 4);
-  const k = (size / 512) * contentScale;
-  const cx = size / 2;
-  const cy = size / 2;
+  const scale = (size * SS) / CANVAS; // píxeles de trabajo por unidad de lienzo
+  const hi = size * SS;
+  const hiBuf = new Float32Array(hi * hi * 4); // RGBA lineal, 0..255
+  const cornerRadius = rounded ? 112 : 0;
+  const extent = contentScale; // 1 = diseño a tamaño completo
 
-  const setPixel = (x, y, [r, g, b, a]) => {
-    if (x < 0 || y < 0 || x >= size || y >= size) return;
-    const i = (y * size + x) * 4;
-    buf[i] = r;
-    buf[i + 1] = g;
-    buf[i + 2] = b;
-    buf[i + 3] = a;
-  };
-
-  // Fondo
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) setPixel(x, y, BG);
-  }
-
-  // Rectángulo en coordenadas de un lienzo de 512 centrado
-  const rect = (x, y, w, h, color) => {
-    const x0 = Math.round(cx + (x - 256) * k);
-    const y0 = Math.round(cy + (y - 256) * k);
-    const x1 = Math.round(cx + (x + w - 256) * k);
-    const y1 = Math.round(cy + (y + h - 256) * k);
-    for (let yy = y0; yy < y1; yy++) {
-      for (let xx = x0; xx < x1; xx++) setPixel(xx, yy, color);
-    }
-  };
-
-  // Mancuerna: barra central + 4 discos simétricos
-  rect(144, 236, 224, 40, BAR);
-  rect(160, 192, 48, 128, ACCENT);
-  rect(304, 192, 48, 128, ACCENT);
-  rect(96, 152, 48, 208, ACCENT);
-  rect(368, 152, 48, 208, ACCENT);
-
-  if (rounded) {
-    const r = Math.round(size * 0.2);
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        const dx = x < r ? r - x : x > size - 1 - r ? x - (size - 1 - r) : 0;
-        const dy = y < r ? r - y : y > size - 1 - r ? y - (size - 1 - r) : 0;
-        if (dx > 0 && dy > 0 && Math.sqrt(dx * dx + dy * dy) > r) {
-          buf[(y * size + x) * 4 + 3] = 0;
+  // Máscara de la mancuerna para la sombra: cobertura binaria a 4x.
+  const shadowMask = new Float32Array(hi * hi);
+  for (let y = 0; y < hi; y++) {
+    const py = (y + 0.5) / scale;
+    for (let x = 0; x < hi; x++) {
+      const px = (x + 0.5) / scale;
+      const [lx, ly] = rotate((px - CENTER) / extent, (py - CENTER) / extent, -TILT);
+      for (const shape of DUMBBELL) {
+        if (
+          roundRectDistance(lx, ly, shape.x, shape.y, shape.w / 2, shape.h / 2, shape.r) <= 0
+        ) {
+          shadowMask[y * hi + x] = 1;
+          break;
         }
       }
     }
   }
+  const shadow = blurAlpha(shadowMask, hi, hi, Math.round(9 * scale));
+  const shadowDX = Math.round(7 * scale);
+  const shadowDY = Math.round(16 * scale);
 
-  return buf;
+  for (let y = 0; y < hi; y++) {
+    const py = (y + 0.5) / scale;
+    for (let x = 0; x < hi; x++) {
+      const px = (x + 0.5) / scale;
+      const i = (y * hi + x) * 4;
+
+      // Fondo: rectángulo redondeado (o cuadrado completo en el maskable).
+      const bgDist = roundRectDistance(
+        px,
+        py,
+        CENTER,
+        CENTER,
+        CENTER,
+        CENTER,
+        cornerRadius,
+      );
+      if (bgDist > 0) continue; // fuera del lienzo: transparente
+      const bgT = Math.min(1, Math.max(0, (py / CANVAS) * 0.75 + (px / CANVAS) * 0.25 + 0.08));
+      const [br, bg, bb] = BG(bgT);
+
+      // Luz tenue detrás de la mancuerna.
+      const gx = (px - CENTER) / (CANVAS * 0.62);
+      const gy = (py - CENTER * 0.92) / (CANVAS * 0.62);
+      const glow = Math.max(0, 1 - (gx * gx + gy * gy));
+      const glowK = 0.13 * glow * glow;
+      const [lr, lg, lb] = hex(GLOW);
+      let r = br + (lr - br) * glowK;
+      let g = bg + (lg - bg) * glowK;
+      let b = bb + (lb - bb) * glowK;
+
+      // Filo interior: separa el lienzo del fondo donde se apoye el icono.
+      if (cornerRadius > 0 && bgDist > -2.5) {
+        r += (lr - r) * 0.09;
+        g += (lg - g) * 0.09;
+        b += (lb - b) * 0.09;
+      }
+
+      // Sombra proyectada de la mancuerna.
+      const sxp = x - shadowDX;
+      const syp = y - shadowDY;
+      if (sxp >= 0 && syp >= 0 && sxp < hi && syp < hi) {
+        const sa = shadow[syp * hi + sxp] * 0.5;
+        if (sa > 0) {
+          r += (6 - r) * sa;
+          g += (10 - g) * sa;
+          b += (8 - b) * sa;
+        }
+      }
+
+      // Mancuerna inclinada.
+      const [lx, ly] = rotate(
+        (px - CENTER) / extent,
+        (py - CENTER) / extent,
+        -TILT,
+      );
+      for (const shape of DUMBBELL) {
+        const d = roundRectDistance(
+          lx,
+          ly,
+          shape.x,
+          shape.y,
+          shape.w / 2,
+          shape.h / 2,
+          shape.r,
+        );
+        if (d > 0) continue;
+        const [sr, sg, sb] = shape.fill(gradientT(ly - shape.y, shape.h));
+        r = sr;
+        g = sg;
+        b = sb;
+
+        // Filo algo más oscuro: da volumen sin sombras borrosas.
+        if (shape.fill !== BAR && d > -5) {
+          const [er, eg, eb] = PLATE_EDGE(gradientT(ly - shape.y, shape.h));
+          const k = ((d + 5) / 5) * 0.5;
+          r += (er - r) * k;
+          g += (eg - g) * k;
+          b += (eb - b) * k;
+        }
+      }
+
+      hiBuf[i] = r;
+      hiBuf[i + 1] = g;
+      hiBuf[i + 2] = b;
+      hiBuf[i + 3] = 255;
+    }
+  }
+
+  // Reducción por promedio de SS × SS: esto es lo que suaviza los bordes.
+  const out = Buffer.alloc(size * size * 4);
+  const samples = SS * SS;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      let r = 0;
+      let g = 0;
+      let b = 0;
+      let a = 0;
+      for (let sy = 0; sy < SS; sy++) {
+        for (let sx = 0; sx < SS; sx++) {
+          const i = ((y * SS + sy) * hi + (x * SS + sx)) * 4;
+          r += hiBuf[i];
+          g += hiBuf[i + 1];
+          b += hiBuf[i + 2];
+          a += hiBuf[i + 3];
+        }
+      }
+      const o = (y * size + x) * 4;
+      out[o] = Math.round(r / samples);
+      out[o + 1] = Math.round(g / samples);
+      out[o + 2] = Math.round(b / samples);
+      out[o + 3] = Math.round(a / samples);
+    }
+  }
+
+  return out;
+}
+
+// ---- SVG (mismo diseño, para la pestaña del navegador) ----
+
+function renderSVG() {
+  const rect = (s) =>
+    `<rect x="${s.x - s.w / 2}" y="${s.y - s.h / 2}" width="${s.w}" height="${s.h}" rx="${s.r}"/>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#18211c"/>
+      <stop offset="1" stop-color="#080b09"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.42" r="0.62">
+      <stop offset="0" stop-color="#c6f24e" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#c6f24e" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="bar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f6faf5"/>
+      <stop offset="1" stop-color="#c3d1c6"/>
+    </linearGradient>
+    <linearGradient id="plate" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#dcff80"/>
+      <stop offset="1" stop-color="#a3d92c"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="112" fill="url(#glow)"/>
+  <g transform="rotate(${TILT} 256 256)">
+    <g transform="translate(256 256)">
+      <g fill="url(#bar)">${rect(DUMBBELL[0])}</g>
+      <g fill="url(#plate)">${DUMBBELL.slice(1).map(rect).join('')}</g>
+    </g>
+  </g>
+</svg>
+`;
 }
 
 // ---- Generación ----
@@ -122,13 +343,16 @@ function renderIcon(size, { rounded, contentScale = 1 }) {
 mkdirSync(OUT_DIR, { recursive: true });
 
 const targets = [
-  ['icon-192.png', renderIcon(192, { rounded: true })],
-  ['icon-512.png', renderIcon(512, { rounded: true })],
-  ['icon-maskable-512.png', renderIcon(512, { rounded: false, contentScale: 0.72 })],
+  ['icon-192.png', 192, { rounded: true }],
+  ['icon-512.png', 512, { rounded: true }],
+  ['icon-maskable-512.png', 512, { rounded: false, contentScale: 0.8 }],
 ];
 
-for (const [name, rgba] of targets) {
-  const size = name.includes('192') ? 192 : 512;
+for (const [name, size, options] of targets) {
+  const rgba = renderIcon(size, options);
   writeFileSync(join(OUT_DIR, name), encodePNG(size, size, rgba));
   console.log(`✓ public/icons/${name}`);
 }
+
+writeFileSync(join(OUT_DIR, 'icon.svg'), renderSVG());
+console.log('✓ public/icons/icon.svg');
