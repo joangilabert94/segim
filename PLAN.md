@@ -45,6 +45,9 @@ Exercise {                 // CATÁLOGO: identidad estable de cada ejercicio
   name: string;            // etiqueta visible, editable
   muscleGroup?: string;
   createdAt: string;
+  load?: 'external' | 'bodyweight' | 'assisted'; // sin definir = external (§9.2)
+  unilateral?: boolean;    // se registra «por lado»
+  increment?: number;      // incremento propio de la progresión doble
 }
 
 Routine {
@@ -104,6 +107,10 @@ PerformedSet {
 Settings {
   unit: 'kg' | 'lb';
   restPresets: number[]; // [60, 90, 120, 180, x, x] — 6 valores, editables
+  theme: 'auto' | 'light' | 'dark';
+  autoBackup: boolean;
+  progressionIncrement: number; // 2,5 por defecto
+  bodyweight?: number;          // peso corporal actual, opcional
 }
 ```
 
@@ -133,11 +140,17 @@ Settings {
 - Barra inferior con **"Finalizar sesión"** (guarda con `date` = hoy). La sesión `in-progress` se persiste **en cada cambio** en IndexedDB: cerrar o recargar la app no pierde nada; al volver se retoma.
 - **Fecha editable**: la cabecera tiene un botón 📅 para cambiar la fecha de realización de la sesión en curso (la sesión no guarda duración: sin marcar arranque/final).
 - Solo puede haber **una sesión en curso** a la vez (al empezar otra, la anterior se cierra con aviso).
+- **Progresión doble** (§9.2): la serie que sube respecto a la sesión anterior se marca con
+  `↑ +2,5`. Al finalizar, aviso con los **récords** de la sesión; si no hay ninguna serie
+  marcada, se pide confirmación antes de finalizar.
 
 ### 4.3 Historial (`#/historial`)
 - Lista agrupada por mes: fecha, día, nº de ejercicios, volumen total (Σ peso × reps × series).
 - Detalle (`#/historial/:id`): ejercicio a ejercicio con todas las series (peso y reps de cada una), notas y volumen; botones **editar** y **eliminar**, y **fecha de realización editable** (input de fecha que reordena el historial).
 - Estadísticas ligeras: sesiones en los últimos 30 días, volumen total, racha.
+- **Series por grupo muscular** de la semana (lunes a domingo), con navegación entre semanas
+  y la diferencia con la anterior.
+- El detalle muestra la tarjeta 🏆 con los **récords** de esa sesión, agrupados por ejercicio.
 
 ### 4.4 Rutinas (`#/rutinas`) y editor (`#/rutinas/:id`)
 - Lista con nº de días/ejercicios; acciones: editar, **clonar**, archivar, eliminar.
@@ -157,10 +170,14 @@ Settings {
   (las rutinas y sesiones conservan sus datos).
 - **Sembrado automático**: si el catálogo está vacío pero hay rutinas, se rellena con sus
   ejercicios y se vinculan por id en la primera carga.
+- En la ficha de cada ejercicio: **tipo de carga** (Normal, Peso corporal, Asistido), **por
+  lado** e **incremento** propio de la progresión. La gráfica de progresión llama a la métrica
+  de peso «Lastre» o «Asistencia» según el tipo.
 
 ### 4.6 Ajustes (`#/ajustes`)
 - Unidad kg/lb.
 - Editar los 6 presets de descanso.
+- **Incremento de la progresión** (2,5 por defecto) y **peso corporal** opcional.
 - **Exportar backup** (JSON descargado) / **Importar backup** (restaurar — incluye
   rutinas, catálogo de ejercicios, sesiones y ajustes).
 - **Copia en Google Drive** (opcional): conectar/desconectar, *Subir ahora* y *Restaurar*,
@@ -369,6 +386,22 @@ la primera vez que se hace un ejercicio no hay récord):
   «Sin grupo»), semana de lunes a domingo, con navegación entre semanas y comparación con
   la anterior.
 
+**Datos existentes al actualizar a v0.9.0**:
+
+- No hay migración: todos los ejercicios ya creados quedan como **Normal** y no unilaterales,
+  y rutinas e historial se ven igual que antes.
+- El tipo se cambia en Ejercicios → ✎ y se aplica a **todas** las rutinas y a **todo** el
+  historial de ese ejercicio (solo cambia cómo se interpreta; volver a Normal lo deshace).
+- Pasar a *Peso corporal* lee el peso guardado como **lastre**: correcto si se apuntaba 0;
+  si se apuntaba el propio peso corporal, saldría como lastre y habría que corregir esas
+  series a mano.
+- Con el peso corporal en Ajustes, esos ejercicios empiezan a sumar 1RM y volumen en kg: el
+  volumen de 30 días sube aunque no se haya entrenado más.
+- *Por lado* duplica el volumen en kg también en el historial (las series semanales no
+  cambian). Si se apuntaba cada lado como una serie aparte, ese volumen sale doble.
+- Asistidas y lastradas del mismo movimiento van en **dos ejercicios distintos**: en uno
+  menos peso es mejor y en el otro más, así que no pueden compartir progresión ni récords.
+
 ## 10. Riesgos y decisiones tomadas
 
 - **Identidad de ejercicios**: resuelta con **catálogo + `exerciseId` estable** (fase «catálogo").
@@ -391,6 +424,14 @@ la primera vez que se hace un ejercicio no hay récord):
   persiste y se puede revocar en cualquier momento.
 - **Service worker**: no se cachean respuestas de Google; solo se precachean los
   estáticos del build.
+- **Tipo de carga por ejercicio, no por sesión**: más simple y sin migración, a cambio de
+  que cambiarlo reinterprete todo el historial del ejercicio.
+- **Peso corporal único**: se usa el valor actual también para sesiones antiguas (no hay
+  registro histórico del peso corporal).
+- **Progresión doble**: solo series con rango, todas a la vez, desde la última sesión de las
+  últimas 8 semanas y sin descarga automática si no se llega al tope.
+- **Récords al vuelo**: se recalculan contra el historial (no se guardan), así que editar o
+  borrar una sesión antigua puede cambiar los récords de las posteriores.
 
 ---
 
@@ -418,6 +459,10 @@ la primera vez que se hace un ejercicio no hay récord):
   para que se vean nombre y logo en el consentimiento.
 - **Decisiones aparcadas**: publicar y verificar la app en Google (quita Testing y los 7
   días), copias ocultas (`appDataFolder`) y más automatismos de subida.
+- **Ideas propuestas y no elegidas (por ahora)**: RIR/RPE por serie, calculadora de discos,
+  registro de peso corporal y medidas, descarga automática tras varias sesiones sin
+  progresar, progresión en series de reps fijas y cronometradas, récords de tiempo, y avisos
+  de fin de descanso en iPhone (iOS no vibra y el sonido necesita un toque previo).
 - **Siguiente versión (después de v0.9.0)**: **superseries** (agrupar ejercicios que se
   alternan en la sesión).
 

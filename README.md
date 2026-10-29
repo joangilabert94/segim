@@ -43,6 +43,21 @@ dispositivo. Funciona sin conexión e instalable desde el navegador.
   validado, **copia de seguridad en Google Drive** (opcional; manual o automática) y borrado
   total.
 
+## Peso corporal, asistidos y unilaterales
+
+En **Ejercicios → ✎** cada ejercicio puede ser **Normal**, de **Peso corporal** (apuntas el
+lastre; 0 = sin lastre) o **Asistido** (apuntas la ayuda; menos es mejor), hacerse **por lado**
+y tener su propio incremento de progresión. Si rellenas tu **peso corporal** en Ajustes, el
+1RM y el volumen de esos ejercicios lo incluyen.
+
+Al actualizar, los ejercicios que ya tenías quedan como Normal y nada cambia hasta que los
+edites. El cambio se aplica a todas las rutinas y a todo el historial del ejercicio:
+
+- Al pasar a Peso corporal, el peso guardado se lee como lastre (bien si apuntabas 0; si
+  apuntabas tu peso corporal, corrige esas series).
+- Con el peso corporal en Ajustes y con *por lado*, el volumen en kg del historial sube.
+- Si haces el mismo movimiento asistido y lastrado, usa dos ejercicios distintos.
+
 ## Copia de seguridad en Google Drive (opcional)
 
 Desde Ajustes puedes conectar tu cuenta de Google y subir todas tus rutinas, sesiones y
