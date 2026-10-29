@@ -158,7 +158,7 @@ Settings {
   rutinas, catálogo de ejercicios, sesiones y ajustes).
 - **Copia en Google Drive** (opcional): conectar/desconectar, *Subir ahora* y *Restaurar*,
   más el ajuste **copia automática** (por defecto, desactivado) al terminar una sesión o al
-  editar una sesión, rutina o ejercicio. Deja `gymrutinas-backup.json` (última) y las 10
+  editar una sesión, rutina o ejercicio. Deja `segim-backup.json` (última) y las 10
   copias fechadas más recientes.
 - Borrar todos los datos, versión, instrucciones de instalación PWA.
 
@@ -270,9 +270,13 @@ Implementada como **copia de seguridad** (manual o automática), no como sincron
   rutina o un ejercicio (20–30 s sin tocar nada, para que una ráfaga de cambios acabe en
   una sola subida). Una subida a la vez (cola), token pedido en silencio y, si Google
   exige interacción, aviso con la vía manual. Las ediciones solo actualizan
-  `gymrutinas-backup.json`; las copias fechadas se crean al cerrar sesión o a mano, para
+  `segim-backup.json`; las copias fechadas se crean al cerrar sesión o a mano, para
   que la rotación de 10 no expulse las de días anteriores.
-- **Dónde**: carpeta `GymRutinas` del Drive del usuario: `gymrutinas-backup.json`
+- **Dónde**: carpeta `Segim` del Drive del usuario: `segim-backup.json` (la app se llamó
+  antes GymRutinas: se sigue leyendo el `gymrutinas-backup.json` anterior y la marca interna
+  del JSON no cambia, para no invalidar copias ya guardadas). La primera subida tras el
+  cambio renombra la carpeta antigua a `Segim` y recuerda el nombre en `drive:meta`, así que
+  solo hace esa petición una vez.
   (última copia, la que se restaura) y `copia-AAAA-MM-DD-HHmm.json` (se conservan las
   10 más recientes; el resto se borra al subir). Drive mantiene además el historial de
   versiones del fichero.

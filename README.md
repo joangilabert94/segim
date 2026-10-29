@@ -1,4 +1,4 @@
-# GymRutinas 🏋️
+# Segim 🏋️
 
 PWA mobile-first para controlar tus rutinas y el día a día del gimnasio: rutinas
 multi-día, modo entrenamiento con comparación **serie a serie** (Plan · Anterior · Hoy),
@@ -42,8 +42,8 @@ ajustes a **tu** Drive. Nada pasa por un servidor: la app habla directamente con
 Google con un token que vive solo en memoria.
 
 ```
-GymRutinas/
-  gymrutinas-backup.json        ← última copia (es la que se restaura)
+Segim/
+  segim-backup.json             ← última copia (es la que se restaura)
   copia-2026-10-28-1842.json    ← copias fechadas (se conservan las 10 últimas)
 ```
 
@@ -52,9 +52,15 @@ GymRutinas/
   cuando dejas de tocar nada (20–30 s), de modo que una ráfaga de cambios produce una sola
   copia.
 - Las copias fechadas se crean al terminar una sesión y al subir a mano; las ediciones solo
-  actualizan `gymrutinas-backup.json`, para no expulsar del historial las de días anteriores.
+  actualizan `segim-backup.json`, para no expulsar del historial las de días anteriores.
 - Si no hay conexión o Google pide volver a autorizar, la app lo avisa y queda la vía
   manual; nunca restaura nada por su cuenta.
+- El JSON conserva la marca interna `"app": "gymrutinas"` y la app sigue leyendo
+  `gymrutinas-backup.json`: son identificadores de formato, no el nombre visible, y cambiarlos
+  invalidaría las copias ya guardadas.
+- Si tu carpeta se creó con el nombre anterior (`GymRutinas`), la primera subida la renombra a
+  `Segim` sin mover ni duplicar nada; el fichero de la copia conserva el nombre con el que se
+  creó.
 - Permiso **`drive.file`** (no sensible): la app solo ve los ficheros que ella crea.
 - *Restaurar* valida el JSON con el mismo criterio que el import por fichero y pide
   confirmación antes de reemplazar los datos locales.

@@ -9,6 +9,7 @@ import {
   DriveError,
   findBackupFile,
   listDatedCopies,
+  renameFile,
   updateBackupFile,
 } from '../src/services/drive/api';
 
@@ -46,6 +47,9 @@ describe('findBackupFile', () => {
     expect(file?.id).toBe('f1');
     const [url, init] = callOf(fetchMock);
     const decoded = decodeURIComponent(url);
+    expect(decoded).toContain("name = 'segim-backup.json'");
+    // También el nombre anterior: si se perdió la referencia, se reutiliza la
+    // copia que ya está en Drive en lugar de crear un duplicado.
     expect(decoded).toContain("name = 'gymrutinas-backup.json'");
     expect(decoded).toContain('trashed = false');
     expect(decoded).toContain('orderBy=modifiedTime desc');
@@ -69,7 +73,7 @@ describe('subida', () => {
     expect(url).toContain('upload/drive/v3/files?uploadType=multipart');
     expect(init.method).toBe('POST');
     expect(new Headers(init.headers).get('Content-Type')).toMatch(
-      /^multipart\/related; boundary=gymrutinas-/,
+      /^multipart\/related; boundary=segim-/,
     );
   });
 
@@ -89,7 +93,7 @@ describe('subida', () => {
     const text = await body.text();
 
     expect(contentType).toMatch(/^multipart\/related; boundary=/);
-    expect(text).toContain('"name":"gymrutinas-backup.json"');
+    expect(text).toContain('"name":"segim-backup.json"');
     expect(text).toContain('"parents":["carpeta-9"]');
     expect(text).toContain('{"app":"gymrutinas"}');
     // La frontera del Content-Type es la misma que la del cuerpo.
@@ -101,6 +105,23 @@ describe('subida', () => {
   it('sin carpeta no manda parents', async () => {
     const { body } = buildMultipartBody('{}');
     expect(await body.text()).not.toContain('parents');
+  });
+});
+
+describe('renameFile', () => {
+  it('renombra con un PATCH de metadatos, sin tocar el contenido', async () => {
+    const fetchMock = stubFetch(() => jsonResponse({ id: 'folder-1', name: 'Segim' }));
+
+    const file = await renameFile('tok', 'folder-1', 'Segim');
+
+    expect(file.name).toBe('Segim');
+    const [url, init] = callOf(fetchMock);
+    expect(url).toContain('/drive/v3/files/folder-1?fields=');
+    expect(url).not.toContain('upload/drive');
+    expect(init.method).toBe('PATCH');
+    expect(init.body).toBe('{"name":"Segim"}');
+    expect(new Headers(init.headers).get('Content-Type')).toContain('application/json');
+    expect(new Headers(init.headers).get('Authorization')).toBe('Bearer tok');
   });
 });
 

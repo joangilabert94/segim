@@ -78,7 +78,7 @@ describe('parseBackup — validación', () => {
   it('rechaza JSON inválido y ficheros de otra app', () => {
     expect(() => parseBackup('{nope')).toThrow('no es un JSON válido');
     expect(() => parseBackup(JSON.stringify({ app: 'otra' }))).toThrow(
-      'no parece una copia de GymRutinas',
+      'no parece una copia de Segim',
     );
   });
 

@@ -65,7 +65,7 @@ describe('parseRoutinesFile', () => {
     expect(() => parseRoutinesFile('{no es json')).toThrow('no es un JSON válido');
   });
 
-  it('rechaza ficheros que no son de GymRutinas', () => {
+  it('rechaza ficheros que no son de Segim', () => {
     expect(() => parseRoutinesFile('{"foo":1}')).toThrow('no parece un archivo de rutinas');
   });
 

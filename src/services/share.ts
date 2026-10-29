@@ -3,9 +3,11 @@
 // La copia completa de seguridad sigue en backup.ts.
 
 import type { Exercise, Routine } from '../models';
+import { BACKUP_APP_ID } from './backup';
 import { findExercise } from './catalog';
 import { parseExercise, parseRoutine } from './validation';
 
+/** Marca del fichero de rutinas: estable a propósito, no el nombre visible. */
 export const ROUTINES_KIND = 'gymrutinas-routines';
 
 export interface RoutinesFile {
@@ -84,7 +86,7 @@ export function downloadRoutinesFile(file: RoutinesFile): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `gymrutinas-rutinas-${file.exportedAt.slice(0, 10)}.json`;
+  a.download = `segim-rutinas-${file.exportedAt.slice(0, 10)}.json`;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -104,13 +106,13 @@ export function parseRoutinesFile(text: string): RoutinesFile {
     throw new Error('El fichero no es un JSON válido.');
   }
   if (!isObject(data)) {
-    throw new Error('El fichero no parece un archivo de rutinas de GymRutinas.');
+    throw new Error('El fichero no parece un archivo de rutinas de Segim.');
   }
 
   const isRoutinesFile = data.kind === ROUTINES_KIND;
-  const isFullBackup = data.app === 'gymrutinas';
+  const isFullBackup = data.app === BACKUP_APP_ID;
   if (!isRoutinesFile && !isFullBackup) {
-    throw new Error('El fichero no parece un archivo de rutinas de GymRutinas.');
+    throw new Error('El fichero no parece un archivo de rutinas de Segim.');
   }
   if (!Array.isArray(data.routines)) {
     throw new Error('El fichero no contiene rutinas.');

@@ -53,6 +53,13 @@ function fakeClient() {
     downloadBackupText: vi.fn(async (): Promise<string> => JSON.stringify(backup)),
     listDatedCopies: vi.fn(async (): Promise<DriveFileMeta[]> => []),
     deleteFile: vi.fn(async (): Promise<void> => undefined),
+    // Drive devuelve el fichero con el nombre nuevo ya aplicado.
+    renameFile: vi.fn(
+      async (_token: string, fileId: string, name: string): Promise<DriveFileMeta> => ({
+        id: fileId,
+        name,
+      }),
+    ),
   };
 }
 
@@ -244,6 +251,60 @@ describe('restauración desde Drive', () => {
     expect(err).toBeInstanceOf(DriveError);
     expect((err as DriveError).kind).toBe('notFound');
     expect((err as DriveError).message).toMatch(/no hay ninguna copia/i);
+  });
+});
+
+describe('renombrado de la carpeta', () => {
+  it('renombra la carpeta antigua una sola vez y lo recuerda', async () => {
+    const client = fakeClient();
+    const store = memoryStore({ folderId: 'folder-1', fileId: 'file-1', folderName: 'GymRutinas' });
+
+    await target(client, store).upload(backup);
+
+    expect(client.renameFile).toHaveBeenCalledWith('tok', 'folder-1', 'Segim');
+    expect(client.createFolder).not.toHaveBeenCalled();
+    expect(store.peek()?.folderName).toBe('Segim');
+
+    // La siguiente subida ya no repite la petición.
+    client.renameFile.mockClear();
+    await target(client, store).upload(backup);
+    expect(client.renameFile).not.toHaveBeenCalled();
+  });
+
+  it('con metadatos anteriores (sin nombre guardado) lo comprueba igual', async () => {
+    // Las instalaciones de antes del renombrado no tienen `folderName`.
+    const client = fakeClient();
+    const store = memoryStore({ folderId: 'folder-1', fileId: 'file-1' });
+
+    await target(client, store).upload(backup);
+
+    expect(client.renameFile).toHaveBeenCalledWith('tok', 'folder-1', 'Segim');
+    expect(store.peek()?.folderName).toBe('Segim');
+  });
+
+  it('si Google no deja renombrar, la copia se sube igual y se reintenta después', async () => {
+    const client = fakeClient();
+    client.renameFile.mockRejectedValueOnce(new DriveError('server', 500, 'Google no responde'));
+    const store = memoryStore({ folderId: 'folder-1', fileId: 'file-1', folderName: 'GymRutinas' });
+
+    const result = await target(client, store).upload(backup);
+
+    expect(client.updateBackupFile).toHaveBeenCalledWith('tok', 'file-1', JSON.stringify(backup));
+    expect(result.warning).toBeUndefined();
+    // Sin nombre recordado: la próxima subida volverá a intentarlo.
+    expect(store.peek()?.folderName).toBeUndefined();
+    expect(store.peek()?.lastSyncAt).toBe('2026-10-28T11:00:00.000Z');
+  });
+
+  it('una carpeta recién creada ya lleva el nombre actual', async () => {
+    const client = fakeClient();
+    const store = memoryStore();
+
+    await target(client, store).upload(backup);
+
+    expect(client.createFolder).toHaveBeenCalledTimes(1);
+    expect(client.renameFile).not.toHaveBeenCalled();
+    expect(store.peek()?.folderName).toBe('Segim');
   });
 });
 

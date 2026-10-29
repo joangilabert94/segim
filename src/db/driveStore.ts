@@ -9,8 +9,13 @@ import { del, get, set } from 'idb-keyval';
 import { K_DRIVE_META } from './idb';
 
 export interface DriveMeta {
-  /** Carpeta "GymRutinas" creada por la app (si se conoce). */
+  /** Carpeta "Segim" creada por la app (si se conoce). */
   folderId?: string;
+  /**
+   * Nombre con el que está en Drive. Si no es el actual (o no se conoce, por
+   * venir de una versión anterior), la próxima subida la renombra una vez.
+   */
+  folderName?: string;
   /** Fichero de copia actual: evita buscarlo por nombre en cada subida. */
   fileId?: string;
   /** `modifiedTime` que devolvió Drive en la última subida (ISO). */
@@ -32,6 +37,7 @@ export const driveMetaStore: DriveMetaStore = {
     // perder la referencia (se recupera buscando el fichero por nombre).
     return {
       folderId: typeof m.folderId === 'string' ? m.folderId : undefined,
+      folderName: typeof m.folderName === 'string' ? m.folderName : undefined,
       fileId: typeof m.fileId === 'string' ? m.fileId : undefined,
       lastSyncAt: typeof m.lastSyncAt === 'string' ? m.lastSyncAt : undefined,
     };

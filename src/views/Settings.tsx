@@ -179,7 +179,7 @@ export function SettingsView() {
       <header class="view-head">
         <h1>
           Ajustes
-          <span class="sub">GymRutinas v{APP_VERSION}</span>
+          <span class="sub">Segim v{APP_VERSION}</span>
         </h1>
       </header>
 

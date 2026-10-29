@@ -26,8 +26,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icons/icon-192.png', 'icons/icon-512.png'],
       manifest: {
-        name: 'GymRutinas — control de rutinas de gimnasio',
-        short_name: 'GymRutinas',
+        name: 'Segim — control de rutinas de gimnasio',
+        short_name: 'Segim',
         description:
           'Rutinas, series, pesos y repeticiones de tu día a día en el gimnasio. Funciona sin conexión.',
         lang: 'es',

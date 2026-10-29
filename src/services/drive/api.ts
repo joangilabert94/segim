@@ -6,8 +6,14 @@
 // Los errores se convierten en `DriveError` con categoría, para que la UI sepa
 // si debe pedir token, reintentar más tarde o avisar de que no queda espacio.
 
-export const BACKUP_FILE_NAME = 'gymrutinas-backup.json';
-export const BACKUP_FOLDER_NAME = 'GymRutinas';
+export const BACKUP_FILE_NAME = 'segim-backup.json';
+export const BACKUP_FOLDER_NAME = 'Segim';
+/**
+ * Nombre con el que la app (antes "GymRutinas") creó la copia. Se sigue
+ * buscando al leer: si el navegador perdió la referencia al fichero, se
+ * reutiliza el que ya está en Drive en vez de crear un duplicado.
+ */
+export const LEGACY_BACKUP_FILE_NAME = 'gymrutinas-backup.json';
 /** Prefijo de las copias fechadas que se conservan (rotación de las últimas 10). */
 export const DATED_COPY_PREFIX = 'copia-';
 
@@ -134,7 +140,10 @@ async function request(token: string, url: string, init: RequestInit = {}): Prom
  * los ficheros que ha creado esta app, así que no hay riesgo de tocar otro.
  */
 export async function findBackupFile(token: string): Promise<DriveFileMeta | null> {
-  const q = encodeURIComponent(`name = '${BACKUP_FILE_NAME}' and trashed = false`);
+  const names = [BACKUP_FILE_NAME, LEGACY_BACKUP_FILE_NAME]
+    .map((name) => `name = '${name}'`)
+    .join(' or ');
+  const q = encodeURIComponent(`(${names}) and trashed = false`);
   const url =
     `${API_BASE}/files?q=${q}&spaces=drive` +
     `&fields=files(${FILE_FIELDS})&orderBy=modifiedTime desc&pageSize=10`;
@@ -196,7 +205,7 @@ export function buildMultipartBody(
 ): { body: Blob; contentType: string } {
   // Frontera aleatoria: el contenido lleva JSON con llaves y comillas, así que
   // no puede contener una cadena con esta forma.
-  const boundary = `gymrutinas-${Math.random().toString(36).slice(2)}`;
+  const boundary = `segim-${Math.random().toString(36).slice(2)}`;
   const metadata: Record<string, unknown> = { name, mimeType: 'application/json' };
   if (folderId) metadata.parents = [folderId];
 
@@ -249,6 +258,28 @@ export async function updateBackupFile(
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json; charset=UTF-8' },
       body: content,
+    },
+  );
+  return (await res.json()) as DriveFileMeta;
+}
+
+/**
+ * Renombra un fichero o carpeta existente (PATCH de metadatos).
+ * Se usa para alinear el nombre antiguo de la carpeta ("GymRutinas") con el
+ * actual ("Segim") sin mover ni duplicar nada.
+ */
+export async function renameFile(
+  token: string,
+  fileId: string,
+  name: string,
+): Promise<DriveFileMeta> {
+  const res = await request(
+    token,
+    `${API_BASE}/files/${encodeURIComponent(fileId)}?fields=${FILE_FIELDS}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+      body: JSON.stringify({ name }),
     },
   );
   return (await res.json()) as DriveFileMeta;

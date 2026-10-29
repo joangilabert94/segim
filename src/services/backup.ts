@@ -8,8 +8,15 @@
 import type { Exercise, Routine, Session, Settings } from '../models';
 import { parseExerciseList, parseRoutine, parseSession, parseSettings } from './validation';
 
+/**
+ * Marca del formato de copia: identificador estable, no el nombre visible.
+ * Se queda en `gymrutinas` a propósito (la app se llama Segim) para que las
+ * copias ya guardadas —en Drive o en un fichero— se sigan restaurando.
+ */
+export const BACKUP_APP_ID = 'gymrutinas';
+
 export interface BackupFile {
-  app: 'gymrutinas';
+  app: typeof BACKUP_APP_ID;
   version: 1;
   exportedAt: string;
   routines: Routine[];
@@ -60,7 +67,7 @@ export function buildBackup(data: {
   settings: Settings;
 }): BackupFile {
   return {
-    app: 'gymrutinas',
+    app: BACKUP_APP_ID,
     version: 1,
     exportedAt: new Date().toISOString(),
     routines: data.routines,
@@ -78,7 +85,7 @@ export function downloadBackup(backup: BackupFile): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `gymrutinas-backup-${backup.exportedAt.slice(0, 10)}.json`;
+  a.download = `segim-backup-${backup.exportedAt.slice(0, 10)}.json`;
   // En algunos navegadores hay que insertar el enlace y no revocar la URL de
   // forma síncrona: si no, la descarga puede cancelarse.
   document.body.appendChild(a);
@@ -96,15 +103,15 @@ export function parseBackup(text: string): BackupFile {
     throw new Error('El fichero no es un JSON válido.');
   }
   if (typeof data !== 'object' || data === null) {
-    throw new Error('El fichero no parece una copia de GymRutinas.');
+    throw new Error('El fichero no parece una copia de Segim.');
   }
   const b = data as Record<string, unknown>;
-  if (b.app !== 'gymrutinas') {
-    throw new Error('El fichero no parece una copia de GymRutinas.');
+  if (b.app !== BACKUP_APP_ID) {
+    throw new Error('El fichero no parece una copia de Segim.');
   }
   if (typeof b.version === 'number' && b.version > 1) {
     throw new Error(
-      'La copia es de una versión más nueva de la app. Actualiza GymRutinas antes de importarla.',
+      'La copia es de una versión más nueva de la app. Actualiza Segim antes de importarla.',
     );
   }
   if (!Array.isArray(b.routines) || !Array.isArray(b.sessions)) {
@@ -120,7 +127,7 @@ export function parseBackup(text: string): BackupFile {
   const exercises = parseExerciseList(b.exercises);
 
   return {
-    app: 'gymrutinas',
+    app: BACKUP_APP_ID,
     version: 1,
     exportedAt:
       typeof b.exportedAt === 'string' ? b.exportedAt : new Date().toISOString(),

@@ -2,8 +2,8 @@
 //
 // Estructura que deja en el Drive del usuario:
 //
-//   GymRutinas/
-//     gymrutinas-backup.json        ← última copia (la que se restaura)
+//   Segim/
+//     segim-backup.json             ← última copia (la que se restaura)
 //     copia-2026-10-28-1842.json    ← copias fechadas (se conservan 10)
 //
 // El JSON es el mismo que usa el export/import a fichero, así que restaurar
@@ -13,7 +13,7 @@
 
 import type { BackupFile, BackupTarget, BackupTargetStatus } from '../backup';
 import { parseBackup } from '../backup';
-import { type DriveFileMeta, DriveError, datedCopyName } from './api';
+import { BACKUP_FOLDER_NAME, type DriveFileMeta, DriveError, datedCopyName } from './api';
 import * as api from './api';
 import { forgetToken, getAccessToken, isDriveConfigured } from './auth';
 import type { DriveMeta, DriveMetaStore } from '../../db/driveStore';
@@ -34,6 +34,7 @@ export interface DriveClient {
     folderId?: string,
   ): Promise<DriveFileMeta>;
   updateBackupFile(token: string, fileId: string, content: string): Promise<DriveFileMeta>;
+  renameFile(token: string, fileId: string, name: string): Promise<DriveFileMeta>;
   downloadBackupText(token: string, fileId: string): Promise<string>;
   listDatedCopies(token: string, folderId?: string): Promise<DriveFileMeta[]>;
   deleteFile(token: string, fileId: string): Promise<void>;
@@ -111,8 +112,26 @@ export function createDriveTarget(options: DriveTargetOptions = {}): BackupTarge
         const meta: DriveMeta = { ...((await metaStore.load()) ?? {}) };
 
         // La carpeta hace falta también para las copias fechadas.
-        const folderId = meta.folderId ?? (await client.createFolder(token)).id;
+        // Si viene de la versión anterior (nombre "GymRutinas", o sin nombre
+        // guardado porque el metadato se creó antes), se renombra UNA vez y se
+        // recuerda el nombre para no repetir la petición en cada subida.
+        let folderId = meta.folderId;
+        let folderName = meta.folderName;
+        if (!folderId) {
+          const folder = await client.createFolder(token);
+          folderId = folder.id;
+          folderName = folder.name ?? BACKUP_FOLDER_NAME;
+        } else if (folderName !== BACKUP_FOLDER_NAME) {
+          try {
+            const renamed = await client.renameFile(token, folderId, BACKUP_FOLDER_NAME);
+            folderName = renamed.name ?? BACKUP_FOLDER_NAME;
+          } catch {
+            // Es cosmético: la copia se guarda igual y se reintenta la próxima vez.
+            folderName = undefined;
+          }
+        }
         meta.folderId = folderId;
+        meta.folderName = folderName;
 
         // 1) La copia principal: si esto falla, la subida se considera fallida.
         const file = await saveLatest(token, meta, content, folderId);
