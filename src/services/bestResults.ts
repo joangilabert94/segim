@@ -5,7 +5,18 @@
 // "Actualizar plan" del editor.
 
 import type { PerformedSet, PlannedSet, Session } from '../models';
+import { parseISODate, todayISO } from './format';
 import { findEntry, type ExerciseRef } from './previousSession';
+
+// Tras un parón o una descarga, un récord antiguo no debe volver a sugerirse.
+export const RECENT_BEST_DAYS = 56;
+
+/** Primera fecha (YYYY-MM-DD) que cuenta como reciente respecto a `date`. */
+export function recentSince(date: string = todayISO()): string {
+  const from = parseISODate(date);
+  from.setDate(from.getDate() - RECENT_BEST_DAYS);
+  return todayISO(from);
+}
 
 /** ¿`a` es al menos tan exigente como `b`? */
 function atLeastAsDemanding(a: PerformedSet, b: PerformedSet): boolean {
@@ -17,46 +28,60 @@ function atLeastAsDemanding(a: PerformedSet, b: PerformedSet): boolean {
   return a.reps >= b.reps;
 }
 
+const mostDemanding = (sets: PerformedSet[]): PerformedSet | undefined =>
+  sets.reduce<PerformedSet | undefined>(
+    (best, set) => (best === undefined || atLeastAsDemanding(set, best) ? set : best),
+    undefined,
+  );
+
 /**
- * El mejor resultado de cada índice de serie de un ejercicio en todo el
- * historial (sesiones completadas). Índice i = serie i+1; si una serie no
- * existió en alguna sesión, no aporta.
- *
- * Solo cuentan las series marcadas como hechas: una serie sin marcar es una
- * sugerencia del plan o algo que se dejó a medias, nunca un resultado real.
- * Se conserva el índice original (incluidas las no hechas como huecos) para
- * que la serie i siga emparejándose con la serie i de la sesión nueva.
- * `maxDate` limita el historial a sesiones de esa fecha o anteriores (al
- * reabrir una sesión antigua no deben usarse resultados posteriores).
+ * ¿El resultado alcanza el plan en todo (peso y reps, o peso y duración)?
+ * Solo entonces puede sustituirlo: mezclar el peso de un día con las reps de
+ * otro sugeriría algo que nunca se ha hecho.
  */
-export function bestSetsForExercise(
+function reachesPlan(best: PerformedSet, planned: PlannedSet): boolean {
+  if (best.weight < (planned.weight ?? 0)) return false;
+  if (planned.durationSec !== undefined) {
+    return best.durationSec !== undefined && best.durationSec >= planned.durationSec;
+  }
+  return best.durationSec === undefined && best.reps >= planned.reps;
+}
+
+/**
+ * Series hechas de un ejercicio en el historial (sesiones completadas),
+ * agrupadas por índice de serie: la serie i solo se compara con la serie i.
+ * `maxDate` descarta sesiones posteriores (al reabrir una antigua) y
+ * `sinceDate`, las demasiado viejas.
+ */
+export function setHistoryForExercise(
   sessions: Session[],
   ref: ExerciseRef,
-  options: { maxDate?: string } = {},
-): (PerformedSet | undefined)[] {
-  const { maxDate } = options;
-  const lists: (PerformedSet | undefined)[][] = [];
+  options: { maxDate?: string; sinceDate?: string } = {},
+): PerformedSet[][] {
+  const { maxDate, sinceDate } = options;
+  const byIndex: PerformedSet[][] = [];
   for (const session of sessions) {
     if (session.status !== 'completed') continue;
     if (maxDate !== undefined && session.date > maxDate) continue;
+    if (sinceDate !== undefined && session.date < sinceDate) continue;
     const entry = findEntry(session, ref);
-    if (!entry || entry.sets.length === 0) continue;
-    lists.push(entry.sets.map((set) => (set.done ? set : undefined)));
+    if (!entry) continue;
+    entry.sets.forEach((set, i) => {
+      byIndex[i] ??= [];
+      // Una serie sin marcar es una sugerencia o algo a medias, no un resultado.
+      if (set.done) byIndex[i].push(set);
+    });
   }
-  let size = 0;
-  for (const list of lists) size = Math.max(size, list.length);
-  const bests: (PerformedSet | undefined)[] = [];
-  for (let i = 0; i < size; i++) {
-    let best: PerformedSet | undefined;
-    for (const list of lists) {
-      const candidate = list[i];
-      if (candidate && (best === undefined || atLeastAsDemanding(candidate, best))) {
-        best = candidate;
-      }
-    }
-    bests.push(best);
-  }
-  return bests;
+  return Array.from(byIndex, (sets) => sets ?? []);
+}
+
+/** El mejor resultado de cada índice de serie (undefined si no hay ninguno hecho). */
+export function bestSetsForExercise(
+  sessions: Session[],
+  ref: ExerciseRef,
+  options: { maxDate?: string; sinceDate?: string } = {},
+): (PerformedSet | undefined)[] {
+  return setHistoryForExercise(sessions, ref, options).map(mostDemanding);
 }
 
 /**
@@ -82,51 +107,35 @@ export function bestOverallForExercise(
 }
 
 /**
- * Combina lo planeado con el mejor resultado: la opción más exigente de cada
- * campo. El plan solo cambia aquí dentro cuando alguien lo pide (botón
- * "Actualizar plan"); la sesión usa esta misma fusión como sugerencia.
+ * Combina lo planeado con un resultado: si lo alcanza en todo, manda el
+ * resultado; si no, el plan tal cual. Un rango del plan se conserva mientras
+ * el resultado no lo supere.
  */
 export function mergeWithBest(planned: PlannedSet, best?: PerformedSet): PlannedSet {
-  // Peso: el mayor entre lo planeado y lo conseguido (0 o ausente = sin dato).
-  const weight = Math.max(planned.weight ?? 0, best?.weight ?? 0) > 0
-    ? Math.max(planned.weight ?? 0, best?.weight ?? 0)
-    : planned.weight;
-  const note = planned.note;
-
-  // Serie cronometrada: manda la mayor duración (y el peso mayor).
-  if (planned.durationSec !== undefined) {
-    const durationSec =
-      best?.durationSec !== undefined
-        ? Math.max(planned.durationSec, best.durationSec)
-        : planned.durationSec;
-    return { weight, reps: planned.reps, durationSec, ...(note !== undefined ? { note } : {}) };
-  }
-
-  // Sin datos aún, o el mejor es de otra naturaleza (cronometrada): manda el plan.
-  if (best === undefined || best.durationSec !== undefined) {
+  const note = planned.note !== undefined ? { note: planned.note } : {};
+  if (best === undefined || !reachesPlan(best, planned)) {
     return {
-      weight,
+      weight: planned.weight,
       reps: planned.reps,
       ...(planned.repsMax !== undefined ? { repsMax: planned.repsMax } : {}),
-      ...(note !== undefined ? { note } : {}),
+      ...(planned.durationSec !== undefined ? { durationSec: planned.durationSec } : {}),
+      ...note,
     };
   }
 
+  // Peso 0 en el resultado y sin peso en el plan: sigue siendo "sin carga".
+  const weight = best.weight > 0 ? best.weight : planned.weight;
+  if (planned.durationSec !== undefined) {
+    return { weight, reps: planned.reps, durationSec: best.durationSec, ...note };
+  }
   const isRange = planned.repsMax !== undefined && planned.repsMax > planned.reps;
-  if (isRange) {
-    if (best.reps > (planned.repsMax as number)) {
-      // Mejor por fuera del rango: el plan pasa a número fijo (caso raro).
-      return { weight, reps: best.reps, ...(note !== undefined ? { note } : {}) };
-    }
-    // El rango se conserva mientras el mejor esté dentro de él.
-    return {
-      weight,
-      reps: planned.reps,
-      repsMax: planned.repsMax,
-      ...(note !== undefined ? { note } : {}),
-    };
+  if (isRange && best.reps <= (planned.repsMax as number)) {
+    return { weight, reps: planned.reps, repsMax: planned.repsMax, ...note };
   }
+  return { weight, reps: best.reps, ...note };
+}
 
-  // Reps fijas: el mayor entre plan y mejor resultado.
-  return { weight, reps: Math.max(planned.reps, best.reps), ...(note !== undefined ? { note } : {}) };
+/** Sugerencia de una serie: el resultado más exigente de los que alcanzan el plan. */
+export function suggestFromHistory(planned: PlannedSet, history: PerformedSet[] = []): PlannedSet {
+  return mergeWithBest(planned, mostDemanding(history.filter((set) => reachesPlan(set, planned))));
 }

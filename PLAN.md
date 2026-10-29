@@ -115,11 +115,11 @@ Settings {
 - Botón fijo grande **"Iniciar sesión"**.
 
 ### 4.2 Sesión / Modo entrenamiento (`#/sesion`)
-- Al iniciar desde un día de rutina: se crean las `SessionEntry` con **una `PerformedSet` por cada `PlannedSet`**, y **se pre-rellena serie a serie** con los valores de la serie correspondiente de la última sesión que contuvo ese ejercicio (mismo nombre normalizado).
+- Al iniciar desde un día de rutina: se crean las `SessionEntry` con **una `PerformedSet` por cada `PlannedSet`**, y **se pre-rellena serie a serie** con el resultado más exigente de esa serie en las **últimas 8 semanas** que alcance el plan en peso **y** reps a la vez; si ninguno lo alcanza, con el plan. Nunca se combina el peso de un día con las reps de otro, y un récord antiguo no vuelve tras un parón. *Actualizar plan* (editor) aplica la misma regla.
 - **Comparación por serie** (la fila de cada serie muestra tres columnas):
   - **Plan**: `60 kg × 8` (de la serie i de la rutina),
   - **Anterior**: `62 kg × 8` + fecha relativa ("hace 4 días" / "semana pasada"), de la serie i de la sesión anterior,
-  - **Hoy**: dos inputs editables (peso y reps) precargados con lo anterior (si existe) o con lo planeado.
+  - **Hoy**: dos inputs editables (peso y reps) precargados con la sugerencia anterior.
   - La identidad del ejercicio es su **`exerciseId` del catálogo**; solo se usa el nombre
     normalizado como fallback en datos antiguos. Si la sesión anterior tenía **otro número
     de series**: se mapean por índice, y las que no tengan equivalente se muestran como «—».
@@ -173,7 +173,8 @@ Settings {
   comparación **por id**; si no, fallback al nombre normalizado (datos antiguos).
 - `findPreviousSession(sessions, ref, options)`: última sesión completada anterior que
   contenga el ejercicio (por id o nombre). Devuelve `date` para "hace N días" / "semana pasada".
-- `prefillSetsByIndex(plannedSets, previousSets)`: emparejamiento **serie i ↔ serie i**.
+- `prefillFromHistory(plannedSets, history)` / `suggestFromHistory`: emparejamiento **serie i ↔ serie i**
+  con la regla de la sugerencia (§4.2).
 - Catálogo (`services/catalog.ts`): `findExercise` (nombre normalizado),
   `pickOrCreateExercise` (nunca duplica), `seedCatalogFromRoutines` y
   `linkRoutinesToCatalog` (vinculado automático de datos antiguos).

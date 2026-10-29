@@ -14,7 +14,8 @@ dispositivo. Funciona sin conexión e instalable desde el navegador.
 - **Hoy**: día sugerido de tu rutina activa, reanudar sesión en curso, racha y volumen.
   La **sesión libre** está siempre disponible, incluso sin ninguna rutina creada.
 - **Modo entrenamiento**: cada serie muestra lo planeado, lo de la sesión anterior
-  (con fecha relativa) y tus inputs de hoy; checks, notas, series extra y cronómetro
+  (con fecha relativa) y tus inputs de hoy, precargados con tu mejor resultado de las últimas
+  8 semanas si supera al plan en peso y reps (si no, con el plan); checks, notas, series extra y cronómetro
   de descanso opcional (presets 60/90/120/180/240/300 s, editables).
   La sesión en curso se guarda en cada cambio: puedes cerrar la pestaña y volver.
   **No se mide la duración** (sin marcar arranque/final): solo cuenta la fecha de

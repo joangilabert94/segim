@@ -20,7 +20,11 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { BottomSheet } from '../components/BottomSheet';
 import { ExercisePicker } from '../components/ExercisePicker';
 import { fmtReps, fmtWeight, fmtWeightInput, parseNumber, parseRepsRange } from '../services/format';
-import { bestSetsForExercise, mergeWithBest } from '../services/bestResults';
+import {
+  recentSince,
+  setHistoryForExercise,
+  suggestFromHistory,
+} from '../services/bestResults';
 import { findExercise, isExerciseShared } from '../services/catalog';
 
 const MUSCLE_GROUPS = [
@@ -52,12 +56,18 @@ function modeChipText(set: PlannedSet): string {
   return 'reps';
 }
 
-/** Pista del mejor resultado de una serie: `Mejor: 120 kg · 8`. */
-function bestHint(best: PerformedSet, unit: string): string {
-  const weight = best.weight > 0 ? `${fmtWeight(best.weight)} ${unit} · ` : '';
-  if (best.durationSec !== undefined) return `Mejor: ${weight}${best.durationSec} s`;
-  return `Mejor: ${weight}${fmtReps(best.reps, best.repsMax)}`;
+/** Pista de lo que aplicaría "Actualizar plan" a una serie: `Sugerido: 120 kg · 8`. */
+function suggestionHint(set: PlannedSet, unit: string): string {
+  const weight = set.weight ? `${fmtWeight(set.weight)} ${unit} · ` : '';
+  if (set.durationSec !== undefined) return `Sugerido: ${weight}${set.durationSec} s`;
+  return `Sugerido: ${weight}${fmtReps(set.reps, set.repsMax)}`;
 }
+
+const samePlannedSet = (a: PlannedSet, b: PlannedSet) =>
+  a.weight === b.weight &&
+  a.reps === b.reps &&
+  a.repsMax === b.repsMax &&
+  a.durationSec === b.durationSec;
 
 /** Descripción del modo actual, para aria-label del chip. */
 function modeChipAria(set: PlannedSet, n: number): string {
@@ -96,24 +106,26 @@ export function RoutineEditor({ id }: { id: string }) {
 
   const routine = s.routines.find((r) => r.id === id);
 
-  // Mejores resultados por ejercicio. La firma de refs evita recalcularlos al
+  // Historial reciente por ejercicio. La firma de refs evita recalcularlo al
   // escribir el nombre de la rutina (cada tecla re-renderiza el editor).
   const refsKey = routine
     ? routine.days
         .flatMap((day) => day.exercises.map((ex) => `${ex.exerciseId ?? ''}|${ex.name}`))
         .join('§')
     : '';
-  const bestsByExercise = useMemo(() => {
-    const map = new Map<string, (PerformedSet | undefined)[]>();
+  const historyByExercise = useMemo(() => {
+    const map = new Map<string, PerformedSet[][]>();
     if (!routine) return map;
+    const sinceDate = recentSince();
     for (const day of routine.days) {
       for (const ex of day.exercises) {
         map.set(
           ex.id,
-          bestSetsForExercise(s.sessions, {
-            exerciseId: ex.exerciseId,
-            name: ex.name,
-          }),
+          setHistoryForExercise(
+            s.sessions,
+            { exerciseId: ex.exerciseId, name: ex.name },
+            { sinceDate },
+          ),
         );
       }
     }
@@ -314,21 +326,17 @@ export function RoutineEditor({ id }: { id: string }) {
     });
 
   /**
-   * Aplica al plan de este ejercicio sus MEJORES resultados históricos
-   * (el plan nunca se actualiza solo: esto es a petición suya).
+   * Aplica al plan de este ejercicio sus mejores resultados recientes que lo
+   * superen (el plan nunca se actualiza solo: esto es a petición suya).
    */
   const updatePlanFromBest = (di: number, ei: number) => {
     const ex = routine.days[di]?.exercises[ei];
     if (!ex) return;
-    const bests = bestSetsForExercise(s.sessions, {
-      exerciseId: ex.exerciseId,
-      name: ex.name,
-    });
-    if (!bests.some(Boolean)) return;
+    const history = historyByExercise.get(ex.id) ?? [];
     patch((r) => {
       const target = r.days[di]?.exercises[ei];
       if (!target) return;
-      target.plannedSets = target.plannedSets.map((p, i) => mergeWithBest(p, bests[i]));
+      target.plannedSets = target.plannedSets.map((p, i) => suggestFromHistory(p, history[i]));
     });
   };
 
@@ -510,8 +518,9 @@ export function RoutineEditor({ id }: { id: string }) {
           )}
 
           {day.exercises.map((ex, ei) => {
-            // Mejores resultados de este ejercicio (para las pistas y el botón).
-            const bests = bestsByExercise.get(ex.id) ?? [];
+            const history = historyByExercise.get(ex.id) ?? [];
+            const suggestions = ex.plannedSets.map((p, i) => suggestFromHistory(p, history[i]));
+            const canUpdate = suggestions.some((sug, i) => !samePlannedSet(sug, ex.plannedSets[i]));
             return (
             <div class="exercise-edit" key={ex.id}>
               <div class="exercise-edit-head">
@@ -667,8 +676,10 @@ export function RoutineEditor({ id }: { id: string }) {
                       ✕
                     </button>
                     </div>
-                    {bests[si] !== undefined && (
-                      <p class="hint best-hint">{bestHint(bests[si], s.settings.unit)}</p>
+                    {!samePlannedSet(suggestions[si], set) && (
+                      <p class="hint best-hint">
+                        {suggestionHint(suggestions[si], s.settings.unit)}
+                      </p>
                     )}
                   </div>
                     );
@@ -682,9 +693,9 @@ export function RoutineEditor({ id }: { id: string }) {
                   </button>
                   <button
                     class="btn btn-sm"
-                    disabled={!bests.some(Boolean)}
+                    disabled={!canUpdate}
                     aria-label={`Actualizar plan de ${ex.name} con los mejores resultados`}
-                    title="Aplica al plan tus mejores resultados (peso, reps y duración)"
+                    title="Aplica al plan tus mejores resultados de las últimas 8 semanas que lo superen"
                     onClick={() => updatePlanFromBest(di, ei)}
                   >
                     ⬆️ Actualizar plan

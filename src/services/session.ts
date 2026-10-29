@@ -3,15 +3,14 @@
 import type { Exercise, Routine, RoutineDay, Session, SessionEntry } from '../models';
 import { newId } from '../models';
 import { findExercise } from './catalog';
-import { bestSetsForExercise } from './bestResults';
-import { prefillFromBest } from './prefill';
+import { recentSince, setHistoryForExercise } from './bestResults';
+import { prefillFromHistory } from './prefill';
 import { todayISO } from './format';
 
 /**
  * Crea una sesión en curso a partir de un día de rutina.
  * Cada ejercicio se vincula al catálogo por id (si es posible) y cada serie
- * se sugiere con la opción más exigente entre el plan y el MEJOR resultado
- * histórico de esa serie (nunca el de la última sesión si hubo peores).
+ * se sugiere con el mejor resultado reciente que alcance el plan, o el plan.
  * El plan no se modifica: solo se lee.
  */
 export function buildSessionFromDay(
@@ -19,21 +18,21 @@ export function buildSessionFromDay(
   day: RoutineDay,
   sessions: Session[],
   catalog: Exercise[] = [],
+  date: string = todayISO(),
 ): Session {
-  const date = todayISO();
   const entries: SessionEntry[] = day.exercises.map((ex) => {
     // Vínculo estable: el id de la rutina o el del catálogo por nombre
     const exerciseId =
       ex.exerciseId ?? findExercise(catalog, ex.name)?.id;
-    const best = bestSetsForExercise(
+    const history = setHistoryForExercise(
       sessions,
       { exerciseId, name: ex.name },
-      { maxDate: date },
+      { maxDate: date, sinceDate: recentSince(date) },
     );
     return {
       exerciseId,
       exerciseName: ex.name,
-      sets: prefillFromBest(ex.plannedSets, best),
+      sets: prefillFromHistory(ex.plannedSets, history),
     };
   });
 

@@ -18,7 +18,7 @@ import {
   matchesExercise,
   refOfEntry,
 } from '../services/previousSession';
-import { bestSetsForExercise } from '../services/bestResults';
+import { bestSetsForExercise, recentSince } from '../services/bestResults';
 import { fmtDate, fmtRelative, todayISO } from '../services/format';
 import { doneSetsCount, setsCount } from '../services/stats';
 import { SeriesRow } from '../components/SeriesRow';
@@ -178,9 +178,12 @@ export function SessionView() {
         ? pickedExercise
         : ensureExercise(name);
     const ref = { exerciseId: known.id, name: known.name };
-    // Sugerencia con el mejor resultado real (solo series hechas), igual que
-    // al empezar desde una rutina. Sin historial, el ejercicio entra sin series.
-    const best = bestSetsForExercise(s.sessions, ref, { maxDate: session.date });
+    // Sin plan con el que comparar, entra el mejor resultado reciente de cada
+    // serie. Sin historial reciente, el ejercicio entra sin series.
+    const best = bestSetsForExercise(s.sessions, ref, {
+      maxDate: session.date,
+      sinceDate: recentSince(session.date),
+    });
     const sets = best.reduce<PerformedSet[]>((acc, set) => {
       if (!set) return acc;
       acc.push({
@@ -472,8 +475,8 @@ export function SessionView() {
           }}
         />
         <p class="hint">
-          Si ya lo entrenaste, saldrá tu mejor resultado (peso y reps) o el plan, lo más
-          exigente.
+          Si lo has entrenado en las últimas 8 semanas, saldrá tu mejor resultado (peso y
+          reps).
         </p>
         <button class="btn btn-primary btn-block" onClick={addExercise}>
           Añadir
