@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Exercise, Routine, Session } from '../src/models';
 import {
   findExercise,
+  isExerciseShared,
   linkRoutinesToCatalog,
   mergeDuplicateExercises,
   pickOrCreateExercise,
@@ -359,5 +360,24 @@ describe('mergeDuplicateExercises — catálogo sin duplicados', () => {
     const res = repairExerciseLinks([makeRoutine()], [sesion], merged.exercises);
 
     expect(res.sessions[0].entries[0].exerciseId).toBe('ex-a');
+  });
+});
+
+describe('isExerciseShared — cambiar un ejercicio en el editor', () => {
+  it('solo esa entrada y sin historial: no es compartido (se puede renombrar)', () => {
+    expect(isExerciseShared('ex-press', [makeRoutine()], [], 'e1')).toBe(false);
+  });
+
+  it('lo usa otra rutina: es compartido', () => {
+    const other = { ...makeRoutine(), id: 'r2' };
+    other.days = [{ ...other.days[0], exercises: [{ ...other.days[0].exercises[0], id: 'e9' }] }];
+    expect(isExerciseShared('ex-press', [makeRoutine(), other], [], 'e1')).toBe(true);
+  });
+
+  it('tiene historial: es compartido', () => {
+    const session = makeSession({
+      entries: [{ exerciseId: 'ex-press', exerciseName: 'Press banca', sets: [] }],
+    });
+    expect(isExerciseShared('ex-press', [makeRoutine()], [session], 'e1')).toBe(true);
   });
 });

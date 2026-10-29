@@ -34,6 +34,24 @@ export function pickOrCreateExercise(
   };
 }
 
+/** ¿Usan el ejercicio otras entradas de rutina, aparte de `exceptEntryId`, o el historial? */
+export function isExerciseShared(
+  exerciseId: string,
+  routines: Routine[],
+  sessions: Session[],
+  exceptEntryId: string,
+): boolean {
+  const inRoutines = routines.some((routine) =>
+    routine.days.some((day) =>
+      day.exercises.some((entry) => entry.exerciseId === exerciseId && entry.id !== exceptEntryId),
+    ),
+  );
+  return (
+    inRoutines ||
+    sessions.some((session) => session.entries.some((entry) => entry.exerciseId === exerciseId))
+  );
+}
+
 /**
  * Fusiona entradas del catálogo que comparten nombre normalizado (p. ej. de
  * copias importadas o datos antiguos). Conserva la primera entrada, hereda el

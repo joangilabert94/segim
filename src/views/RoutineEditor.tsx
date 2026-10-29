@@ -21,7 +21,7 @@ import { BottomSheet } from '../components/BottomSheet';
 import { ExercisePicker } from '../components/ExercisePicker';
 import { fmtReps, fmtWeight, fmtWeightInput, parseNumber, parseRepsRange } from '../services/format';
 import { bestSetsForExercise, mergeWithBest } from '../services/bestResults';
-import { findExercise } from '../services/catalog';
+import { findExercise, isExerciseShared } from '../services/catalog';
 
 const MUSCLE_GROUPS = [
   'Pecho',
@@ -216,6 +216,17 @@ export function RoutineEditor({ id }: { id: string }) {
     linkExercise(di, ei, ex);
   };
 
+  /** Sustituye el ejercicio de la entrada por uno nuevo del catálogo. */
+  const replaceExercise = (di: number, ei: number, name: string) => {
+    const created = ensureExercise(name);
+    patch((r) => {
+      const ex = r.days[di].exercises[ei];
+      ex.exerciseId = created.id;
+      ex.name = created.name;
+      ex.muscleGroup = created.muscleGroup;
+    });
+  };
+
   /**
    * Al salir del campo: si el nombre ya existe en el catálogo, vincula la
    * entrada a ese ejercicio (no crea un duplicado ni renombra el otro); si no,
@@ -236,6 +247,12 @@ export function RoutineEditor({ id }: { id: string }) {
       // vincula al salir del campo, para que la sesión compare por id.
       const created = ensureExercise(trimmed, ex.muscleGroup);
       linkExercise(di, ei, created);
+      return;
+    }
+    // Un nombre nuevo sobre un ejercicio con historial u otras rutinas es otro
+    // ejercicio: renombrarlo le pasaría ese historial. Se renombra en Ejercicios.
+    if (!existing && isExerciseShared(ex.exerciseId, s.routines, s.sessions, ex.id)) {
+      replaceExercise(di, ei, trimmed);
       return;
     }
     applyExerciseDefinition(ex.exerciseId, {
@@ -688,7 +705,10 @@ export function RoutineEditor({ id }: { id: string }) {
         ＋ Añadir día
       </button>
 
-      <p class="autosave">Los cambios se guardan automáticamente.</p>
+      <p class="autosave">
+        Los cambios se guardan automáticamente. Para renombrar un ejercicio en todas las rutinas,
+        hazlo desde la pestaña Ejercicios.
+      </p>
 
       <datalist id="muscle-groups">
         {MUSCLE_GROUPS.map((g) => (

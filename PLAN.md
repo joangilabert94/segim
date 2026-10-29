@@ -143,7 +143,10 @@ Settings {
 - Editor en 3 niveles: días → ejercicios → **series planeadas**, donde **cada serie se edita individualmente** (peso objetivo opcional + reps + nota), con añadir/eliminar/reordenar series, reordenar ejercicios y días.
 - **Selector de ejercicio con autocompletado**: escribe y elige uno del catálogo (vincula
   por `exerciseId`) o crea uno nuevo con «＋ Crear …» — se guarda en el catálogo. Al salir
-  del campo, el nombre/grupo se propaga al catálogo y al resto de rutinas.
+  del campo con un nombre nuevo, si el ejercicio tenía historial o lo usaban otras rutinas
+  se **sustituye** por uno nuevo (renombrarlo le pasaría ese historial); si solo lo usaba
+  esa entrada (p. ej. una errata) se renombra. Renombrar en todas partes se hace desde
+  la pestaña Ejercicios.
 - Selector de **rutina "activa"** para el cálculo del día sugerido.
 
 ### 4.5 Ejercicios (`#/ejercicios`) — catálogo
