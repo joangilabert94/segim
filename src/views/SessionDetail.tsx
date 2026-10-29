@@ -2,9 +2,10 @@ import { useState } from 'preact/hooks';
 import { navigate } from '../router';
 import { deleteSession, reopenSession, setSessionDate, useStore } from '../state';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { fmtDateLong, fmtReps, fmtVolume } from '../services/format';
+import { fmtDateLong, fmtReps, fmtVolume, plural } from '../services/format';
 import { doneSetsCount, setsCount, volumeOf } from '../services/stats';
 import { fmtLoadUnit, profileLookup } from '../services/load';
+import { describeRecord, sessionRecords } from '../services/records';
 
 export function SessionDetail({ id }: { id: string }) {
   const s = useStore();
@@ -27,6 +28,8 @@ export function SessionDetail({ id }: { id: string }) {
     ? s.routines.find((r) => r.id === session.routineId)
     : undefined;
   const profileOf = profileLookup(s.exercises, s.settings);
+  const records =
+    session.status === 'completed' ? sessionRecords(session, s.sessions, profileOf) : [];
 
   const edit = () => {
     reopenSession(session.id);
@@ -72,6 +75,36 @@ export function SessionDetail({ id }: { id: string }) {
           <div class="stat-label">Volumen {s.settings.unit}</div>
         </div>
       </div>
+
+      {records.length > 0 && (
+        <div class="card records-card" style="margin-top:14px">
+          <div class="card-title">🏆 {plural(records.length, 'récord', 'récords')} en esta sesión</div>
+          {[...new Set(records.map((record) => record.exerciseName))].map((name) => (
+            <div class="records-group" key={name}>
+              <b>{name}</b>
+              <ul class="entry-sets">
+                {records
+                  .filter((record) => record.exerciseName === name)
+                  .map((record) => {
+                    const text = describeRecord(
+                      record,
+                      profileOf(record.exerciseId),
+                      s.settings.unit,
+                    );
+                    return (
+                      <li key={record.kind}>
+                        <span>{text.label}</span>
+                        <span>
+                          <b>{text.value}</b> <i class="record-prev">antes {text.previous}</i>
+                        </span>
+                      </li>
+                    );
+                  })}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div class="card" style="margin-top:14px">
         <label class="field" for="session-date">

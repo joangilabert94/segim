@@ -16,7 +16,9 @@ import {
   refOfEntry,
 } from '../services/previousSession';
 import { bestSetsForExercise, recentSince } from '../services/bestResults';
-import { fmtDate, fmtRelative, todayISO } from '../services/format';
+import { fmtDate, fmtRelative, plural, todayISO } from '../services/format';
+import { pushNotice } from '../services/notices';
+import { sessionRecords } from '../services/records';
 import { doneSetsCount, setsCount } from '../services/stats';
 import { LOAD_LABELS, profileLookup } from '../services/load';
 import { SeriesRow } from '../components/SeriesRow';
@@ -223,7 +225,12 @@ export function SessionView() {
   };
 
   const finalize = () => {
-    finalizeSession(session.id);
+    const finished = finalizeSession(session.id);
+    const records = finished ? sessionRecords(finished, s.sessions, profileOf) : [];
+    if (records.length > 0) {
+      const names = [...new Set(records.map((r) => r.exerciseName))].join(', ');
+      pushNotice(`🏆 ${plural(records.length, 'récord nuevo', 'récords nuevos')}: ${names}.`, 'ok');
+    }
     navigate(`/historial/${session.id}`);
   };
 

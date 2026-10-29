@@ -1221,3 +1221,19 @@
   font-weight: 900;
   margin-right: 8px;
 }
+
+.records-group + .records-group {
+  margin-top: 10px;
+}
+
+.records-group > b {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 0.92rem;
+}
+
+.record-prev {
+  font-size: 0.78rem;
+  color: var(--dim);
+  white-space: nowrap;
+}
