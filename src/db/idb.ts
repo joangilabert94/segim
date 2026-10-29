@@ -2,7 +2,7 @@
 // Claves: "routines" (array), "session:<id>" (una por sesión), "settings" (objeto).
 // Guardar sesión a sesión permite la persistencia incremental del entrenamiento en curso.
 
-import { del, get, keys, set } from 'idb-keyval';
+import { del, delMany, get, keys, set, setMany } from 'idb-keyval';
 import type { Exercise, Routine, Session, Settings } from '../models';
 import { DEFAULT_SETTINGS } from '../models';
 
@@ -15,6 +15,7 @@ export const K_DRIVE_META = 'drive:meta';
 const DRIVE_PREFIX = 'drive:';
 
 const sessionKey = (id: string) => `${K_SESSION_PREFIX}${id}`;
+const isDriveKey = (key: IDBValidKey) => typeof key === 'string' && key.startsWith(DRIVE_PREFIX);
 
 export async function loadRoutines(): Promise<Routine[]> {
   return (await get<Routine[]>(K_ROUTINES)) ?? [];
@@ -68,7 +69,25 @@ export async function saveSettings(settings: Settings): Promise<void> {
  */
 export async function clearAll(): Promise<void> {
   const all = await keys();
-  await Promise.all(
-    all.filter((k) => typeof k !== 'string' || !k.startsWith(DRIVE_PREFIX)).map((k) => del(k)),
-  );
+  await delMany(all.filter((k) => !isDriveKey(k)));
+}
+
+/** Sustituye todos los datos de la app (importar una copia), conservando los de Drive. */
+export async function replaceAllData(data: {
+  routines: Routine[];
+  exercises: Exercise[];
+  sessions: Session[];
+  settings: Settings;
+}): Promise<void> {
+  const entries: [IDBValidKey, unknown][] = [
+    [K_ROUTINES, data.routines],
+    [K_EXERCISES, data.exercises],
+    [K_SETTINGS, data.settings],
+    ...data.sessions.map((s): [IDBValidKey, unknown] => [sessionKey(s.id), s]),
+  ];
+  const keep = new Set(entries.map(([key]) => key));
+  const stale = (await keys()).filter((k) => !keep.has(k) && !isDriveKey(k));
+  // Primero se escribe y luego se borra: si se corta a medias sobran datos, no faltan.
+  await setMany(entries);
+  await delMany(stale);
 }

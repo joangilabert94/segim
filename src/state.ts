@@ -16,6 +16,7 @@ import {
 import { normalizeName } from './services/previousSession';
 import { convertRoutines, convertSessions } from './services/units';
 import { applyTheme } from './theme';
+import { pushNotice } from './services/notices';
 import { buildRoutinesFile, downloadRoutinesFile, mergeRoutines, parseRoutinesFile } from './services/share';
 import { buildBackup } from './services/backup';
 import {
@@ -80,7 +81,13 @@ export function sortSessions(sessions: Session[]): Session[] {
   return [...sessions].sort((a, b) => b.date.localeCompare(a.date));
 }
 
-const logError = (what: string, err: unknown) => console.error(`No se pudo ${what}`, err);
+const logError = (what: string, err: unknown) => {
+  console.error(`No se pudo ${what}`, err);
+  pushNotice(
+    `No se pudo ${what} en este dispositivo. Si se repite, exporta una copia desde Ajustes.`,
+    'error',
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Copia automática en Google Drive
@@ -143,7 +150,7 @@ export async function loadState(): Promise<void> {
       loaded: true,
     });
   } catch (err) {
-    logError('cargar los datos', err);
+    console.error('No se pudo cargar los datos', err);
     // No ocultar el problema: la app sigue usable, pero avisa de que el estado
     // mostrado está vacío y de que conviene importar una copia desde Ajustes.
     setState({
@@ -512,18 +519,12 @@ export function replaceAll(data: {
     settings: { ...DEFAULT_SETTINGS, ...data.settings },
     loadError: undefined,
   });
-  persistRoutines();
-  db.saveSettings(state.settings).catch((e) => logError('guardar los ajustes', e));
-  db.clearAll()
-    .then(() =>
-      Promise.all([
-        db.saveRoutines(state.routines),
-        db.saveExercises(state.exercises),
-        db.saveSettings(state.settings),
-        ...state.sessions.map((s) => db.saveSession(s)),
-      ]),
-    )
-    .catch((e) => logError('importar la copia', e));
+  db.replaceAllData({
+    routines: state.routines,
+    exercises: state.exercises,
+    sessions: state.sessions,
+    settings: state.settings,
+  }).catch((e) => logError('importar la copia', e));
 }
 
 export function clearAllData(): void {

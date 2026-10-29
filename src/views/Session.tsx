@@ -48,6 +48,7 @@ export function SessionView() {
   );
   const [confirmDeleteEntry, setConfirmDeleteEntry] = useState<number | null>(null);
   const [dateOpen, setDateOpen] = useState(false);
+  const [confirmEmptyFinish, setConfirmEmptyFinish] = useState(false);
   const [dateText, setDateText] = useState('');
 
   const session = s.sessions.find((x) => x.status === 'in-progress');
@@ -233,6 +234,8 @@ export function SessionView() {
     navigate(`/historial/${session.id}`);
   };
 
+  const requestFinalize = () => (done === 0 ? setConfirmEmptyFinish(true) : finalize());
+
   // Menú de serie: fijo o cronometrada. El rango (4-6) es solo del plan.
   const serieSet =
     sheet?.kind === 'serie' ? session.entries[sheet.entry]?.sets[sheet.set] : undefined;
@@ -377,7 +380,7 @@ export function SessionView() {
       <RestControls presets={s.settings.restPresets} />
 
       <div class="session-bar">
-        <button class="btn btn-primary btn-lg" onClick={finalize}>
+        <button class="btn btn-primary btn-lg" onClick={requestFinalize}>
           Finalizar sesión
         </button>
       </div>
@@ -527,6 +530,19 @@ export function SessionView() {
           setConfirmDeleteEntry(null);
         }}
         onCancel={() => setConfirmDeleteEntry(null)}
+      />
+
+      <ConfirmDialog
+        open={confirmEmptyFinish}
+        title="Ninguna serie marcada"
+        message="No has marcado ninguna serie como hecha. Si la finalizas, contará para la racha y el día sugerido, pero no dejará resultados para la próxima vez."
+        confirmLabel="Finalizar igualmente"
+        cancelLabel="Seguir entrenando"
+        onConfirm={() => {
+          setConfirmEmptyFinish(false);
+          finalize();
+        }}
+        onCancel={() => setConfirmEmptyFinish(false)}
       />
 
       <ConfirmDialog

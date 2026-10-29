@@ -70,8 +70,9 @@ p {
   animation: fade-in 0.18s ease;
 }
 
+/* Deja libre la zona del botón flotante de descanso, que va sobre la barra de sesión. */
 .view--session {
-  padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px));
 }
 
 @keyframes fade-in {
