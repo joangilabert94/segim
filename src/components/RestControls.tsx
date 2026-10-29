@@ -1,7 +1,3 @@
-// Controles del cronómetro de descanso:
-// botón "Descanso" que abre los presets (nunca arranca solo) + píldora flotante
-// con la cuenta atrás, reiniciar y parar.
-
 import { useState } from 'preact/hooks';
 import { fmtDuration } from '../services/format';
 import { getTimer, remainingSeconds, startTimer, stopTimer, useTimer } from '../timer';

@@ -1,7 +1,3 @@
-// Pinta el aviso efímero global (ver services/notices.ts).
-// Vive en el armazón de la app para que sobreviva a los cambios de pantalla:
-// terminar una sesión navega al historial y la confirmación debe seguir viéndose.
-
 import { dismissNotice, useNotice } from '../services/notices';
 
 export function NoticeToast() {

@@ -12,8 +12,7 @@ const backup = buildBackup({
   settings: DEFAULT_SETTINGS,
 });
 
-/** Reloj fijo: así el nombre de la copia fechada es predecible. */
-const NOW = new Date(2026, 9, 28, 18, 42); // 28 oct 2026, 18:42 (hora local)
+const NOW = new Date(2026, 9, 28, 18, 42);
 
 function memoryStore(initial: DriveMeta | null = null) {
   let current = initial;
@@ -47,7 +46,6 @@ function fakeClient() {
     createJsonFile: vi.fn(
       async (_token: string, name: string): Promise<DriveFileMeta> => ({ id: `dated-${name}`, name }),
     ),
-    // Drive devuelve el mismo fichero que se ha actualizado: el id se conserva.
     updateBackupFile: vi.fn(
       async (_token: string, fileId: string): Promise<DriveFileMeta> => ({
         id: fileId,
@@ -58,7 +56,6 @@ function fakeClient() {
     listDatedCopies: vi.fn(async (): Promise<DriveFileMeta[]> => []),
     deleteFile: vi.fn(async (): Promise<void> => undefined),
     getDriveAccount: vi.fn(async (): Promise<{ email?: string }> => ({})),
-    // Drive devuelve el fichero con el nombre nuevo ya aplicado.
     renameFile: vi.fn(
       async (_token: string, fileId: string, name: string): Promise<DriveFileMeta> => ({
         id: fileId,
@@ -96,7 +93,6 @@ describe('subida a Drive', () => {
     const result = await target(client, store).upload(backup, { dated: false });
 
     expect(client.updateBackupFile).toHaveBeenCalledWith('tok', 'file-1', JSON.stringify(backup));
-    // Ni copia fechada ni rotación: no se toca el historial del Drive.
     expect(client.createJsonFile).not.toHaveBeenCalled();
     expect(client.listDatedCopies).not.toHaveBeenCalled();
     expect(client.deleteFile).not.toHaveBeenCalled();
@@ -215,14 +211,13 @@ describe('subida a Drive', () => {
 
     await target(client, store).upload(backup);
 
-    expect(client.createFolder).not.toHaveBeenCalled(); // reutiliza la carpeta
+    expect(client.createFolder).not.toHaveBeenCalled();
     expect(client.createBackupFile).toHaveBeenCalledWith('tok', JSON.stringify(backup), 'folder-1');
     expect(store.peek()?.fileId).toBe('file-1');
   });
 
   it('conserva solo las 10 copias fechadas más recientes', async () => {
     const client = fakeClient();
-    // Drive devuelve las copias de la más nueva a la más vieja.
     const copies = Array.from({ length: 12 }, (_, i) => ({
       id: `dated-${i + 1}`,
       name: `copia-2026-10-${String(28 - i).padStart(2, '0')}-1200.json`,
@@ -328,14 +323,12 @@ describe('renombrado de la carpeta', () => {
     expect(client.createFolder).not.toHaveBeenCalled();
     expect(store.peek()?.folderName).toBe('Segim');
 
-    // La siguiente subida ya no repite la petición.
     client.renameFile.mockClear();
     await target(client, store).upload(backup);
     expect(client.renameFile).not.toHaveBeenCalled();
   });
 
   it('con metadatos anteriores (sin nombre guardado) lo comprueba igual', async () => {
-    // Las instalaciones de antes del renombrado no tienen `folderName`.
     const client = fakeClient();
     const store = memoryStore({ folderId: 'folder-1', fileId: 'file-1' });
 
@@ -354,7 +347,6 @@ describe('renombrado de la carpeta', () => {
 
     expect(client.updateBackupFile).toHaveBeenCalledWith('tok', 'file-1', JSON.stringify(backup));
     expect(result.warning).toBeUndefined();
-    // Sin nombre recordado: la próxima subida volverá a intentarlo.
     expect(store.peek()?.folderName).toBeUndefined();
     expect(store.peek()?.lastSyncAt).toBe('2026-10-28T11:00:00.000Z');
   });

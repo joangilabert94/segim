@@ -1,13 +1,7 @@
-// Aplicación del tema al documento: marca <html data-theme>, el color de la
-// barra del navegador, el color de los controles nativos y sigue los cambios
-// del sistema cuando la preferencia es "automática".
-//
-// La preferencia también se cachea en localStorage para que el script inline
-// de index.html pueda pintar el tema ANTES de leer IndexedDB (sin parpadeo).
-
 import type { ResolvedTheme, ThemeMode } from './models';
 import { normalizeThemeMode, resolveTheme } from './services/theme';
 
+// La lee también el script inline de index.html: pinta el tema antes de IndexedDB, sin parpadeo.
 const CACHE_KEY = 'segim-theme';
 
 const THEME_COLOR: Record<ResolvedTheme, string> = {
@@ -15,7 +9,6 @@ const THEME_COLOR: Record<ResolvedTheme, string> = {
   dark: '#0c0f0e',
 };
 
-/** iOS: barra de estado coherente con el tema (leído al abrir la app). */
 const STATUS_BAR: Record<ResolvedTheme, string> = {
   light: 'default',
   dark: 'black-translucent',
@@ -27,10 +20,6 @@ let media: MediaQueryList | null = null;
 
 const listeners = new Set<() => void>();
 
-/**
- * Se suscribe a los cambios de tema resuelto (para re-renderizar la UI:
- * el texto de Ajustes muestra "Ahora se muestra en modo …").
- */
 export function onThemeChange(fn: () => void): () => void {
   listeners.add(fn);
   return () => {
@@ -38,7 +27,6 @@ export function onThemeChange(fn: () => void): () => void {
   };
 }
 
-/** Preferencia guardada la última vez (para pintar antes de cargar datos). */
 export function readCachedTheme(): ThemeMode {
   try {
     return normalizeThemeMode(localStorage.getItem(CACHE_KEY));
@@ -55,10 +43,6 @@ function cache(mode: ThemeMode): void {
   }
 }
 
-/**
- * Qué prefiere el dispositivo. `null` cuando no se puede detectar
- * (sin `matchMedia` o sin `prefers-color-scheme`).
- */
 function devicePrefersLight(): boolean | null {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return null;
   const mq = window.matchMedia('(prefers-color-scheme: light)');
@@ -82,7 +66,6 @@ function paint(resolved: ResolvedTheme): void {
   if (ios) ios.setAttribute('content', STATUS_BAR[resolved]);
 }
 
-/** Escucha los cambios del sistema solo mientras la preferencia sea `auto`. */
 function syncWatcher(): void {
   if (watching === mode) return;
   if (media) {
@@ -101,10 +84,6 @@ function onSystemChange(): void {
   listeners.forEach((fn) => fn());
 }
 
-/**
- * Aplica la preferencia indicada y la recuerda. Es la única vía de cambio
- * de tema: la llama el estado cada vez que cambian los ajustes.
- */
 export function applyTheme(next: ThemeMode): void {
   mode = normalizeThemeMode(next);
   cache(mode);
@@ -112,10 +91,6 @@ export function applyTheme(next: ThemeMode): void {
   paint(currentTheme());
 }
 
-/**
- * Primer pintado, antes de cargar IndexedDB: usa la preferencia cacheada
- * (o `auto` si es la primera visita).
- */
 export function initTheme(): void {
   applyTheme(readCachedTheme());
 }

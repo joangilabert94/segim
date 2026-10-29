@@ -26,8 +26,6 @@ import {
   todayISO,
 } from '../src/services/format';
 
-// ---- Fixtures ----
-
 function makeSession(over: Partial<Session>): Session {
   return {
     id: 's1',
@@ -69,8 +67,6 @@ function makeRoutine(): Routine {
 
 const prefill = (planned: PlannedSet[], best?: (PerformedSet | undefined)[]) =>
   prefillFromHistory(planned, best?.map((set) => (set ? [set] : [])));
-
-// ---- Tests ----
 
 describe('deepClone', () => {
   it('no comparte referencias con el original', () => {
@@ -159,7 +155,7 @@ describe('findPreviousSession', () => {
 describe('auditoría: solo cuentan las series marcadas como hechas', () => {
   const skipped = makeSession({
     id: 'skipped',
-    date: '2026-10-15', // la más reciente, pero no se hizo nada
+    date: '2026-10-15',
     entries: [
       {
         exerciseId: 'ex',
@@ -252,8 +248,8 @@ describe('prefillFromHistory — sugerencia de la sesión', () => {
     ];
     const result = prefill(planned, best);
     expect(result).toEqual([
-      { weight: 62, reps: 8, done: false }, // 62 × 8 alcanza 60 × 8
-      { weight: 65, reps: 6, done: false }, // 67 × 5 no llega a 6 reps: manda el plan
+      { weight: 62, reps: 8, done: false },
+      { weight: 65, reps: 6, done: false },
     ]);
   });
 
@@ -283,8 +279,8 @@ describe('prefillFromHistory — sugerencia de la sesión', () => {
     ];
     const best = [{ weight: 70, reps: 8, done: true }];
     const result = prefill(planned, best);
-    expect(result[0].weight).toBe(70); // 70 > 60: prevalece lo entrenado
-    expect(result[1].weight).toBe(65); // sin datos: el plan
+    expect(result[0].weight).toBe(70);
+    expect(result[1].weight).toBe(65);
     expect(result[1].reps).toBe(6);
   });
 
@@ -326,8 +322,8 @@ describe('prefillFromHistory — sugerencia de la sesión', () => {
     ];
     const result = prefill(planned, best);
     expect(result[0]).toEqual({ weight: 0, reps: 4, done: false });
-    expect(result[0].repsMax).toBeUndefined(); // la sesión nunca guarda rangos
-    expect(result[1].reps).toBe(12); // reps fijas: el mayor
+    expect(result[0].repsMax).toBeUndefined();
+    expect(result[1].reps).toBe(12);
     expect(result[1].repsMax).toBeUndefined();
   });
 
@@ -399,7 +395,7 @@ describe('bestSetsForExercise / bestOverallForExercise', () => {
   });
   const mala = makeSession({
     id: 'mala',
-    date: '2026-09-28', // más reciente y peor: no debe mandar
+    date: '2026-09-28',
     entries: [
       {
         exerciseName: 'Press banca',
@@ -612,8 +608,8 @@ describe('buildSessionFromDay', () => {
     expect(session.routineId).toBe('r1');
     expect(session.entries).toHaveLength(1);
     expect(session.entries[0].sets).toEqual([
-      { weight: 62, reps: 8, done: false }, // 62 × 8 alcanza el plan 60 × 8
-      { weight: 65, reps: 6, done: false }, // 67 × 5 no llega a 6 reps: el plan
+      { weight: 62, reps: 8, done: false },
+      { weight: 65, reps: 6, done: false },
     ]);
   });
 
@@ -655,7 +651,7 @@ describe('buildSessionFromDay', () => {
     const session = buildSessionFromDay(routine, routine.days[0], []);
 
     expect(session.entries[0].sets).toEqual([
-      { weight: 60, reps: 4, done: false }, // el rango vive solo en el plan
+      { weight: 60, reps: 4, done: false },
       { weight: 65, reps: 8, done: false },
     ]);
   });
@@ -683,7 +679,7 @@ describe('buildSessionFromDay', () => {
     const session = buildSessionFromDay(routine, routine.days[0], [previous], [], '2026-10-01');
 
     expect(session.entries[0].sets).toEqual([
-      { weight: 130, reps: 4, done: false }, // peso nuevo; rango solo en el plan
+      { weight: 130, reps: 4, done: false },
       { weight: 130, reps: 4, done: false },
     ]);
   });
@@ -704,7 +700,6 @@ describe('cloneRoutine', () => {
       original.days[0].exercises[0].plannedSets,
     );
 
-    // No comparte referencias con el original
     copy.days[0].exercises[0].plannedSets[0].weight = 999;
     expect(original.days[0].exercises[0].plannedSets[0].weight).toBe(60);
   });
@@ -750,7 +745,7 @@ describe('parseRepsRange / fmtReps', () => {
   it('acepta un número fijo y redondea', () => {
     expect(parseRepsRange('10')).toEqual({ reps: 10 });
     expect(parseRepsRange(' 8,5 ')).toEqual({ reps: 9 });
-    expect(parseRepsRange('-3')).toBeNull(); // el guion es separador de rango
+    expect(parseRepsRange('-3')).toBeNull();
   });
 
   it('acepta un rango y lo normaliza de menor a mayor', () => {
@@ -770,7 +765,7 @@ describe('parseRepsRange / fmtReps', () => {
   it('fmtReps pinta 10 o 4-6', () => {
     expect(fmtReps(10)).toBe('10');
     expect(fmtReps(4, 6)).toBe('4-6');
-    expect(fmtReps(6, 6)).toBe('6'); // extremos iguales: fijo
+    expect(fmtReps(6, 6)).toBe('6');
   });
 });
 
@@ -842,7 +837,7 @@ describe('stats', () => {
         },
       ],
     });
-    expect(volumeOf(session)).toBe(480); // la plancha (30 s) queda fuera
+    expect(volumeOf(session)).toBe(480);
   });
 
   it('un rango antiguo en datos de sesión cuenta el extremo alto en el volumen', () => {
@@ -857,7 +852,7 @@ describe('stats', () => {
         },
       ],
     });
-    expect(volumeOf(session)).toBe(600); // 100 × 6, la sin marcar no cuenta
+    expect(volumeOf(session)).toBe(600);
   });
 
   it('"últimos 30 días" son exactamente 30 fechas (incluye hoy)', () => {

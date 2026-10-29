@@ -1,5 +1,3 @@
-// Construcción de sesiones de entrenamiento.
-
 import type { Exercise, Routine, RoutineDay, Session, SessionEntry } from '../models';
 import { newId } from '../models';
 import { findExercise } from './catalog';
@@ -7,12 +5,6 @@ import { recentSince, setHistoryForExercise } from './bestResults';
 import { prefillFromHistory } from './prefill';
 import { todayISO } from './format';
 
-/**
- * Crea una sesión en curso a partir de un día de rutina.
- * Cada ejercicio se vincula al catálogo por id (si es posible) y cada serie
- * se sugiere con el mejor resultado reciente que alcance el plan, o el plan.
- * El plan no se modifica: solo se lee.
- */
 export function buildSessionFromDay(
   routine: Routine,
   day: RoutineDay,
@@ -21,7 +13,6 @@ export function buildSessionFromDay(
   date: string = todayISO(),
 ): Session {
   const entries: SessionEntry[] = day.exercises.map((ex) => {
-    // Vínculo estable: el id de la rutina o el del catálogo por nombre
     const exerciseId =
       ex.exerciseId ?? findExercise(catalog, ex.name)?.id;
     const history = setHistoryForExercise(
@@ -47,7 +38,6 @@ export function buildSessionFromDay(
   };
 }
 
-/** Sesión sin rutina asociada: el usuario añade ejercicios sobre la marcha. */
 export function buildFreeSession(): Session {
   return {
     id: newId(),

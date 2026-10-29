@@ -1,18 +1,7 @@
-// Copia de seguridad en JSON: exportar a fichero e importar desde fichero.
-// El mismo `BackupFile` es el que se sube a Google Drive (services/drive),
-// así que restore desde Drive y restore desde archivo validan igual.
-//
-// Al importar se valida TODA la estructura antes de tocar IndexedDB: una copia
-// dañada se rechaza con un mensaje claro en vez de romper la app al recargar.
-
 import type { Exercise, Routine, Session, Settings } from '../models';
 import { parseExerciseList, parseRoutine, parseSession, parseSettings } from './validation';
 
-/**
- * Marca del formato de copia: identificador estable, no el nombre visible.
- * Se queda en `gymrutinas` a propósito (la app se llama Segim) para que las
- * copias ya guardadas —en Drive o en un fichero— se sigan restaurando.
- */
+// Sigue siendo `gymrutinas` (la app se llama Segim) para que se restauren las copias ya guardadas.
 export const BACKUP_APP_ID = 'gymrutinas';
 
 export interface BackupFile {
@@ -25,49 +14,25 @@ export interface BackupFile {
   settings: Settings;
 }
 
-// ---------------------------------------------------------------------------
-// Destinos de copia
-// ---------------------------------------------------------------------------
-// Contrato mínimo para añadir destinos (Google Drive) sin tocar la UI: el JSON
-// sigue siendo el formato de intercambio y el destino solo decide dónde vive.
-
 export interface BackupTargetStatus {
-  /** false si este build no tiene configurado el destino (p. ej. sin Client ID). */
   available: boolean;
-  /** Hay una copia vinculada en el destino. */
   connected: boolean;
-  /** Última subida correcta (ISO), según el destino. */
   lastSyncAt?: string;
-  /** Cuenta del destino a la que se sube la copia (correo), si la conoce. */
   account?: string;
-  /** `false` si subir ahora exige abrir la ventana de autorización. */
   authorized?: boolean;
 }
 
 export interface BackupTarget {
   readonly label: string;
-  /**
-   * Sube la copia y devuelve la fecha que reporta el destino (o la actual).
-   * `interactive` permite abrir la ventana de consentimiento de Google y, por
-   * tanto, solo debe usarse dentro de un clic del usuario.
-   * `dated: false` actualiza solo la copia viva, sin crear una copia fechada:
-   * lo usan las subidas disparadas por ediciones, que llegan a ráfagas y no
-   * deben expulsar del historial de Drive a las copias de días anteriores.
-   */
+  // `dated: false` (ediciones, a ráfagas): sin copia fechada, para no expulsar las de otros días.
   upload(
     backup: BackupFile,
     options?: { interactive?: boolean; dated?: boolean; replaceExisting?: boolean },
   ): Promise<{ syncedAt: string; warning?: string }>;
-  /** Descarga la última copia del destino, ya validada con `parseBackup`. */
   downloadLatest(options?: { interactive?: boolean }): Promise<BackupFile>;
-  /** Estado local del destino, sin llamadas de red. */
   status(): Promise<BackupTargetStatus>;
 }
 
-/**
- * El destino ya tiene una copia que este dispositivo nunca ha subido (otro
- * móvil, navegador limpiado). Sobrescribirla exige `replaceExisting: true`.
- */
 export class ExistingBackupError extends Error {
   readonly modifiedTime?: string;
 
@@ -95,7 +60,6 @@ export function buildBackup(data: {
   };
 }
 
-/** Descarga el backup como fichero .json. */
 export function downloadBackup(backup: BackupFile): void {
   const blob = new Blob([JSON.stringify(backup, null, 2)], {
     type: 'application/json',
@@ -104,15 +68,13 @@ export function downloadBackup(backup: BackupFile): void {
   const a = document.createElement('a');
   a.href = url;
   a.download = `segim-backup-${backup.exportedAt.slice(0, 10)}.json`;
-  // En algunos navegadores hay que insertar el enlace y no revocar la URL de
-  // forma síncrona: si no, la descarga puede cancelarse.
+  // Sin el enlace en el DOM o revocando la URL al momento, algunos navegadores cancelan la descarga.
   document.body.appendChild(a);
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-/** Valida y parsea un fichero de copia de seguridad. Lanza Error con mensaje en español. */
 export function parseBackup(text: string): BackupFile {
   let data: unknown;
   try {

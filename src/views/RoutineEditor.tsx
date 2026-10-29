@@ -1,7 +1,3 @@
-// Editor de rutina en 3 niveles: días → ejercicios → series planeadas.
-// Cada serie planeada tiene su propio peso (opcional) y sus propias reps
-// —o su duración en segundos si es una serie cronometrada (⏱).
-
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { Exercise, PerformedSet, PlannedSet, Routine, SetMode } from '../models';
 import { setModeOf } from '../models';
@@ -39,7 +35,6 @@ const MUSCLE_GROUPS = [
   'Cardio',
 ];
 
-/** Intercambia dos elementos de un array (reordenación con ↑ ↓). */
 function swap<T>(arr: T[], i: number, dir: -1 | 1): void {
   const j = i + dir;
   if (j < 0 || j >= arr.length) return;
@@ -48,7 +43,6 @@ function swap<T>(arr: T[], i: number, dir: -1 | 1): void {
 
 type NoteTarget = { day: number; ex: number; set: number } | null;
 
-/** Etiqueta corta del chip de modo: `reps`, `rango` o `⏱ s`. */
 function modeChipText(set: PlannedSet): string {
   const mode = setModeOf(set);
   if (mode === 'timed') return '⏱ s';
@@ -56,7 +50,6 @@ function modeChipText(set: PlannedSet): string {
   return 'reps';
 }
 
-/** Pista de lo que aplicaría "Actualizar plan" a una serie: `Sugerido: 120 kg · 8`. */
 function suggestionHint(set: PlannedSet, unit: string): string {
   const weight = set.weight ? `${fmtWeight(set.weight)} ${unit} · ` : '';
   if (set.durationSec !== undefined) return `Sugerido: ${weight}${set.durationSec} s`;
@@ -69,7 +62,6 @@ const samePlannedSet = (a: PlannedSet, b: PlannedSet) =>
   a.repsMax === b.repsMax &&
   a.durationSec === b.durationSec;
 
-/** Descripción del modo actual, para aria-label del chip. */
 function modeChipAria(set: PlannedSet, n: number): string {
   const mode = setModeOf(set);
   if (mode === 'timed') return `La serie ${n} es cronometrada (${set.durationSec} s)`;
@@ -84,17 +76,11 @@ export function RoutineEditor({ id }: { id: string }) {
   const [modeTarget, setModeTarget] = useState<NoteTarget>(null);
   const [confirmDeleteDay, setConfirmDeleteDay] = useState<number | null>(null);
   const [confirmDeleteRoutine, setConfirmDeleteRoutine] = useState(false);
-  // Días plegados en el editor, guardados por id (sobreviven a reordenar o
-  // eliminar días). Al pliegar solo queda visible el nombre del día.
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set());
-  // Día que se está renombrando con el lápiz (null = ninguno).
   const [renamingDay, setRenamingDay] = useState<string | null>(null);
-  // Texto en curso de los campos de serie planificada. Se guarda tal cual se
-  // teclea (p. ej. "1," o "4-") para no reescribirlo a media edición; el
-  // store se actualiza en cada pulsación válida y al salir se formatea.
+  // Guarda lo tecleado tal cual ("1,", "4-") para no reescribirlo a media edición.
   const [setDrafts, setSetDrafts] = useState<Record<string, string>>({});
-  // Selecciona el nombre UNA vez al abrir el campo. Antes era un ref inline:
-  // Preact lo reeecutaba en cada render y seleccionaba todo con cada tecla.
+  // Con un ref inline, Preact lo reejecutaría en cada render y seleccionaría todo con cada tecla.
   const dayNameInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (!renamingDay) return;
@@ -106,8 +92,7 @@ export function RoutineEditor({ id }: { id: string }) {
 
   const routine = s.routines.find((r) => r.id === id);
 
-  // Historial reciente por ejercicio. La firma de refs evita recalcularlo al
-  // escribir el nombre de la rutina (cada tecla re-renderiza el editor).
+  // La firma de refs evita recalcular al escribir el nombre de la rutina (cada tecla re-renderiza).
   const refsKey = routine
     ? routine.days
         .flatMap((day) => day.exercises.map((ex) => `${ex.exerciseId ?? ''}|${ex.name}`))
@@ -130,7 +115,6 @@ export function RoutineEditor({ id }: { id: string }) {
       }
     }
     return map;
-    // `refsKey` resume los vínculos/nombres que afectan a la búsqueda.
   }, [s.sessions, refsKey]);
 
   if (!routine) {
@@ -158,7 +142,6 @@ export function RoutineEditor({ id }: { id: string }) {
       return next;
     });
 
-  // Modo de la serie seleccionada en la hoja "Tipo de serie".
   const currentMode: SetMode | null = modeTarget
     ? setModeOf(
         routine.days[modeTarget.day]?.exercises[modeTarget.ex]?.plannedSets[modeTarget.set] ?? {
@@ -167,7 +150,6 @@ export function RoutineEditor({ id }: { id: string }) {
       )
     : null;
 
-  // ---- Días ----
   const addDay = () =>
     patch((r) => {
       r.days.push({
@@ -189,7 +171,6 @@ export function RoutineEditor({ id }: { id: string }) {
 
   const moveDay = (di: number, dir: -1 | 1) => patch((r) => swap(r.days, di, dir));
 
-  /** Pliega o despliega un día: 1 click sobre su nombre. */
   const toggleDay = (dayId: string) =>
     setCollapsedDays((prev) => {
       const next = new Set(prev);
@@ -198,7 +179,6 @@ export function RoutineEditor({ id }: { id: string }) {
       return next;
     });
 
-  // ---- Ejercicios ----
   const addExercise = (di: number) =>
     patch((r) => {
       r.days[di].exercises.push({
@@ -213,7 +193,6 @@ export function RoutineEditor({ id }: { id: string }) {
       r.days[di].exercises[ei].name = name;
     });
 
-  /** Elige un ejercicio del catálogo: vincula por id y copia nombre/grupo. */
   const linkExercise = (di: number, ei: number, picked: Exercise) =>
     patch((r) => {
       const ex = r.days[di].exercises[ei];
@@ -222,13 +201,11 @@ export function RoutineEditor({ id }: { id: string }) {
       if (picked.muscleGroup) ex.muscleGroup = picked.muscleGroup;
     });
 
-  /** Crea (o recupera) el ejercicio en el catálogo y vincula. */
   const createAndLink = (di: number, ei: number, name: string) => {
     const ex = ensureExercise(name, routine.days[di]?.exercises[ei]?.muscleGroup);
     linkExercise(di, ei, ex);
   };
 
-  /** Sustituye el ejercicio de la entrada por uno nuevo del catálogo. */
   const replaceExercise = (di: number, ei: number, name: string) => {
     const created = ensureExercise(name);
     patch((r) => {
@@ -239,11 +216,6 @@ export function RoutineEditor({ id }: { id: string }) {
     });
   };
 
-  /**
-   * Al salir del campo: si el nombre ya existe en el catálogo, vincula la
-   * entrada a ese ejercicio (no crea un duplicado ni renombra el otro); si no,
-   * propaga nombre/grupo al catálogo y al resto de rutinas.
-   */
   const commitExercise = (di: number, ei: number) => {
     const ex = routine.days[di]?.exercises[ei];
     if (!ex) return;
@@ -255,14 +227,11 @@ export function RoutineEditor({ id }: { id: string }) {
       return;
     }
     if (!ex.exerciseId) {
-      // Nombre escrito a mano que aún no está en el catálogo: se crea y se
-      // vincula al salir del campo, para que la sesión compare por id.
       const created = ensureExercise(trimmed, ex.muscleGroup);
       linkExercise(di, ei, created);
       return;
     }
-    // Un nombre nuevo sobre un ejercicio con historial u otras rutinas es otro
-    // ejercicio: renombrarlo le pasaría ese historial. Se renombra en Ejercicios.
+    // Es otro ejercicio: renombrarlo le pasaría su historial. Se renombra en Ejercicios.
     if (!existing && isExerciseShared(ex.exerciseId, s.routines, s.sessions, ex.id)) {
       replaceExercise(di, ei, trimmed);
       return;
@@ -286,7 +255,6 @@ export function RoutineEditor({ id }: { id: string }) {
   const moveExercise = (di: number, ei: number, dir: -1 | 1) =>
     patch((r) => swap(r.days[di].exercises, ei, dir));
 
-  // ---- Series planeadas ----
   const addPlannedSet = (di: number, ei: number) => {
     setSetDrafts({});
     patch((r) => {
@@ -317,7 +285,6 @@ export function RoutineEditor({ id }: { id: string }) {
       else delete set.repsMax;
     });
 
-  /** Segundos planeados de una serie cronometrada. */
   const setPlannedDuration = (di: number, ei: number, si: number, text: string) =>
     patch((r) => {
       const n = parseNumber(text);
@@ -325,10 +292,6 @@ export function RoutineEditor({ id }: { id: string }) {
       if (n !== null) set.durationSec = Math.max(1, Math.round(n));
     });
 
-  /**
-   * Aplica al plan de este ejercicio sus mejores resultados recientes que lo
-   * superen (el plan nunca se actualiza solo: esto es a petición suya).
-   */
   const updatePlanFromBest = (di: number, ei: number) => {
     const ex = routine.days[di]?.exercises[ei];
     if (!ex) return;
@@ -340,7 +303,6 @@ export function RoutineEditor({ id }: { id: string }) {
     });
   };
 
-  /** Cambia el tipo de serie: fijo, rango (4-6) o cronometrada (30 s). */
   const applyPlannedMode = (mode: SetMode) => {
     if (!modeTarget) return;
     const { day: di, ex: ei, set: si } = modeTarget;
@@ -353,7 +315,6 @@ export function RoutineEditor({ id }: { id: string }) {
         delete set.durationSec;
       } else if (mode === 'range') {
         delete set.durationSec;
-        // Rango por defecto: mínimo actual y máximo dos por encima (10 → 10-12).
         if (set.repsMax === undefined || set.repsMax <= set.reps) set.repsMax = set.reps + 2;
       } else if (set.durationSec === undefined) {
         set.durationSec = 30;

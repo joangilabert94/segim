@@ -1,5 +1,3 @@
-// Día sugerido de una rutina: el siguiente al último entrenado con ella.
-
 import type { Routine, RoutineDay, Session } from '../models';
 
 export function suggestDay(routine: Routine, sessions: Session[]): RoutineDay | undefined {

@@ -1,5 +1,3 @@
-// Detalle de una sesión del historial: series, notas, métricas, editar y eliminar.
-
 import { useState } from 'preact/hooks';
 import { navigate } from '../router';
 import { deleteSession, reopenSession, setSessionDate, useStore } from '../state';
@@ -73,8 +71,6 @@ export function SessionDetail({ id }: { id: string }) {
         </div>
       </div>
 
-      {/* Fecha de realización editable: la sesión no guarda duración,
-          así que la fecha es lo único que define cuándo se entrenó. */}
       <div class="card" style="margin-top:14px">
         <label class="field" for="session-date">
           <span class="field-label">Fecha de realización</span>

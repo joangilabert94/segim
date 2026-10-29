@@ -1,14 +1,9 @@
 /// <reference types="vite/client" />
 
-/** Versión inyectada por Vite desde package.json (vite.config.ts). */
 declare const __APP_VERSION__: string;
 
 interface ImportMetaEnv {
-  /**
-   * Client ID público del proyecto de Google Cloud (OAuth, tipo "Aplicación
-   * web"). No es un secreto: viaja en el bundle y lo restringe Google por
-   * origen autorizado. Sin él, la copia en Drive aparece como no disponible.
-   */
+  // No es un secreto: viaja en el bundle y Google lo restringe por origen autorizado.
   readonly VITE_GOOGLE_CLIENT_ID?: string;
 }
 

@@ -1,7 +1,3 @@
-// Gráfica de progresión de un ejercicio: línea + puntos en SVG puro,
-// sin dependencias ni medición del DOM (viewBox escalable).
-// El padre elige la métrica y valida que tenga datos; aquí solo se pinta.
-
 import { fmtDate, fmtDuration, plural } from '../services/format';
 import {
   fmtMetricValue,
@@ -14,7 +10,6 @@ const W = 320;
 const H = 152;
 const PAD = { left: 38, right: 10, top: 12, bottom: 24 };
 
-/** Etiqueta del eje Y: números redondeados, tiempo en m:ss. */
 function axisLabel(value: number, metric: ProgressMetric): string {
   if (metric === 'duration') return fmtDuration(Math.round(value));
   return `${Math.round(value)}`;
@@ -24,7 +19,6 @@ interface Props {
   points: ProgressPoint[];
   metric: ProgressMetric;
   unit: string;
-  /** Nombre del ejercicio, para el aria-label. */
   label: string;
 }
 
@@ -36,7 +30,6 @@ export function ProgressChart({ points, metric, unit, label }: Props) {
   const dataMin = Math.min(...values);
   const dataMax = Math.max(...values);
   const span = dataMax - dataMin;
-  // Margen vertical: 18 % del rango; con un solo valor, un 6 % de respiro.
   const pad = span > 0 ? span * 0.18 : Math.max(1, Math.abs(dataMax) * 0.06);
   const lo = dataMin - pad;
   const hi = dataMax + pad;

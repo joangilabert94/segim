@@ -1,5 +1,3 @@
-// Maqueta de la aplicación: barra de pestañas + conmutación de rutas.
-
 import { useEffect, useState } from 'preact/hooks';
 import { getPath, subscribePath } from './router';
 import { useStore } from './state';
@@ -31,7 +29,7 @@ function usePath(): string {
 
 export function App() {
   const path = usePath();
-  const s = useStore(); // re-renderiza ante cambios de datos
+  const s = useStore();
 
   const inSession = path === '/sesion';
 
@@ -71,7 +69,6 @@ export function App() {
         <ErrorBoundary key={path}>{view}</ErrorBoundary>
       </main>
 
-      {/* Avisos de acciones en segundo plano (copia automática en Drive). */}
       <NoticeToast />
 
       {!inSession && (

@@ -1,6 +1,3 @@
-// Fila de una serie dentro de una sesión:
-// [check] Serie n | Plan · Anterior | inputs peso × reps (o segundos) | menú ⋮
-
 import { useEffect, useState } from 'preact/hooks';
 import type { PerformedSet, PlannedSet, Unit } from '../models';
 import {
@@ -12,7 +9,6 @@ import {
   parseRepsFixed,
 } from '../services/format';
 
-/** Texto de comparación de una serie: `60 × 4-6` o `— × 30 s` (cronometrada). */
 function fmtSetForCompare(
   weight: number | undefined,
   reps: number,
@@ -30,7 +26,6 @@ interface Props {
   unit: Unit;
   performed: PerformedSet;
   planned?: PlannedSet;
-  /** Serie equivalente (mismo índice) de la sesión anterior + su fecha. */
   previousSet?: PerformedSet;
   previousDate?: string;
   onPatch: (patch: Partial<PerformedSet>) => void;
@@ -48,14 +43,11 @@ export function SeriesRow({
   onMenu,
 }: Props) {
   const [weightText, setWeightText] = useState(fmtWeightInput(performed.weight));
-  // La sugerencia normal es un número fijo. Solo datos antiguos pueden traer
-  // un rango (4-6); el campo lo muestra, pero al teclear se guarda fijo.
+  // Solo datos antiguos traen rango (4-6): se muestra, pero al teclear se guarda fijo.
   const [repsText, setRepsText] = useState(fmtReps(performed.reps, performed.repsMax));
   const [durationText, setDurationText] = useState(String(performed.durationSec ?? 30));
 
-  // Serie cronometrada: manda durationSec y se editan segundos en vez de reps.
   const timed = performed.durationSec !== undefined;
-  // Sincroniza el texto si el valor cambia desde fuera (prefill, "copiar plan"...)
   useEffect(() => setWeightText(fmtWeightInput(performed.weight)), [performed.weight]);
   useEffect(
     () => setRepsText(fmtReps(performed.reps, performed.repsMax)),
@@ -71,10 +63,9 @@ export function SeriesRow({
     if (n !== null && n !== performed.weight) onPatch({ weight: n });
   };
   const commitReps = (text: string) => {
-    const next = parseRepsFixed(text); // "4-6" → null: teclear solo admite número exacto
+    const next = parseRepsFixed(text);
     if (next === null) return;
     if (next !== performed.reps || performed.repsMax !== undefined) {
-      // Al editar, la sugerencia de rango se sustituye por lo conseguido.
       onPatch({ reps: next, repsMax: undefined });
     }
   };
@@ -161,7 +152,6 @@ export function SeriesRow({
                   onChange={(e) => commitReps(e.currentTarget.value)}
                   onBlur={(e) => {
                     if (parseRepsFixed(e.currentTarget.value) === null) {
-                      // Rango sin editar u otro texto inválido: vuelve a la sugerencia.
                       setRepsText(fmtReps(performed.reps, performed.repsMax));
                     } else {
                       commitReps(e.currentTarget.value);

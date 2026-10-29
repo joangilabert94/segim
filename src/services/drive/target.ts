@@ -1,16 +1,3 @@
-// Destino "Google Drive" para las copias de seguridad.
-//
-// Estructura que deja en el Drive del usuario:
-//
-//   Segim/
-//     segim-backup.json             ← última copia (la que se restaura)
-//     copia-2026-10-28-1842.json    ← copias fechadas (se conservan 10)
-//
-// El JSON es el mismo que usa el export/import a fichero, así que restaurar
-// desde Drive y restaurar desde un archivo pasan por la misma validación.
-//
-// Todo es inyectable para poder probar la orquestación sin red ni IndexedDB.
-
 import type { BackupFile, BackupTarget, BackupTargetStatus } from '../backup';
 import { ExistingBackupError, parseBackup } from '../backup';
 import { BACKUP_FOLDER_NAME, type DriveFileMeta, DriveError, datedCopyName } from './api';
@@ -19,10 +6,8 @@ import { forgetToken, getAccessToken, hasValidToken, isDriveConfigured } from '.
 import type { DriveMeta, DriveMetaStore } from '../../db/driveStore';
 import { driveMetaStore } from '../../db/driveStore';
 
-/** Copias fechadas que se conservan; el resto se borra al subir. */
 export const MAX_DATED_COPIES = 10;
 
-/** Las operaciones de Drive que necesita el destino. */
 export interface DriveClient {
   findBackupFile(token: string): Promise<DriveFileMeta | null>;
   getFileMeta(token: string, fileId: string): Promise<DriveFileMeta>;
@@ -40,10 +25,6 @@ export interface DriveClient {
   downloadBackupText(token: string, fileId: string): Promise<string>;
   listDatedCopies(token: string, folderId?: string): Promise<DriveFileMeta[]>;
   deleteFile(token: string, fileId: string): Promise<void>;
-  /**
-   * Cuenta de Drive. Opcional a propósito: es cosmético, y los dobles de
-   * test no la implementan. Si falta o falla, la copia se sube igual.
-   */
   getDriveAccount?(token: string): Promise<{ email?: string; displayName?: string }>;
 }
 
@@ -54,7 +35,6 @@ export interface DriveTargetOptions {
   isConfigured?: () => boolean;
   hasToken?: () => boolean;
   maxCopies?: number;
-  /** Reloj inyectable: los tests fijan el nombre de la copia fechada. */
   now?: () => Date;
 }
 
@@ -67,11 +47,6 @@ export function createDriveTarget(options: DriveTargetOptions = {}): BackupTarge
   const maxCopies = options.maxCopies ?? MAX_DATED_COPIES;
   const now = options.now ?? (() => new Date());
 
-  /**
-   * Ejecuta una operación con token. Si Google responde 401 con una petición
-   * interactiva (el usuario acaba de pulsar algo), se descarta el token
-   * cacheado y se reintenta UNA vez con uno nuevo.
-   */
   async function run<T>(fn: (token: string) => Promise<T>, interactive = false): Promise<T> {
     const token = await getToken(interactive);
     try {
@@ -84,10 +59,6 @@ export function createDriveTarget(options: DriveTargetOptions = {}): BackupTarge
     }
   }
 
-  /**
-   * Sube la "última copia", actualizándola si ya existe (o recreándola).
-   * `known` es el resultado de buscarla por nombre, si ya se buscó.
-   */
   async function saveLatest(
     token: string,
     meta: DriveMeta,
@@ -108,10 +79,6 @@ export function createDriveTarget(options: DriveTargetOptions = {}): BackupTarge
     return client.createBackupFile(token, content, folderId);
   }
 
-  /**
-   * Carpeta donde guardar cuando este dispositivo no la conoce: la que ya
-   * contiene la copia, otra de la app o, si no hay ninguna, una nueva.
-   */
   async function resolveFolder(
     token: string,
     meta: DriveMeta,
@@ -134,14 +101,12 @@ export function createDriveTarget(options: DriveTargetOptions = {}): BackupTarge
       warning?: string;
     }> {
       const content = JSON.stringify(backup);
-      // Las ediciones (que llegan a ráfagas) solo refrescan la copia viva.
       const withDated = uploadOptions.dated !== false;
 
       return run(async (token) => {
         const meta: DriveMeta = { ...((await metaStore.load()) ?? {}) };
 
-        // Primera subida desde este dispositivo: una copia que ya esté en Drive
-        // viene de otro sitio y puede ser la buena. No se pisa sin permiso.
+        // Una copia que no ha subido este dispositivo puede ser la buena: no se pisa sin permiso.
         let known: DriveFileMeta | null | undefined;
         if (!meta.fileId) {
           known = await client.findBackupFile(token);
@@ -150,9 +115,7 @@ export function createDriveTarget(options: DriveTargetOptions = {}): BackupTarge
           }
         }
 
-        // Si la carpeta viene de la versión anterior (nombre "GymRutinas", o sin
-        // nombre guardado porque el metadato se creó antes), se renombra UNA vez
-        // y se recuerda el nombre para no repetir la petición en cada subida.
+        // Carpeta antigua ("GymRutinas" o sin nombre guardado): se renombra una vez y se recuerda.
         let folderId = meta.folderId;
         let folderName = meta.folderName;
         if (!folderId) {
@@ -172,11 +135,8 @@ export function createDriveTarget(options: DriveTargetOptions = {}): BackupTarge
         meta.folderId = folderId;
         meta.folderName = folderName;
 
-        // 1) La copia principal: si esto falla, la subida se considera fallida.
         const file = await saveLatest(token, meta, content, folderId, known);
 
-        // 2) Copia fechada + rotación. Es secundaria: si falla, la copia del
-        //    punto 1 ya está a salvo y solo se avisa con `warning`.
         let warning: string | undefined;
         if (withDated) {
           try {
@@ -192,10 +152,6 @@ export function createDriveTarget(options: DriveTargetOptions = {}): BackupTarge
           }
         }
 
-        // Cuenta que recibe la copia, para mostrarla en Ajustes. `about.get`
-        // entra en el scope `drive.file`, así que no pide permisos nuevos.
-        // Es cosmético: si falla, la copia ya está a salvo y se mantiene el
-        // correo anterior (si lo había).
         try {
           const account = await client.getDriveAccount?.(token);
           if (account?.email) meta.account = account.email;
@@ -227,8 +183,6 @@ export function createDriveTarget(options: DriveTargetOptions = {}): BackupTarge
         }
 
         const text = await client.downloadBackupText(token, fileId);
-        // Misma validación que el import desde fichero: si la copia de Drive
-        // estuviera dañada, se rechaza aquí y no toca los datos locales.
         const backup = parseBackup(text);
 
         if (meta.fileId !== fileId) await metaStore.save({ ...meta, fileId });
@@ -250,5 +204,4 @@ export function createDriveTarget(options: DriveTargetOptions = {}): BackupTarge
   };
 }
 
-/** Destino real (token de Google + IndexedDB + API REST). */
 export const driveTarget: BackupTarget = createDriveTarget();

@@ -1,11 +1,7 @@
-// Catálogo de ejercicios: lógica pura de búsqueda y creación.
-// La identidad es el id; el nombre solo es la etiqueta visible.
-
 import type { Exercise, Routine, Session } from '../models';
 import { newId } from '../models';
 import { normalizeName } from './previousSession';
 
-/** Busca un ejercicio del catálogo por nombre normalizado. */
 export function findExercise(
   exercises: Exercise[],
   name: string,
@@ -14,10 +10,6 @@ export function findExercise(
   return exercises.find((e) => normalizeName(e.name) === target);
 }
 
-/**
- * Devuelve el ejercicio existente o crea uno nuevo con ese nombre.
- * Si el nombre ya existe, devuelve el existente (nunca duplica).
- */
 export function pickOrCreateExercise(
   exercises: Exercise[],
   name: string,
@@ -34,7 +26,6 @@ export function pickOrCreateExercise(
   };
 }
 
-/** ¿Usan el ejercicio otras entradas de rutina, aparte de `exceptEntryId`, o el historial? */
 export function isExerciseShared(
   exerciseId: string,
   routines: Routine[],
@@ -52,12 +43,6 @@ export function isExerciseShared(
   );
 }
 
-/**
- * Fusiona entradas del catálogo que comparten nombre normalizado (p. ej. de
- * copias importadas o datos antiguos). Conserva la primera entrada, hereda el
- * grupo muscular si faltaba y devuelve el catálogo limpio. Los vínculos a los
- * ids eliminados se reparan después con `repairExerciseLinks` (por nombre).
- */
 export function mergeDuplicateExercises(exercises: Exercise[]): {
   exercises: Exercise[];
   changed: boolean;
@@ -85,11 +70,6 @@ export function mergeDuplicateExercises(exercises: Exercise[]): {
   return { exercises: merged, changed };
 }
 
-/**
- * Si el catálogo está vacío, lo siembra con los ejercicios de las rutinas
- * (para que el autocompletado y la comparación por id funcionen desde el
- * primer momento con datos antiguos).
- */
 export function seedCatalogFromRoutines(
   exercises: Exercise[],
   routines: Routine[],
@@ -117,14 +97,6 @@ export function seedCatalogFromRoutines(
   return seeded;
 }
 
-/**
- * Repara los vínculos de ejercicios que apuntan a un id que ya no existe en
- * el catálogo (p. ej. tras borrar uno del catálogo). Si el nombre coincide con
- * otro ejercicio del catálogo, se vincula a él; si no, se deja sin id para que
- * la identidad caiga al nombre normalizado en vez de quedar huérfana.
- * Afecta a rutinas y a sesiones históricas: así el historial no se desconecta
- * y las sesiones nuevas no heredan ids inexistentes.
- */
 export function repairExerciseLinks(
   routines: Routine[],
   sessions: Session[],
@@ -181,10 +153,6 @@ export function repairExerciseLinks(
   };
 }
 
-/**
- * Vincula por id los ejercicios de las rutinas que todavía no lo tengan
- * (coincidencia por nombre normalizado contra el catálogo).
- */
 export function linkRoutinesToCatalog(
   routines: Routine[],
   catalog: Exercise[],
@@ -194,8 +162,7 @@ export function linkRoutinesToCatalog(
   let changed = false;
   const out = routines.map((routine) => ({
     ...routine,
-    // Guardas defensivas para datos antiguos/dañados: una rutina sin `days`
-    // no debe tumbar la carga de toda la app.
+    // Datos antiguos o dañados: una rutina sin `days` no debe tumbar la carga de la app.
     days: (Array.isArray(routine.days) ? routine.days : []).map((day) => ({
       ...day,
       exercises: (Array.isArray(day?.exercises) ? day.exercises : []).map((ex) => {

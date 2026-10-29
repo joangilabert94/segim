@@ -1,6 +1,3 @@
-// Autocompletado de ejercicios: elige uno del catálogo o crea uno nuevo.
-// Al elegir/crear se guarda el vínculo por id estable.
-
 import { useState } from 'preact/hooks';
 import type { Exercise } from '../models';
 import { normalizeName } from '../services/previousSession';
@@ -12,7 +9,6 @@ interface Props {
   onName: (name: string) => void;
   onPick: (exercise: Exercise) => void;
   onCreate: (name: string) => void;
-  /** Se dispara al salir del campo sin elegir (propaga renombres al catálogo). */
   onCommit?: () => void;
 }
 

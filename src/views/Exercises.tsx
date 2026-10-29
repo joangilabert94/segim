@@ -1,5 +1,3 @@
-// Pestaña Ejercicios: gestiona el catálogo con identidad estable (id).
-
 import { useMemo, useState } from 'preact/hooks';
 import type { Exercise, PerformedSet } from '../models';
 import {
@@ -27,14 +25,13 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ProgressChart } from '../components/ProgressChart';
 
 interface EditState {
-  id?: string; // si existe, se renombra; si no, es uno nuevo
+  id?: string;
   name: string;
   muscleGroup: string;
 }
 
 const EMPTY: EditState = { name: '', muscleGroup: '' };
 
-/** Subtítulo del valor grande del panel de progresión, por métrica. */
 const METRIC_CAPTIONS: Record<ProgressMetric, string> = {
   e1rm: '1RM estimado · última sesión',
   weight: 'Peso máximo · última sesión',
@@ -42,7 +39,6 @@ const METRIC_CAPTIONS: Record<ProgressMetric, string> = {
   reps: 'Máx. reps · última sesión',
 };
 
-/** Referencia más exigente de un ejercicio: `6 × 120 kg` o `45 s`. */
 function fmtBest(best: PerformedSet, unit: string): string {
   const load = best.weight > 0 ? `${fmtWeight(best.weight)} ${unit}` : undefined;
   if (best.durationSec !== undefined) {
@@ -58,11 +54,9 @@ export function Exercises() {
   const [edit, setEdit] = useState<EditState | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [toDelete, setToDelete] = useState<Exercise | null>(null);
-  const [openIds, setOpenIds] = useState<Set<string>>(new Set()); // ejercicios con gráfica abierta (independientes)
-  const [metric, setMetric] = useState<ProgressMetric>('e1rm'); // métrica elegida (si hay datos)
+  const [openIds, setOpenIds] = useState<Set<string>>(new Set());
+  const [metric, setMetric] = useState<ProgressMetric>('e1rm');
 
-  // Récords y progresión de cada ejercicio: se recalculan solo al cambiar el
-  // historial o el catálogo, no con cada tecla del buscador.
   const statsById = useMemo(() => {
     const map = new Map<
       string,
@@ -83,7 +77,6 @@ export function Exercises() {
     .filter((e) => target === '' || normalizeName(e.name).includes(target))
     .sort((a, b) => a.name.localeCompare(b.name, 'es'));
 
-  /** Nº de rutinas (sin archivar) que usan un ejercicio (una vez por rutina). */
   const usage = (id: string) =>
     s.routines.filter(
       (routine) =>
@@ -178,7 +171,6 @@ export function Exercises() {
             const best = stat?.best;
             const points = stat?.points ?? [];
             const metrics = availableMetrics(points);
-            // Métrica elegida si este ejercicio tiene datos de ella; si no, la por defecto.
             const active = metrics.includes(metric) ? metric : defaultMetric(points);
             const isOpen = openIds.has(ex.id);
             const e1rms = metricSeries(points, 'e1rm');

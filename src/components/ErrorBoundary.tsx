@@ -1,8 +1,3 @@
-// Red de seguridad de renderizado: si una pantalla lanza una excepción
-// (datos dañados, un caso no previsto...), se muestra un aviso recuperable en
-// vez de dejar la app en blanco. La barra de pestañas queda fuera del límite,
-// así que siempre se puede ir a Ajustes a importar una copia o borrar datos.
-
 import { Component, type ComponentChildren } from 'preact';
 import { navigate } from '../router';
 

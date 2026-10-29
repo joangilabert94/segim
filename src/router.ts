@@ -1,9 +1,8 @@
-// Router por hash mínimo. Funciona en GitHub Pages sin configuración de servidor.
-
 export type PathListener = (path: string) => void;
 
 const listeners = new Set<PathListener>();
 
+// Por hash: así funciona en GitHub Pages sin configuración de servidor.
 function currentPath(): string {
   const raw = window.location.hash.replace(/^#/, '');
   if (raw === '' || raw === '/') return '/';
@@ -36,7 +35,6 @@ export function navigate(path: string): void {
 
 window.addEventListener('hashchange', emit);
 
-/** Coincide "/historial/abc" con "/historial/:id" devolviendo { id: 'abc' }. */
 export function matchPath(pattern: string, path: string): Record<string, string> | null {
   const p = pattern.split('/').filter(Boolean);
   const a = path.split('/').filter(Boolean);

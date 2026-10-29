@@ -1,6 +1,3 @@
-// Modo entrenamiento: comparación Plan · Anterior · Hoy por serie,
-// notas, series extra, cronómetro opcional y guardado incremental.
-
 import { useState } from 'preact/hooks';
 import type { Exercise, PerformedSet, Session, SetMode } from '../models';
 import { setModeOf } from '../models';
@@ -34,7 +31,7 @@ type SheetState =
   | { kind: 'entry-note'; entry: number }
   | { kind: 'add-exercise' };
 
-/** Tipos de serie permitidos en una sesión: el rango (4-6) es solo del plan. */
+// El rango (4-6) es solo del plan.
 type SessionSetMode = Exclude<SetMode, 'range'>;
 
 export function SessionView() {
@@ -74,11 +71,9 @@ export function SessionView() {
   const total = setsCount(session);
   const done = doneSetsCount(session);
 
-  // Datos de comparación por entrada (ejercicio)
   const comparisons = session.entries.map((entry) => {
     const ref = refOfEntry(entry);
-    // Solo sesiones de esa fecha o anteriores: al reabrir una sesión antigua,
-    // el "anterior" no puede ser un entrenamiento posterior.
+    // Al reabrir una sesión antigua, el "anterior" no puede ser un entrenamiento posterior.
     const prevSession = findPreviousSession(s.sessions, ref, {
       excludeId: session.id,
       maxDate: session.date,
@@ -133,8 +128,7 @@ export function SessionView() {
       const target = entry.sets[si];
       if (!target) return;
       target.weight = planned.weight ?? target.weight;
-      // El rango del plan se copia como número fijo (su mínimo): la serie
-      // realizada siempre registra las reps exactas conseguidas.
+      // La serie realizada registra reps exactas: del rango del plan se copia el mínimo.
       target.reps = planned.reps;
       delete target.repsMax;
       if (planned.durationSec !== undefined) target.durationSec = planned.durationSec;
@@ -155,7 +149,6 @@ export function SessionView() {
     });
   };
 
-  /** Cambia el tipo de serie de la sesión: fijo o cronometrada (sin rango). */
   const applySetMode = (ei: number, si: number, mode: SessionSetMode) => {
     patchEntry(ei, (entry) => {
       const set = entry.sets[si];
@@ -173,14 +166,11 @@ export function SessionView() {
   const addExercise = () => {
     const name = exerciseName.trim();
     if (!name) return;
-    // Vínculo estable: el elegido del catálogo o el existente/creado por nombre
     const known =
       pickedExercise && pickedExercise.name.trim().toLowerCase() === name.toLowerCase()
         ? pickedExercise
         : ensureExercise(name);
     const ref = { exerciseId: known.id, name: known.name };
-    // Sin plan con el que comparar, entra el mejor resultado reciente de cada
-    // serie. Sin historial reciente, el ejercicio entra sin series.
     const best = bestSetsForExercise(s.sessions, ref, {
       maxDate: session.date,
       sinceDate: recentSince(session.date),
@@ -236,7 +226,6 @@ export function SessionView() {
 
   const requestFinalize = () => (done === 0 ? setConfirmEmptyFinish(true) : finalize());
 
-  // Menú de serie: fijo o cronometrada. El rango (4-6) es solo del plan.
   const serieSet =
     sheet?.kind === 'serie' ? session.entries[sheet.entry]?.sets[sheet.set] : undefined;
   const serieMode: SetMode = serieSet ? setModeOf(serieSet) : 'fixed';
@@ -332,8 +321,7 @@ export function SessionView() {
 
             <div class="series-list">
               {entry.sets.map((set, si) => {
-                // Una serie sin marcar en la sesión anterior no es un resultado:
-                // no se muestra como "Anterior" ni se usa como referencia.
+                // Una serie sin marcar no es un resultado: no cuenta como "Anterior".
                 const prevSet = prevEntry?.sets[si];
                 const previousSet = prevSet?.done ? prevSet : undefined;
                 return (
@@ -385,7 +373,6 @@ export function SessionView() {
         </button>
       </div>
 
-      {/* Menú de opciones de serie */}
       <BottomSheet
         open={sheet?.kind === 'serie'}
         onClose={() => setSheet(null)}
@@ -444,7 +431,6 @@ export function SessionView() {
         )}
       </BottomSheet>
 
-      {/* Nota de serie o de ejercicio */}
       <BottomSheet
         open={sheet?.kind === 'serie-note' || sheet?.kind === 'entry-note'}
         onClose={() => setSheet(null)}
@@ -461,7 +447,6 @@ export function SessionView() {
         </button>
       </BottomSheet>
 
-      {/* Añadir ejercicio (con autocompletado del catálogo) */}
       <BottomSheet open={sheet?.kind === 'add-exercise'} onClose={() => setSheet(null)} title="Añadir ejercicio">
         <ExercisePicker
           exercises={s.exercises}
@@ -486,7 +471,6 @@ export function SessionView() {
         </button>
       </BottomSheet>
 
-      {/* Cambiar la fecha de realización de la sesión en curso */}
       <BottomSheet open={dateOpen} onClose={() => setDateOpen(false)} title="Fecha de la sesión">
         <label class="field" for="session-date-input">
           <span class="field-label">Fecha de realización</span>

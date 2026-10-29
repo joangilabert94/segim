@@ -1,15 +1,10 @@
-// Comparación entre sesiones: identidad por exerciseId estable;
-// si falta el id (datos antiguos), fallback al nombre normalizado.
-
 import type { Session, SessionEntry } from '../models';
 
-/** Referencia a un ejercicio: nombre y, si existe, su id del catálogo. */
 export interface ExerciseRef {
   exerciseId?: string;
   name: string;
 }
 
-/** "Press Banca " → "press banca" (minúsculas, sin acentos, espacios simples). */
 export function normalizeName(name: string): string {
   return name
     .trim()
@@ -19,13 +14,11 @@ export function normalizeName(name: string): string {
     .replace(/\s+/g, ' ');
 }
 
-/** ¿Dos referencias apuntan al mismo ejercicio? (id primero, si no nombre). */
 export function matchesExercise(a: ExerciseRef, b: ExerciseRef): boolean {
   if (a.exerciseId && b.exerciseId) return a.exerciseId === b.exerciseId;
   return normalizeName(a.name) === normalizeName(b.name);
 }
 
-/** Referencia de una entrada de sesión. */
 export function refOfEntry(entry: SessionEntry): ExerciseRef {
   return { exerciseId: entry.exerciseId, name: entry.exerciseName };
 }
@@ -33,12 +26,6 @@ export function refOfEntry(entry: SessionEntry): ExerciseRef {
 const toRef = (ref: string | ExerciseRef): ExerciseRef =>
   typeof ref === 'string' ? { name: ref } : ref;
 
-/**
- * Entrada de la sesión correspondiente a un ejercicio. Si el mismo ejercicio
- * aparece varias veces en la sesión (dos bloques del mismo movimiento), se
- * devuelve una entrada combinada con todas sus series: así los récords y la
- * progresión no ignoran los bloques a partir del segundo.
- */
 export function findEntry(
   session: Session,
   ref: string | ExerciseRef,
@@ -54,13 +41,6 @@ export function findEntry(
   };
 }
 
-/**
- * Última sesión COMPLETADA con el ejercicio y con al menos una serie hecha.
- * `excludeId` descarta la propia sesión; `beforeDate` exige fecha estrictamente
- * anterior y `maxDate` fecha igual o anterior (útil al reabrir una sesión: su
- * "anterior" nunca debe ser una sesión posterior del historial).
- * `sessions` debe estar ordenada por fecha descendente (lo está en el estado).
- */
 export function findPreviousSession(
   sessions: Session[],
   ref: string | ExerciseRef,

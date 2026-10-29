@@ -1,27 +1,11 @@
-// Cliente mínimo de la API REST de Google Drive (v3).
-//
-// Sin SDK a propósito: son cinco operaciones y la app es una PWA de ~30 kB.
-// Todo va con `fetch` y el token en la cabecera Authorization.
-//
-// Los errores se convierten en `DriveError` con categoría, para que la UI sepa
-// si debe pedir token, reintentar más tarde o avisar de que no queda espacio.
-
 export const BACKUP_FILE_NAME = 'segim-backup.json';
 export const BACKUP_FOLDER_NAME = 'Segim';
 export const LEGACY_BACKUP_FOLDER_NAME = 'GymRutinas';
-/**
- * Nombre con el que la app (antes "GymRutinas") creó la copia. Se sigue
- * buscando al leer: si el navegador perdió la referencia al fichero, se
- * reutiliza el que ya está en Drive en vez de crear un duplicado.
- */
+// Se sigue buscando: si se perdió la referencia, se reutiliza esa copia en vez de duplicarla.
 export const LEGACY_BACKUP_FILE_NAME = 'gymrutinas-backup.json';
-/** Prefijo de las copias fechadas que se conservan (rotación de las últimas 10). */
 export const DATED_COPY_PREFIX = 'copia-';
 
-/**
- * Nombre de una copia fechada con hora local: `copia-2026-10-28-1842.json`.
- * Ancho fijo, así que ordenar por nombre equivale a ordenar por fecha.
- */
+// Ancho fijo: ordenar por nombre equivale a ordenar por fecha.
 export function datedCopyName(date: Date = new Date()): string {
   const p = (n: number) => String(n).padStart(2, '0');
   const ymd = `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}`;
@@ -31,7 +15,6 @@ export function datedCopyName(date: Date = new Date()): string {
 const API_BASE = 'https://www.googleapis.com/drive/v3';
 const UPLOAD_BASE = 'https://www.googleapis.com/upload/drive/v3';
 
-/** Campos de Drive que nos hacen falta: id y fecha de modificación bastan. */
 const FILE_FIELDS = 'id,name,modifiedTime,size,parents';
 
 export interface DriveFileMeta {
@@ -43,16 +26,15 @@ export interface DriveFileMeta {
 }
 
 export type DriveErrorKind =
-  | 'auth' // token caducado, permiso revocado o cancelado por el usuario
-  | 'notFound' // la copia ya no existe en Drive
-  | 'quota' // sin espacio en el Drive del usuario
-  | 'network' // sin conexión
-  | 'server' // error de Google: se puede reintentar
+  | 'auth'
+  | 'notFound'
+  | 'quota'
+  | 'network'
+  | 'server'
   | 'unknown';
 
 export class DriveError extends Error {
   readonly kind: DriveErrorKind;
-  /** Código HTTP (0 si no hubo respuesta: sin red o fallo del navegador). */
   readonly status: number;
 
   constructor(kind: DriveErrorKind, status: number, message: string) {
@@ -63,7 +45,6 @@ export class DriveError extends Error {
   }
 }
 
-/** Traduce un error HTTP de Google a algo que la UI pueda enseñar en español. */
 export function classifyError(
   status: number,
   reason = '',
@@ -105,7 +86,6 @@ interface GoogleErrorBody {
   error?: { message?: string; errors?: { reason?: string }[] };
 }
 
-/** Lanza `DriveError` a partir de una respuesta fallida de Google. */
 async function throwForResponse(res: Response): Promise<never> {
   let reason = '';
   try {
@@ -137,10 +117,7 @@ async function request(token: string, url: string, init: RequestInit = {}): Prom
   return res;
 }
 
-/**
- * Busca la copia de la app por nombre. Con el scope `drive.file` solo aparecen
- * los ficheros que ha creado esta app, así que no hay riesgo de tocar otro.
- */
+// Con el scope `drive.file` solo aparecen los ficheros de esta app: buscar por nombre no toca otros.
 export async function findBackupFile(token: string): Promise<DriveFileMeta | null> {
   const names = [BACKUP_FILE_NAME, LEGACY_BACKUP_FILE_NAME]
     .map((name) => `name = '${name}'`)
@@ -154,7 +131,6 @@ export async function findBackupFile(token: string): Promise<DriveFileMeta | nul
   return data.files?.[0] ?? null;
 }
 
-/** Metadatos del fichero: sirve para saber si cambió sin descargarlo. */
 export async function getFileMeta(token: string, fileId: string): Promise<DriveFileMeta> {
   const res = await request(
     token,
@@ -168,10 +144,6 @@ export async function downloadBackupText(token: string, fileId: string): Promise
   return res.text();
 }
 
-/**
- * Copias fechadas de la carpeta, de la más nueva a la más vieja (por nombre).
- * Solo mira las que empiezan por `copia-`, nunca el fichero "última copia".
- */
 export async function listDatedCopies(
   token: string,
   folderId?: string,
@@ -187,7 +159,6 @@ export async function listDatedCopies(
   return data.files ?? [];
 }
 
-/** Carpetas de la app (actual o con el nombre antiguo), de la más antigua a la más nueva. */
 export async function findBackupFolders(token: string): Promise<DriveFileMeta[]> {
   const names = [BACKUP_FOLDER_NAME, LEGACY_BACKUP_FOLDER_NAME]
     .map((name) => `name = '${name}'`)
@@ -215,14 +186,11 @@ export async function createFolder(token: string): Promise<DriveFileMeta> {
   return (await res.json()) as DriveFileMeta;
 }
 
-/** Cuerpo multipart/related: metadatos + JSON de la copia en una sola petición. */
 export function buildMultipartBody(
   content: string,
   folderId?: string,
   name = BACKUP_FILE_NAME,
 ): { body: Blob; contentType: string } {
-  // Frontera aleatoria: el contenido lleva JSON con llaves y comillas, así que
-  // no puede contener una cadena con esta forma.
   const boundary = `segim-${Math.random().toString(36).slice(2)}`;
   const metadata: Record<string, unknown> = { name, mimeType: 'application/json' };
   if (folderId) metadata.parents = [folderId];
@@ -239,7 +207,6 @@ export function buildMultipartBody(
   return { body, contentType: `multipart/related; boundary=${boundary}` };
 }
 
-/** Crea un JSON nuevo con un nombre concreto (última copia o copia fechada). */
 export async function createJsonFile(
   token: string,
   name: string,
@@ -263,7 +230,6 @@ export async function createBackupFile(
   return createJsonFile(token, BACKUP_FILE_NAME, content, folderId);
 }
 
-/** Sobrescribe el contenido. Drive conserva el historial de versiones. */
 export async function updateBackupFile(
   token: string,
   fileId: string,
@@ -281,11 +247,6 @@ export async function updateBackupFile(
   return (await res.json()) as DriveFileMeta;
 }
 
-/**
- * Renombra un fichero o carpeta existente (PATCH de metadatos).
- * Se usa para alinear el nombre antiguo de la carpeta ("GymRutinas") con el
- * actual ("Segim") sin mover ni duplicar nada.
- */
 export async function renameFile(
   token: string,
   fileId: string,
@@ -308,11 +269,7 @@ export interface DriveAccount {
   displayName?: string;
 }
 
-/**
- * Cuenta de Google a la que se sube la copia, para mostrarla en Ajustes.
- * `about.get` admite también el scope `drive.file`, así que no hace falta
- * pedir ningún permiso nuevo para consultarla.
- */
+// `about.get` admite el scope `drive.file`: no hace falta pedir permisos nuevos.
 export async function getDriveAccount(token: string): Promise<DriveAccount> {
   const res = await request(
     token,

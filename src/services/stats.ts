@@ -1,14 +1,6 @@
-// Métricas sencillas: volumen, racha y sesiones recientes.
-
 import type { Session } from '../models';
 import { daysBetween, todayISO } from './format';
 
-/**
- * Volumen de una sesión: Σ peso × reps de las series marcadas como hechas.
- * Las series cronometradas (durationSec) no aportan volumen: no tienen reps.
- * En datos antiguos con rango (4-6) se cuenta el extremo alto; las sesiones
- * nuevas ya no guardan rangos: registran un número fijo de reps.
- */
 export function volumeOf(session: Session): number {
   let total = 0;
   for (const entry of session.entries) {
@@ -21,12 +13,10 @@ export function volumeOf(session: Session): number {
   return total;
 }
 
-/** Nº total de series de una sesión. */
 export function setsCount(session: Session): number {
   return session.entries.reduce((acc, e) => acc + e.sets.length, 0);
 }
 
-/** Nº de series marcadas como hechas. */
 export function doneSetsCount(session: Session): number {
   return session.entries.reduce(
     (acc, e) => acc + e.sets.filter((s) => s.done).length,
@@ -34,7 +24,6 @@ export function doneSetsCount(session: Session): number {
   );
 }
 
-/** Sesiones completadas de los últimos `days` días naturales (incluye hoy). */
 export function sessionsInLast(sessions: Session[], days: number): Session[] {
   const from = new Date();
   // Hoy cuenta como día 1: "30 días" debe abarcar exactamente 30 fechas, no 31.
@@ -43,15 +32,10 @@ export function sessionsInLast(sessions: Session[], days: number): Session[] {
   return sessions.filter((s) => s.status === 'completed' && s.date >= fromISO);
 }
 
-/** Volumen total de los últimos `days` días. */
 export function volumeInLast(sessions: Session[], days: number): number {
   return sessionsInLast(sessions, days).reduce((acc, s) => acc + volumeOf(s), 0);
 }
 
-/**
- * Racha de días consecutivos entrenados.
- * La racha vive si entrenaste hoy o ayer; si no, vale 0.
- */
 export function streak(sessions: Session[]): number {
   const dates = [
     ...new Set(

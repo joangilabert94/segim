@@ -1,5 +1,3 @@
-// Utilidades de formato de fechas y números (es-ES).
-
 const fmtDayMonth = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short' });
 const fmtLong = new Intl.DateTimeFormat('es-ES', {
   weekday: 'long',
@@ -11,14 +9,12 @@ const fmtTime = new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-d
 const fmtWeekdayShort = new Intl.DateTimeFormat('es-ES', { weekday: 'short' });
 // Dos decimales: hay discos de 1,25 kg y el peso no debe redondearse al mostrarse.
 const fmtWeightText = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 2 });
-// Sin separador de miles: se usa dentro de inputs editables, donde "1.234,5"
-// no se podría volver a interpretar con parseNumber.
+// Sin separador de miles: en un input, parseNumber no sabría releer "1.234,5".
 const fmtWeightPlain = new Intl.NumberFormat('es-ES', {
   maximumFractionDigits: 2,
   useGrouping: false,
 });
 
-/** Fecha local de hoy en formato YYYY-MM-DD. */
 export function todayISO(date: Date = new Date()): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -26,52 +22,41 @@ export function todayISO(date: Date = new Date()): string {
   return `${y}-${m}-${d}`;
 }
 
-/** Convierte "YYYY-MM-DD" a Date a medianoche local. */
 export function parseISODate(iso: string): Date {
   const [y, m, d] = iso.split('-').map(Number);
   return new Date(y, (m ?? 1) - 1, d ?? 1);
 }
 
-/** Diferencia en días naturales: b - a. */
 export function daysBetween(a: string, b: string): number {
   const ms = parseISODate(b).getTime() - parseISODate(a).getTime();
   return Math.round(ms / 86_400_000);
 }
 
-/** "4 oct" */
 export function fmtDate(iso: string): string {
   return fmtDayMonth.format(parseISODate(iso));
 }
 
-/** "lunes, 4 de octubre" */
 export function fmtDateLong(iso: string): string {
   const s = fmtLong.format(parseISODate(iso));
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-/**
- * "28 oct, 18:42" — para instantes completos (las copias de Drive traen hora).
- * Devuelve cadena vacía si la fecha no es válida, para no pintar "Invalid Date".
- */
 export function fmtDateTime(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return '';
   return `${fmtDayMonth.format(date)}, ${fmtTime.format(date)}`;
 }
 
-/** "Octubre de 2026" — para agrupar el historial por mes. */
 export function fmtMonth(iso: string): string {
   const s = fmtMonthYear.format(parseISODate(iso));
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-/** "lun" */
 export function fmtWeekday(iso: string): string {
   const s = fmtWeekdayShort.format(parseISODate(iso));
   return s.replace('.', '');
 }
 
-/** Fecha relativa: hoy / ayer / hace N días / hace N semanas / semana pasada. */
 export function fmtRelative(iso: string, from: string = todayISO()): string {
   const diff = daysBetween(iso, from);
   if (diff < 0) {
@@ -86,23 +71,19 @@ export function fmtRelative(iso: string, from: string = todayISO()): string {
   return `hace ${weeks} semanas`;
 }
 
-/** Volumen con formato local: 12.340 kg */
 export function fmtVolume(value: number, unit: string): string {
   const rounded = Math.round(value);
   return `${rounded.toLocaleString('es-ES')} ${unit}`;
 }
 
-/** Peso para mostrar: 60 → "60", 60.5 → "60,5". */
 export function fmtWeight(value: number): string {
   return fmtWeightText.format(value);
 }
 
-/** Peso para un input editable: sin separador de miles (60,5). */
 export function fmtWeightInput(value: number): string {
   return fmtWeightPlain.format(value);
 }
 
-/** Duración en segundos → "1:30" / "12:05" / "1:02:03" */
 export function fmtDuration(seconds: number): string {
   const s = Math.max(0, Math.round(seconds));
   const h = Math.floor(s / 3600);
@@ -113,7 +94,6 @@ export function fmtDuration(seconds: number): string {
   return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
-/** Saludo según la hora del día. */
 export function greeting(hour: number = new Date().getHours()): string {
   if (hour < 6) return 'Buenas noches';
   if (hour < 13) return 'Buenos días';
@@ -121,7 +101,6 @@ export function greeting(hour: number = new Date().getHours()): string {
   return 'Buenas noches';
 }
 
-/** Interpreta texto de input numérico aceptando coma decimal. */
 export function parseNumber(text: string): number | null {
   const t = text.trim().replace(',', '.');
   if (t === '') return null;
@@ -129,17 +108,11 @@ export function parseNumber(text: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** Reps como valor plano (10) o rango (4-6). */
 export interface RepsValue {
   reps: number;
   repsMax?: number;
 }
 
-/**
- * Interpreta el campo de reps: acepta un número ("10", "8,5") o un rango
- * ("4-6", "4 – 6"). En un rango normaliza de menor a mayor; si ambos
- * extremos son iguales devuelve valor fijo. Devuelve null si no es válido.
- */
 export function parseRepsRange(text: string): RepsValue | null {
   const t = text.trim().replace(/[–—]/g, '-');
   const parts = t.split('-');
@@ -156,26 +129,16 @@ export function parseRepsRange(text: string): RepsValue | null {
   return hi > lo ? { reps: lo, repsMax: hi } : { reps: lo };
 }
 
-/**
- * Reps fijas de la sesión: acepta solo un número entero ("10", "8,5" → 8).
- * Un rango ("4-6") no es válido aquí: el rango vive solo en el plan y
- * la sesión registra lo realmente conseguido.
- */
 export function parseRepsFixed(text: string): number | null {
   const n = parseNumber(text);
   if (n === null || n < 0) return null;
   return Math.round(n);
 }
 
-/**
- * Cantidad + sustantivo concordados: `plural(1, 'serie', 'series')` → "1 serie".
- * Evita los "1 series" y "1 rutinas" en contadores y mensajes.
- */
 export function plural(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`;
 }
 
-/** Reps en pantalla: `10` o `4-6` (el rango solo si aporta información). */
 export function fmtReps(reps: number, repsMax?: number): string {
   return repsMax !== undefined && repsMax > reps ? `${reps}-${repsMax}` : String(reps);
 }

@@ -1,6 +1,3 @@
-// Copia automática al terminar una sesión: cuándo se salta, qué avisa y cómo
-// trata los fallos. Todo con un destino falso, sin red ni IndexedDB.
-
 import { describe, expect, it, vi } from 'vitest';
 import type { BackupFile, BackupTarget, BackupTargetStatus } from '../src/services/backup';
 import { DEFAULT_SETTINGS } from '../src/models';
@@ -82,7 +79,6 @@ describe('autoBackup: cuándo actúa', () => {
 
     expect(out).toEqual({ status: 'skipped', reason: 'disabled' });
     expect(upload).not.toHaveBeenCalled();
-    // Ni siquiera se consulta el estado: desactivada es coste cero.
     expect(status).not.toHaveBeenCalled();
     expect(notices).toHaveLength(0);
   });
@@ -270,7 +266,6 @@ describe('ajuste autoBackup', () => {
   it('está desactivado por defecto y solo acepta un booleano true', () => {
     expect(parseSettings({}).autoBackup).toBe(false);
     expect(parseSettings({ autoBackup: true }).autoBackup).toBe(true);
-    // Valores raros de una copia manipulada no activan la subida.
     expect(parseSettings({ autoBackup: 'sí' }).autoBackup).toBe(false);
     expect(parseSettings({ autoBackup: 1 }).autoBackup).toBe(false);
   });
@@ -327,7 +322,6 @@ describe('retardos por motivo', () => {
       };
       requestAutoBackup(request);
       await vi.advanceTimersByTimeAsync(20_000);
-      // Llegan más cambios: la espera se reinicia con cada uno.
       requestAutoBackup(request);
       requestAutoBackup(request);
       await vi.advanceTimersByTimeAsync(AUTO_BACKUP_DELAY_MS['routine-edit'] - 1);
@@ -405,7 +399,6 @@ describe('copias fechadas', () => {
       target: edit.target,
       notify: vi.fn(),
     });
-    // `dated: false` = solo la copia viva (la que se restaura).
     expect(edit.upload.mock.calls[0][1]).toEqual({ interactive: false, dated: false });
 
     const complete = fakeTarget();

@@ -1,7 +1,5 @@
 name: Comprobar
 
-# Typecheck, tests y build en cada push y cada pull request.
-# No despliega nada: la publicación en Pages es cosa de deploy.yml (etiquetas).
 on:
   push:
     branches: ['**']

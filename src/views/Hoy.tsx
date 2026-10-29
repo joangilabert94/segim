@@ -1,5 +1,3 @@
-// Pantalla "Hoy": día sugerido, reanudar sesión, estadísticas y últimas sesiones.
-
 import { useState } from 'preact/hooks';
 import type { RoutineDay } from '../models';
 import { navigate } from '../router';
@@ -67,8 +65,7 @@ export function Hoy() {
     const p = pending;
     setPending(null);
     if (!p) return;
-    // La sesión libre no necesita rutina: se puede empezar siempre, aunque el
-    // catálogo de rutinas esté vacío.
+    // La sesión libre no necesita rutina: se puede empezar aunque no haya ninguna.
     if (p.target === 'free') {
       beginSessionNow('free');
       return;
@@ -207,7 +204,6 @@ export function Hoy() {
         </div>
       )}
 
-      {/* Sesión libre: disponible incluso sin ninguna rutina creada. */}
       <button
         class="btn btn-block"
         style="margin-top:12px"
@@ -242,7 +238,6 @@ export function Hoy() {
         ))
       )}
 
-      {/* Elegir otro día de la rutina (distinto al sugerido) */}
       <BottomSheet open={pickOpen} onClose={() => setPickOpen(false)} title="Empezar otro día">
         {active?.days
           .filter((d) => d.id !== day?.id)

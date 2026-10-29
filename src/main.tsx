@@ -10,24 +10,18 @@ import './styles/components.css';
 
 const root = document.getElementById('app');
 
-// Pinta el tema cacheado y se suscribe a los cambios del sistema;
-// loadState() vuelve a aplicarlo con la preferencia guardada.
 initTheme();
-// Si el sistema cambia de modo con la app abierta, re-renderiza la UI
-// (el texto de Ajustes refleja el tema resuelto).
 onThemeChange(notifyListeners);
 
 loadState().then(() => {
   if (root) render(<App />, root);
 });
 
-// PWA: actualización automática del service worker.
 if ('serviceWorker' in navigator) {
   registerSW({ immediate: true });
 }
 
-// Pide almacenamiento persistente: sin esto el navegador puede desalojar
-// IndexedDB si el dispositivo se queda sin espacio. No es bloqueante.
+// Sin almacenamiento persistente el navegador puede desalojar IndexedDB si falta espacio.
 const storage = navigator.storage;
 if (storage && typeof storage.persist === 'function') {
   storage

@@ -1,24 +1,9 @@
-// Tipos de datos de la aplicación.
-// Todo lo planeado y lo realizado se guarda serie a serie:
-// cada serie tiene su propio peso y sus propias reps… o su duración,
-// cuando es una serie cronometrada (isometría: plancha 30 s, etc.).
-// Regla: si `durationSec` existe, manda él y `reps` se ignora.
-
 export type Unit = 'kg' | 'lb';
 
-/**
- * Preferencia de tema: `auto` sigue el modo del dispositivo
- * (`prefers-color-scheme`); `light` y `dark` lo fuerzan.
- */
 export type ThemeMode = 'auto' | 'light' | 'dark';
 
-/** Tema ya resuelto, el que realmente se pinta en el documento. */
 export type ResolvedTheme = 'light' | 'dark';
 
-/**
- * Ejercicio del catálogo. Su `id` es la identidad ESTABLE: la comparación
- * entre sesiones y los vínculos rutina↔sesión usan el id, no el nombre.
- */
 export interface Exercise {
   id: string;
   name: string;
@@ -26,19 +11,18 @@ export interface Exercise {
   createdAt: string;
 }
 
-/** Serie planeada dentro de un ejercicio de una rutina. */
 export interface PlannedSet {
-  weight?: number; // peso objetivo de ESTA serie (opcional)
-  reps: number; // reps planeadas de ESTA serie (mínimo si hay rango)
-  repsMax?: number; // si existe y > reps, la serie es un rango: 4-6
-  durationSec?: number; // si existe, la serie es cronometrada (segundos)
+  weight?: number;
+  reps: number;
+  repsMax?: number;
+  durationSec?: number;
   note?: string;
 }
 
 export interface RoutineExercise {
   id: string;
-  exerciseId?: string; // vínculo con el catálogo (opcional en datos antiguos)
-  name: string; // copia denormalizada para mostrar
+  exerciseId?: string;
+  name: string;
   muscleGroup?: string;
   plannedSets: PlannedSet[];
 }
@@ -56,28 +40,22 @@ export interface Routine {
   archived: boolean;
   createdAt: string;
   updatedAt: string;
-  sourceRoutineId?: string; // si fue clonada, rutina de origen
+  sourceRoutineId?: string;
 }
 
-/** Serie realizada dentro de una sesión. */
 export interface PerformedSet {
-  weight: number; // peso real de ESTA serie
-  reps: number; // reps reales de ESTA serie: SIEMPRE número fijo (lo conseguido)
+  weight: number;
+  reps: number;
   repsMax?: number; // solo datos antiguos: la sesión ya no admite rangos
-  durationSec?: number; // si existe, la serie es cronometrada (segundos)
+  durationSec?: number;
   done: boolean;
   note?: string;
-  extra?: boolean; // serie añadida sobre la marcha (no planificada)
+  extra?: boolean;
 }
 
-/** Cómo se expresan las reps de una serie. */
 export type SetMode = 'fixed' | 'range' | 'timed';
 
-/**
- * Modo de una serie: cronometrada > rango > número fijo.
- * Una serie puede conservar repsMax y durationSec como residuo al cambiar
- * de modo; este helper decide qué se muestra y qué se edita.
- */
+// Al cambiar de modo pueden quedar repsMax y durationSec de residuo: este orden decide.
 export function setModeOf(set: {
   reps: number;
   repsMax?: number;
@@ -89,17 +67,15 @@ export function setModeOf(set: {
 }
 
 export interface SessionEntry {
-  exerciseId?: string; // vínculo con el catálogo (opcional en datos antiguos)
-  exerciseName: string; // copia plana; sin id, la identidad es el nombre normalizado
+  exerciseId?: string;
+  exerciseName: string;
   note?: string;
   sets: PerformedSet[];
 }
 
 export interface Session {
   id: string;
-  // Fecha de realización YYYY-MM-DD: única marca temporal de la sesión.
-  // Es editable desde el detalle; NO se guarda duración (sin arranque/final),
-  // porque no siempre se marca cuándo se empieza y se termina.
+  // YYYY-MM-DD, sin duración: no siempre se marca cuándo se empieza y se termina.
   date: string;
   routineId?: string;
   dayId?: string;
@@ -110,14 +86,10 @@ export interface Session {
 
 export interface Settings {
   unit: Unit;
-  restPresets: number[]; // 6 duraciones en segundos
+  restPresets: number[];
   activeRoutineId?: string;
-  theme: ThemeMode; // por defecto, el del dispositivo
-  /**
-   * Subir la copia a Google Drive al terminar una sesión. Desactivado por
-   * defecto: cada subida es una petición de red a un servicio externo, así que
-   * se activa a propósito desde Ajustes.
-   */
+  theme: ThemeMode;
+  // Desactivada por defecto: cada subida es una petición a un servicio externo.
   autoBackup: boolean;
 }
 
@@ -128,16 +100,12 @@ export const DEFAULT_SETTINGS: Settings = {
   autoBackup: false,
 };
 
-/**
- * Copia profunda de datos planos. `structuredClone` no existe en navegadores
- * antiguos (iOS < 15.4); el fallback JSON cubre los tipos que guarda la app.
- */
 export function deepClone<T>(value: T): T {
   if (typeof structuredClone === 'function') return structuredClone(value);
+  // iOS < 15.4 no tiene structuredClone; JSON basta para los datos planos de la app.
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-/** Identificador único (uuid cuando está disponible). */
 export function newId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
     return crypto.randomUUID();

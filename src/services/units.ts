@@ -1,12 +1,5 @@
-// Conversión de pesos al cambiar de unidad.
-// Los pesos se guardan como números sin unidad, así que al pasar de kg a lb
-// (o al contrario) hay que convertir TODOS los datos: rutinas, sesiones
-// históricas y la sesión en curso. Si solo se cambiara la etiqueta, un 60 kg
-// aparecería como 60 lb.
-
 import type { Routine, Session, Unit } from '../models';
 
-/** 1 libra internacional = 0,45359237 kg. */
 export const KG_PER_LB = 0.45359237;
 
 const round1 = (n: number): number => Math.round(n * 10) / 10;

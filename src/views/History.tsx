@@ -1,5 +1,3 @@
-// Historial de sesiones agrupado por mes, con estadísticas de cabecera.
-
 import { navigate } from '../router';
 import { useStore } from '../state';
 import { fmtDate, fmtMonth, fmtVolume, fmtWeekday, parseISODate, plural } from '../services/format';
@@ -13,7 +11,7 @@ export function History() {
   const volumen30 = volumeInLast(sessions, 30);
   const racha = streak(sessions);
 
-  // Agrupación por mes, conservando el orden (sesiones ya ordenadas desc)
+  // Cuenta con que las sesiones ya vienen ordenadas desc.
   const groups: { label: string; items: typeof sessions }[] = [];
   for (const ses of sessions) {
     const label = fmtMonth(ses.date);

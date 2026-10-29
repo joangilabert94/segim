@@ -1,15 +1,7 @@
-// Autorización con Google Identity Services (modelo token).
-//
-// Sin backend no hay refresh token: Google emite un access token de ~1 h y hay
-// que volver a pedirlo. Incluso con `prompt: 'none'` lo pide con una ventana
-// emergente, que el navegador bloquea si no viene de un toque del usuario.
-// El token vive SOLO en memoria: nunca en localStorage ni IndexedDB.
-
 import { DriveError } from './api';
 
 const GIS_SRC = 'https://accounts.google.com/gsi/client';
 
-/** Permiso mínimo: crear y ver solo los ficheros que crea esta app. */
 export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 
 interface TokenResponse {
@@ -40,21 +32,19 @@ declare global {
   }
 }
 
-/** Client ID público del proyecto de Google Cloud (no es un secreto). */
 export function googleClientId(): string {
   const value = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   return typeof value === 'string' ? value.trim() : '';
 }
 
-/** ¿Está este build configurado para hablar con Drive? */
 export function isDriveConfigured(): boolean {
   return googleClientId() !== '';
 }
 
+// Solo en memoria: nunca en localStorage ni IndexedDB.
 let cachedToken: { value: string; expiresAt: number } | null = null;
 let gisLoader: Promise<GoogleOAuth2> | null = null;
 
-/** Carga el script de Google solo la primera vez que hace falta. */
 function loadGis(): Promise<GoogleOAuth2> {
   if (gisLoader) return gisLoader;
 
@@ -84,7 +74,6 @@ function loadGis(): Promise<GoogleOAuth2> {
   return gisLoader;
 }
 
-/** Token aún válido en memoria (no pide nada a Google). */
 export function hasValidToken(): boolean {
   return !!cachedToken && cachedToken.expiresAt > Date.now();
 }
@@ -109,13 +98,6 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
   });
 }
 
-/**
- * Devuelve un access token.
- *
- * - `interactive: false` usa `prompt: 'none'` y lanza `DriveError` de tipo
- *   `auth` si Google necesita al usuario o el navegador bloquea la ventana.
- * - `interactive: true` abre la ventana de Google (debe venir de un clic).
- */
 export async function getAccessToken(interactive = true): Promise<string> {
   if (cachedToken && hasValidToken()) return cachedToken.value;
 
@@ -150,6 +132,7 @@ export async function getAccessToken(interactive = true): Promise<string> {
             ),
           );
         },
+        // Incluso con 'none' abre una ventana, que el navegador bloquea si no viene de un toque.
         prompt: interactive ? '' : 'none',
       });
       try {
@@ -183,7 +166,6 @@ export async function getAccessToken(interactive = true): Promise<string> {
   return cachedToken.value;
 }
 
-/** Revoca el permiso en Google. Si falla, el token caduca solo en ~1 h. */
 export async function revokeAccess(): Promise<void> {
   const token = cachedToken?.value;
   forgetToken();
@@ -194,7 +176,6 @@ export async function revokeAccess(): Promise<void> {
       oauth2.revoke(token, () => resolve());
     });
   } catch {
-    // Sin conexión o token ya caducado: el usuario puede revocarlo en
-    // https://myaccount.google.com/permissions
+    // Sin conexión o ya caducado: se puede revocar en https://myaccount.google.com/permissions
   }
 }

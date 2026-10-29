@@ -163,7 +163,6 @@ describe('catálogo de ejercicios', () => {
     const catalog: Exercise[] = [
       { id: 'ex-press', name: 'Press banca', createdAt: '2026-01-01T00:00:00.000Z' },
     ];
-    // Rutina "antigua": el ejercicio no tiene vínculo con el catálogo
     const legacy = makeRoutine();
     legacy.days[0].exercises[0] = {
       ...legacy.days[0].exercises[0],
@@ -174,7 +173,6 @@ describe('catálogo de ejercicios', () => {
 
     expect(linked.changed).toBe(true);
     expect(linked.routines[0].days[0].exercises[0].exerciseId).toBe('ex-press');
-    // El ejercicio sin coincidencia en el catálogo queda como estaba
     expect(linked.routines[0].days[0].exercises[1].exerciseId).toBeUndefined();
   });
 
@@ -192,7 +190,7 @@ describe('catálogo de ejercicios', () => {
 });
 
 describe('repairExerciseLinks — ids huérfanos', () => {
-  const routine = makeRoutine(); // e1 vinculado a ex-press
+  const routine = makeRoutine();
 
   it('quita el id borrado de rutinas y sesiones', () => {
     const sesion = makeSession({
@@ -206,7 +204,7 @@ describe('repairExerciseLinks — ids huérfanos', () => {
       ],
     });
 
-    const res = repairExerciseLinks([routine], [sesion], []); // catálogo vacío
+    const res = repairExerciseLinks([routine], [sesion], []);
 
     expect(res.changedRoutines).toBe(true);
     expect(res.routines[0].days[0].exercises[0].exerciseId).toBeUndefined();
@@ -277,7 +275,6 @@ describe('buildSessionFromDay — vínculos por id', () => {
     const catalog: Exercise[] = [];
     const session = buildSessionFromDay(routine, routine.days[0], [], catalog);
 
-    // Sesión previa con el mismo id pero otro nombre
     const previa = makeSession({
       id: 'prev',
       date: '2026-09-20',

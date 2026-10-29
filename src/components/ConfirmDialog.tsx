@@ -1,5 +1,3 @@
-// Diálogo de confirmación centrado (acciones destructivas, cambios de sesión).
-
 import { useEffect, useRef } from 'preact/hooks';
 
 interface Props {
@@ -25,8 +23,6 @@ export function ConfirmDialog({
 }: Props) {
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  // Escape cierra el diálogo y el foco entra en él: antes el teclado seguía
-  // en la pantalla de detrás.
   useEffect(() => {
     if (!open) return;
     dialogRef.current?.focus();

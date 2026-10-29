@@ -1,11 +1,3 @@
-// Genera los iconos de la PWA sin dependencias (zlib viene de Node).
-// Uso: node scripts/generate-icons.mjs
-//
-// Diseño: lienzo oscuro redondeado con una luz tenue detrás de una mancuerna
-// diagonal de formas redondeadas y degradados. Se dibuja a 4x y se reduce, así
-// los bordes quedan suavizados (el icono anterior se pintaba pixel a pixel sin
-// antialiasing). El mismo diseño se exporta a SVG para la pestaña del navegador.
-
 import { deflateSync } from 'node:zlib';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -13,8 +5,6 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = join(__dirname, '..', 'public', 'icons');
-
-// ---- Codificación PNG ----
 
 const CRC_TABLE = (() => {
   const table = new Uint32Array(256);
@@ -62,11 +52,9 @@ function encodePNG(width, height, rgba) {
   ]);
 }
 
-// ---- Composición (en un lienzo de 512 × 512) ----
-
 const CANVAS = 512;
 const CENTER = CANVAS / 2;
-const TILT = -34; // grados: la mancuerna sube hacia la derecha
+const TILT = -34;
 const SS = 4; // supermuestreo por eje (4 × 4 muestras por píxel)
 
 const hex = (value) => [
@@ -75,7 +63,6 @@ const hex = (value) => [
   parseInt(value.slice(5, 7), 16),
 ];
 
-// Degradado lineal de dos paradas, `t` de 0 a 1.
 const ramp = (from, to) => {
   const a = hex(from);
   const b = hex(to);
@@ -95,8 +82,6 @@ const BAR = ramp('#f6faf5', '#c3d1c6');
 const PLATE = ramp('#dcff80', '#a3d92c');
 const PLATE_EDGE = ramp('#b7e847', '#84b41f');
 
-// Formas de la mancuerna en coordenadas locales (centro 0,0), antes de inclinar.
-// `r` es el radio de las esquinas; un rectángulo con r = alto/2 es una cápsula.
 const DUMBBELL = [
   { x: 0, y: 0, w: 300, h: 30, r: 15, fill: BAR },
   { x: -80, y: 0, w: 40, h: 136, r: 17, fill: PLATE },
@@ -105,7 +90,6 @@ const DUMBBELL = [
   { x: 134, y: 0, w: 54, h: 202, r: 22, fill: PLATE },
 ];
 
-// Distancia con signo a un rectángulo redondeado (negativa dentro).
 function roundRectDistance(px, py, cx, cy, halfW, halfH, radius) {
   const dx = Math.abs(px - cx) - (halfW - radius);
   const dy = Math.abs(py - cy) - (halfH - radius);
@@ -114,13 +98,11 @@ function roundRectDistance(px, py, cx, cy, halfW, halfH, radius) {
   return Math.sqrt(ox * ox + oy * oy) + Math.min(Math.max(dx, dy), 0) - radius;
 }
 
-// Desenfoque por cajas repetido (aproxima una gaussiana) sobre un canal alfa.
 function blurAlpha(mask, width, height, radius, passes = 3) {
   if (radius < 1) return mask;
   let src = mask;
   let dst = new Float32Array(mask.length);
   for (let pass = 0; pass < passes; pass++) {
-    // Horizontal
     for (let y = 0; y < height; y++) {
       const row = y * width;
       let sum = 0;
@@ -132,7 +114,6 @@ function blurAlpha(mask, width, height, radius, passes = 3) {
         sum += src[row + Math.min(width - 1, Math.max(0, x + radius + 1))];
       }
     }
-    // Vertical
     for (let x = 0; x < width; x++) {
       let sum = 0;
       for (let y = -radius; y <= radius; y++) sum += dst[Math.min(height - 1, Math.max(0, y)) * width + x];
@@ -154,17 +135,15 @@ function rotate(px, py, degrees) {
   return [px * cos - py * sin, px * sin + py * cos];
 }
 
-// Paradas de un degradado local: `t` en 0 es el borde superior de la forma.
 const gradientT = (localY, height) => (localY + height / 2) / height;
 
 function renderIcon(size, { rounded, contentScale = 1 }) {
-  const scale = (size * SS) / CANVAS; // píxeles de trabajo por unidad de lienzo
+  const scale = (size * SS) / CANVAS;
   const hi = size * SS;
-  const hiBuf = new Float32Array(hi * hi * 4); // RGBA lineal, 0..255
+  const hiBuf = new Float32Array(hi * hi * 4);
   const cornerRadius = rounded ? 112 : 0;
-  const extent = contentScale; // 1 = diseño a tamaño completo
+  const extent = contentScale;
 
-  // Máscara de la mancuerna para la sombra: cobertura binaria a 4x.
   const shadowMask = new Float32Array(hi * hi);
   for (let y = 0; y < hi; y++) {
     const py = (y + 0.5) / scale;
@@ -191,7 +170,6 @@ function renderIcon(size, { rounded, contentScale = 1 }) {
       const px = (x + 0.5) / scale;
       const i = (y * hi + x) * 4;
 
-      // Fondo: rectángulo redondeado (o cuadrado completo en el maskable).
       const bgDist = roundRectDistance(
         px,
         py,
@@ -201,11 +179,10 @@ function renderIcon(size, { rounded, contentScale = 1 }) {
         CENTER,
         cornerRadius,
       );
-      if (bgDist > 0) continue; // fuera del lienzo: transparente
+      if (bgDist > 0) continue;
       const bgT = Math.min(1, Math.max(0, (py / CANVAS) * 0.75 + (px / CANVAS) * 0.25 + 0.08));
       const [br, bg, bb] = BG(bgT);
 
-      // Luz tenue detrás de la mancuerna.
       const gx = (px - CENTER) / (CANVAS * 0.62);
       const gy = (py - CENTER * 0.92) / (CANVAS * 0.62);
       const glow = Math.max(0, 1 - (gx * gx + gy * gy));
@@ -215,14 +192,12 @@ function renderIcon(size, { rounded, contentScale = 1 }) {
       let g = bg + (lg - bg) * glowK;
       let b = bb + (lb - bb) * glowK;
 
-      // Filo interior: separa el lienzo del fondo donde se apoye el icono.
       if (cornerRadius > 0 && bgDist > -2.5) {
         r += (lr - r) * 0.09;
         g += (lg - g) * 0.09;
         b += (lb - b) * 0.09;
       }
 
-      // Sombra proyectada de la mancuerna.
       const sxp = x - shadowDX;
       const syp = y - shadowDY;
       if (sxp >= 0 && syp >= 0 && sxp < hi && syp < hi) {
@@ -234,7 +209,6 @@ function renderIcon(size, { rounded, contentScale = 1 }) {
         }
       }
 
-      // Mancuerna inclinada.
       const [lx, ly] = rotate(
         (px - CENTER) / extent,
         (py - CENTER) / extent,
@@ -256,7 +230,6 @@ function renderIcon(size, { rounded, contentScale = 1 }) {
         g = sg;
         b = sb;
 
-        // Filo algo más oscuro: da volumen sin sombras borrosas.
         if (shape.fill !== BAR && d > -5) {
           const [er, eg, eb] = PLATE_EDGE(gradientT(ly - shape.y, shape.h));
           const k = ((d + 5) / 5) * 0.5;
@@ -273,7 +246,6 @@ function renderIcon(size, { rounded, contentScale = 1 }) {
     }
   }
 
-  // Reducción por promedio de SS × SS: esto es lo que suaviza los bordes.
   const out = Buffer.alloc(size * size * 4);
   const samples = SS * SS;
   for (let y = 0; y < size; y++) {
@@ -301,8 +273,6 @@ function renderIcon(size, { rounded, contentScale = 1 }) {
 
   return out;
 }
-
-// ---- SVG (mismo diseño, para la pestaña del navegador) ----
 
 function renderSVG() {
   const rect = (s) =>
@@ -337,8 +307,6 @@ function renderSVG() {
 </svg>
 `;
 }
-
-// ---- Generación ----
 
 mkdirSync(OUT_DIR, { recursive: true });
 

@@ -1,5 +1,3 @@
-// Lista de rutinas: crear, editar, clonar, activar, archivar y eliminar.
-
 import { useRef, useState } from 'preact/hooks';
 import { navigate } from '../router';
 import {
@@ -162,8 +160,7 @@ export function Routines() {
                   onClick={() => {
                     const nextArchived = !routine.archived;
                     patchRoutine(routine.id, (r) => void (r.archived = nextArchived));
-                    // Archivar la rutina activa no puede dejarla como activa
-                    // invisible: Hoy solo sugiere rutinas no archivadas.
+                    // Hoy solo sugiere rutinas no archivadas: no puede quedar activa e invisible.
                     if (nextArchived && isActive) {
                       updateSettings({ activeRoutineId: undefined });
                     }

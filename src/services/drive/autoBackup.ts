@@ -1,41 +1,16 @@
-// Copia automática en Google Drive.
-//
-// Se dispara al **terminar una sesión** y al **editar** una sesión, una rutina
-// o un ejercicio. Las ediciones llegan a ráfagas (cada tecla de un nombre), así
-// que pasan por un temporizador propio: cada motivo tiene su retardo y las
-// ráfagas se funden en una sola subida.
-//
-// Reglas que no se negocian:
-// - Solo si el usuario lo activa en Ajustes y ya hay una copia vinculada.
-// - Nunca abre ventanas de Google por su cuenta: al terminar una sesión no hay
-//   gesto de usuario. Sin token vigente se avisa con un botón que sube en un
-//   toque; jamás se dice que se ha subido algo que no se ha subido.
-// - Una subida a la vez: dos sesiones seguidas se encolan en lugar de competir
-//   por el token o duplicar la copia fechada.
-// - Un fallo no interrumpe nada: la sesión ya está guardada en el dispositivo.
-
 import type { BackupFile, BackupTarget } from '../backup';
 import { fmtDateTime } from '../format';
 import { type NoticeAction, pushNotice } from '../notices';
 import { DriveError } from './api';
 import { driveTarget } from './target';
 
-/** Qué ha cambiado. El motivo decide el retardo y si se crea copia fechada. */
 export type AutoBackupReason =
-  | 'session-complete' // has pulsado "Finalizar"
-  | 'session-edit' // fecha, reabrir o borrar una sesión
-  | 'routine-edit' // crear, editar, archivar o borrar una rutina
-  | 'exercise-edit'; // alta, renombrado o borrado en el catálogo
+  | 'session-complete'
+  | 'session-edit'
+  | 'routine-edit'
+  | 'exercise-edit';
 
-/**
- * Retardo antes de subir, en milisegundos.
- *
- * - Cierre de sesión: es un evento terminal y único, conviene que la copia
- *   llegue enseguida (y antes de que el usuario cierre la app).
- * - Ediciones: editar es teclear y corregir durante un rato. Un retardo corto
- *   subiría decenas de versiones inútiles, así que se espera a que la persona
- *   deje de tocar nada.
- */
+// Las ediciones llegan a ráfagas: con un retardo corto se subirían decenas de versiones inútiles.
 export const AUTO_BACKUP_DELAY_MS: Record<AutoBackupReason, number> = {
   'session-complete': 5_000,
   'session-edit': 20_000,
@@ -51,19 +26,14 @@ export type AutoBackupOutcome =
   | { status: 'failed'; message: string; needsAuth?: boolean };
 
 export interface AutoBackupOptions {
-  /** Datos a copiar. Se lee al subir, no al encolar: así lleva lo último. */
   build: () => BackupFile;
-  /** `settings.autoBackup`. Si es false no se hace nada, ni siquiera se avisa. */
   enabled: boolean;
   target?: BackupTarget;
   notify?: (text: string, kind: 'ok' | 'info' | 'error', action?: NoticeAction) => void;
-  /** `false` = solo actualiza la copia viva (ediciones). Por defecto, true. */
   dated?: boolean;
-  /** Solo desde un toque del usuario: permite abrir la ventana de Google. */
   interactive?: boolean;
 }
 
-/** Recordatorio que acompaña a cualquier fallo: siempre queda la vía manual. */
 export const MANUAL_HINT = 'Puedes subirla a mano desde Ajustes (☁️ Subir ahora).';
 export const AUTH_HINT = 'Toca ☁️ Subir ahora para autorizar y subirla.';
 
@@ -72,7 +42,6 @@ export interface AutoBackupNotice {
   kind: 'ok' | 'info' | 'error';
 }
 
-/** Mensaje para el usuario; `null` si no hay nada que contar (saltada en silencio). */
 export function autoBackupNotice(outcome: AutoBackupOutcome): AutoBackupNotice | null {
   if (outcome.status === 'skipped') return null;
   if (outcome.status === 'failed') {
@@ -93,11 +62,8 @@ export function autoBackupNotice(outcome: AutoBackupOutcome): AutoBackupNotice |
   };
 }
 
-/** Traduce el error a algo accionable desde la propia pantalla. */
 function failureMessage(err: unknown): string {
   if (err instanceof DriveError) {
-    // En segundo plano no se puede abrir la ventana de Google: lo único que
-    // arregla esto es que el usuario vuelva a autorizar pulsando un botón.
     if (err.kind === 'auth') {
       return 'Google pide volver a autorizar.';
     }
@@ -132,13 +98,10 @@ export async function autoBackup(options: AutoBackupOptions): Promise<AutoBackup
   try {
     const status = await target.status();
     if (!status.available) return finish({ status: 'skipped', reason: 'unavailable' });
-    // Sin copia vinculada no se crea una desde aquí: conectar es una decisión
-    // explícita del usuario en Ajustes (la primera subida es la que conecta).
     if (!status.connected) return finish({ status: 'skipped', reason: 'not-connected' });
 
     const interactive = options.interactive === true;
-    // Pedir el permiso sin un toque abre una ventana de Google que el navegador
-    // bloquea: se avisa y el toque llega desde el botón del aviso.
+    // Sin un toque, la ventana de Google la bloquea el navegador: el toque llega desde el aviso.
     if (!interactive && status.authorized === false) {
       return finish({
         status: 'failed',
@@ -161,11 +124,9 @@ export async function autoBackup(options: AutoBackupOptions): Promise<AutoBackup
   }
 }
 
-// Cola de una sola vía: terminando dos sesiones seguidas, la segunda espera a
-// la primera. Nunca dos subidas solapadas.
+// Una subida a la vez: dos solapadas competirían por el token o duplicarían la copia fechada.
 let queue: Promise<unknown> = Promise.resolve();
 
-/** Encola la subida automática y devuelve su resultado. */
 export function scheduleAutoBackup(options: AutoBackupOptions): Promise<AutoBackupOutcome> {
   // `then` con dos callbacks: si la anterior falló, la cola sigue viva.
   const run = queue.then(
@@ -176,24 +137,14 @@ export function scheduleAutoBackup(options: AutoBackupOptions): Promise<AutoBack
   return run;
 }
 
-// ---------------------------------------------------------------------------
-// Temporizador (retardo por motivo)
-// ---------------------------------------------------------------------------
-
 export interface AutoBackupRequest extends AutoBackupOptions {
   reason: AutoBackupReason;
-  /** Retardo propio; por defecto, el de `reason`. */
   delay?: number;
 }
 
 let pendingTimer: ReturnType<typeof setTimeout> | null = null;
 let pending: AutoBackupOptions | null = null;
 
-/**
- * Pide una subida con retardo. Cada petición reinicia la espera, así que una
- * ráfaga de ediciones produce **una** sola subida, con los datos del último
- * cambio. Si la copia automática está desactivada, además cancela lo pendiente.
- */
 export function requestAutoBackup(request: AutoBackupRequest): void {
   if (!request.enabled) {
     cancelPendingAutoBackup();
@@ -205,7 +156,6 @@ export function requestAutoBackup(request: AutoBackupRequest): void {
   pendingTimer = setTimeout(flushPendingAutoBackup, delay ?? AUTO_BACKUP_DELAY_MS[reason]);
 }
 
-/** Sube ya lo que estuviera esperando (no hace nada si no hay nada). */
 export function flushPendingAutoBackup(): void {
   if (pendingTimer) {
     clearTimeout(pendingTimer);
@@ -216,7 +166,6 @@ export function flushPendingAutoBackup(): void {
   if (options) void scheduleAutoBackup(options);
 }
 
-/** Olvida la subida pendiente (al desactivar el ajuste o desconectar Drive). */
 export function cancelPendingAutoBackup(): void {
   if (pendingTimer) {
     clearTimeout(pendingTimer);
@@ -225,7 +174,6 @@ export function cancelPendingAutoBackup(): void {
   pending = null;
 }
 
-/** Petición pendiente, si la hay (para los tests). */
 export function pendingAutoBackup(): AutoBackupOptions | null {
   return pending;
 }

@@ -1,13 +1,9 @@
-// Compartir rutinas entre dispositivos: exporta SOLO rutinas y los ejercicios
-// del catálogo que necesitan. Sin sesiones, sin ajustes, sin historial.
-// La copia completa de seguridad sigue en backup.ts.
-
 import type { Exercise, Routine } from '../models';
 import { BACKUP_APP_ID } from './backup';
 import { findExercise } from './catalog';
 import { parseExercise, parseRoutine } from './validation';
 
-/** Marca del fichero de rutinas: estable a propósito, no el nombre visible. */
+// Estable a propósito, no el nombre visible de la app.
 export const ROUTINES_KIND = 'gymrutinas-routines';
 
 export interface RoutinesFile {
@@ -15,13 +11,12 @@ export interface RoutinesFile {
   version: 1;
   exportedAt: string;
   routines: Routine[];
-  exercises: Exercise[]; // solo los referenciadas por esas rutinas
+  exercises: Exercise[];
 }
 
 const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null;
 
-/** Convierte lo que sea válido; descarta el resto sin romper la importación. */
 const validRoutines = (items: unknown[]): Routine[] =>
   items.flatMap((item, i) => {
     try {
@@ -40,10 +35,6 @@ const validExercises = (items: unknown[]): Exercise[] =>
     }
   });
 
-/**
- * Ejercicios del catálogo que usan esas rutinas: los referenciados por id y
- * los de las entradas sin id, resueltos por nombre normalizado.
- */
 export function referencedExercises(
   routines: Routine[],
   catalog: Exercise[],
@@ -63,7 +54,6 @@ export function referencedExercises(
   return [...out.values()];
 }
 
-/** Monta el fichero de intercambio con las rutinas y su catálogo. */
 export function buildRoutinesFile(
   routines: Routine[],
   catalog: Exercise[],
@@ -78,7 +68,6 @@ export function buildRoutinesFile(
   };
 }
 
-/** Descarga el fichero de rutinas como .json. */
 export function downloadRoutinesFile(file: RoutinesFile): void {
   const blob = new Blob([JSON.stringify(file, null, 2)], {
     type: 'application/json',
@@ -93,11 +82,6 @@ export function downloadRoutinesFile(file: RoutinesFile): void {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-/**
- * Valida y parsea un fichero de rutinas. También acepta una copia completa
- * (backup.ts), de la que solo extrae rutinas y catálogo.
- * Lanza Error con mensaje en español.
- */
 export function parseRoutinesFile(text: string): RoutinesFile {
   let data: unknown;
   try {
@@ -135,18 +119,11 @@ export function parseRoutinesFile(text: string): RoutinesFile {
 export interface MergeResult {
   routines: Routine[];
   exercises: Exercise[];
-  added: number; // rutinas nuevas
-  skipped: number; // ya estaban (mismo id)
-  exercisesAdded: number; // ejercicios nuevos en el catálogo
+  added: number;
+  skipped: number;
+  exercisesAdded: number;
 }
 
-/**
- * Fusiona un fichero con los datos locales sin tocar nada existente:
- *  - rutina con id ya presente → se omite (reimportar es inocuo);
- *  - ejercicio: por id, si no por nombre normalizado (nunca duplica nombres),
- *    y si no existe se añade al catálogo;
- *  - las entradas sin vínculo se vinculan por nombre con el catálogo resultante.
- */
 export function mergeRoutines(
   localRoutines: Routine[],
   localExercises: Exercise[],
@@ -154,7 +131,7 @@ export function mergeRoutines(
 ): MergeResult {
   const exercises = [...localExercises];
   const byId = new Map(exercises.map((e) => [e.id, e]));
-  const idMap = new Map<string, string>(); // id exportado → id local
+  const idMap = new Map<string, string>();
   let exercisesAdded = 0;
 
   for (const incoming of file.exercises) {

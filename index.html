@@ -15,9 +15,7 @@
     <link rel="apple-touch-icon" href="%BASE_URL%icons/icon-192.png" />
     <title>Segim</title>
     <script>
-      /* Tema ANTES del primer pintado: evita el destello del tema equivocado
-         mientras se cargan los datos desde IndexedDB. Mismo criterio que
-         src/theme.ts → src/services/theme.ts (claro si no se puede detectar). */
+      /* Antes del primer pintado para evitar el destello; mismo criterio que src/services/theme.ts. */
       (function () {
         try {
           var mode = localStorage.getItem('segim-theme');
@@ -46,7 +44,6 @@
       })();
     </script>
     <style>
-      /* Pantalla de arranque mientras carga el módulo principal */
       html {
         --splash-bg: #f4f7f1;
         --splash-ink: #141a14;
@@ -65,9 +62,7 @@
       #app {
         min-height: 100vh;
         display: grid;
-        /* Pista fija: el ancho de la app nunca puede superar el viewport
-           (sin esto, la pista auto se inflaba al ancho mínimo del contenido
-           y en móviles estrechos aparecía scroll horizontal). */
+        /* Sin minmax(0, …) la pista se infla al ancho mínimo del contenido: scroll horizontal en móvil. */
         grid-template-columns: minmax(0, 1fr);
         place-items: center;
       }

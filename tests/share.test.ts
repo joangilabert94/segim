@@ -39,7 +39,7 @@ describe('buildRoutinesFile', () => {
     expect(file.kind).toBe('gymrutinas-routines');
     expect(file.version).toBe(1);
     expect(file.routines).toHaveLength(1);
-    expect(file.exercises.map((e) => e.id)).toEqual(['e-press']); // 'e-sent' queda fuera
+    expect(file.exercises.map((e) => e.id)).toEqual(['e-press']);
   });
 
   it('el fichero no lleva sesiones ni ajustes', () => {
@@ -132,11 +132,11 @@ describe('mergeRoutines', () => {
     const localCatalog: Exercise[] = [
       { id: 'e-local', name: 'Press banca', createdAt: '2026-01-01T00:00:00.000Z' },
     ];
-    const file = buildRoutinesFile([makeRoutine()], CATALOGO); // trae 'e-press'
+    const file = buildRoutinesFile([makeRoutine()], CATALOGO);
     const res = mergeRoutines([], localCatalog, file);
 
     expect(res.exercisesAdded).toBe(0);
-    expect(res.exercises.map((e) => e.id)).toEqual(['e-local']); // sin duplicar
+    expect(res.exercises.map((e) => e.id)).toEqual(['e-local']);
     expect(res.routines[0].days[0].exercises[0].exerciseId).toBe('e-local');
   });
 

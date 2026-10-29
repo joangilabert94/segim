@@ -1,10 +1,8 @@
-// Estado del cronómetro de descanso (opcional, nunca arranca solo).
-
 import { useEffect, useState } from 'preact/hooks';
 
 export interface TimerState {
-  total: number; // segundos totales del descanso (0 = sin descanso)
-  endsAt: number; // timestamp en milisegundos
+  total: number;
+  endsAt: number;
   running: boolean;
   finished: boolean;
 }
@@ -27,7 +25,6 @@ function clearTick(): void {
 }
 
 function notifyFinished(): void {
-  // Aviso sutil: vibración si el dispositivo la soporta + pitido corto.
   try {
     navigator.vibrate?.([200, 80, 200]);
   } catch {
@@ -62,7 +59,6 @@ function tick(): void {
   emit();
 }
 
-/** Inicia (o reinicia) un descanso de `seconds` segundos. */
 export function startTimer(seconds: number): void {
   state = {
     total: seconds,
@@ -75,7 +71,6 @@ export function startTimer(seconds: number): void {
   emit();
 }
 
-/** Detiene y limpia el descanso. */
 export function stopTimer(): void {
   state = { ...IDLE };
   clearTick();
@@ -93,14 +88,12 @@ export function subscribeTimer(fn: () => void): () => void {
   };
 }
 
-/** Segundos restantes (0 si terminó). */
 export function remainingSeconds(timer: TimerState = state): number {
   if (timer.finished) return 0;
   if (!timer.running) return timer.total;
   return Math.max(0, Math.ceil((timer.endsAt - Date.now()) / 1000));
 }
 
-/** Hook con la actualización del cronómetro. */
 export function useTimer(): TimerState {
   const [, setTickState] = useState(0);
   useEffect(() => subscribeTimer(() => setTickState((t) => t + 1)), []);

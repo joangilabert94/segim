@@ -1,5 +1,3 @@
-// Ajustes: unidad, presets de descanso, rutina activa, copias de seguridad y datos.
-
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { Unit } from '../models';
 import type { BackupFile, BackupTargetStatus } from '../services/backup';
@@ -21,7 +19,6 @@ import { currentTheme } from '../theme';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { fmtDateTime, plural } from '../services/format';
 
-// Inyectada por Vite desde package.json: una sola fuente de verdad para la versión.
 const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev';
 
 export function SettingsView() {
@@ -31,8 +28,6 @@ export function SettingsView() {
   const [pendingUnit, setPendingUnit] = useState<Unit | null>(null);
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
-  // Copia en Google Drive (fase 2). `busy` bloquea los botones mientras hay
-  // una petición en curso para no lanzar dos subidas a la vez.
   const [drive, setDrive] = useState<BackupTargetStatus | null>(null);
   const [driveBusy, setDriveBusy] = useState<'upload' | 'restore' | 'disconnect' | null>(null);
   const [driveMessage, setDriveMessage] = useState<{
@@ -44,8 +39,7 @@ export function SettingsView() {
 
   const autoOn = s.settings.autoBackup === true;
   const nonArchived = s.routines.filter((r) => !r.archived);
-  // Si la rutina activa está archivada o ya no existe, el selector muestra el
-  // placeholder en vez de quedarse en blanco.
+  // Activa archivada o borrada: el selector muestra el placeholder en vez de quedarse en blanco.
   const activeRoutineSelectable = nonArchived.some(
     (r) => r.id === s.settings.activeRoutineId,
   );
@@ -54,7 +48,6 @@ export function SettingsView() {
     try {
       setDrive(await driveTarget.status());
     } catch {
-      // Si IndexedDB falla, la sección no puede romper el resto de Ajustes.
       setDrive({ available: true, connected: false });
     }
   };
@@ -66,7 +59,6 @@ export function SettingsView() {
   const driveErrorText = (err: unknown) =>
     err instanceof Error ? err.message : 'No se pudo hablar con Google Drive.';
 
-  /** Conectar y subir comparten acción: la primera subida es la que conecta. */
   const subirADrive = async (replaceExisting = false) => {
     setDriveBusy('upload');
     setDriveMessage(null);
@@ -97,7 +89,6 @@ export function SettingsView() {
     setDriveBusy('restore');
     setDriveMessage(null);
     try {
-      // Descarga y valida: si la copia de Drive está dañada, no se toca nada.
       setPendingDrive(await driveTarget.downloadLatest({ interactive: true }));
       await refreshDrive();
     } catch (err) {
@@ -164,8 +155,7 @@ export function SettingsView() {
       sessions: backup.sessions,
       settings: backup.settings,
     });
-    // Cuenta lo que queda tras fusionar el catálogo, no lo que traía el fichero:
-    // una copia con duplicados acaba con menos entradas de las anunciadas.
+    // Cuenta lo que queda tras fusionar el catálogo: con duplicados hay menos que en el fichero.
     const imported = getState();
     setMessage({
       kind: 'ok',
@@ -355,8 +345,6 @@ export function SettingsView() {
                 {driveBusy === 'restore' ? 'Descargando…' : '⬇️ Restaurar'}
               </button>
             </div>
-            {/* Visible siempre (para que se descubra), pero solo se puede
-                activar con una copia ya vinculada: sin conexión no haría nada. */}
             <div style="margin-top:14px">
               <span class="field-label">Copia automática</span>
               <div class="segmented segmented--full">

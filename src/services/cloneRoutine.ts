@@ -1,5 +1,3 @@
-// Clonado profundo de rutinas con todos los ids nuevos.
-
 import type { Routine } from '../models';
 import { deepClone, newId } from '../models';
 

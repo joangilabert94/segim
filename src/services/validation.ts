@@ -1,12 +1,3 @@
-// Validación y normalización de datos que entran desde un fichero externo
-// (copia de seguridad o rutinas compartidas).
-//
-// Regla: si algo estructural falta o no es del tipo esperado, se lanza un
-// Error con un mensaje claro y NO se aplica nada. Es preferible rechazar una
-// copia dañada a dejarla escrita en IndexedDB y romper la app al recargar.
-// Los campos opcionales se normalizan con valores por defecto sensatos para
-// seguir aceptando copias antiguas.
-
 import type {
   Exercise,
   PerformedSet,
@@ -49,7 +40,6 @@ const requiredArray = (v: unknown, field: string, where: string): unknown[] => {
 export const isValidDateISO = (v: unknown): v is string =>
   typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
 
-/** Ejercicio del catálogo. `createdAt` es opcional en datos antiguos. */
 export function parseExercise(v: unknown, where = 'Un ejercicio'): Exercise {
   if (!isObject(v)) throw new Error(`${where} no es un objeto válido.`);
   return {
@@ -110,7 +100,6 @@ function parseRoutineDay(v: unknown, where: string): RoutineDay {
   };
 }
 
-/** Rutina completa; lanza si falta algún nivel de la estructura. */
 export function parseRoutine(v: unknown, where = 'Una rutina'): Routine {
   if (!isObject(v)) throw new Error(`${where} no es un objeto válido.`);
   const days = requiredArray(v.days, 'days', where);
@@ -144,8 +133,7 @@ function parsePerformedSet(v: unknown, where: string): PerformedSet {
     reps: Math.round(v.reps),
     ...(v.repsMax !== undefined ? { repsMax: Math.round(v.repsMax) } : {}),
     ...(v.durationSec !== undefined ? { durationSec: Math.round(v.durationSec) } : {}),
-    // Una serie sin el check explícito no se considera hecha: así una copia
-    // incompleta no genera resultados fantasma.
+    // Sin check explícito no está hecha: una copia incompleta no genera resultados fantasma.
     done: v.done === true,
     ...(typeof v.note === 'string' ? { note: v.note } : {}),
     ...(v.extra === true ? { extra: true } : {}),
@@ -163,7 +151,6 @@ function parseSessionEntry(v: unknown, where: string): SessionEntry {
   };
 }
 
-/** Sesión completa; lanza si falta algún nivel de la estructura. */
 export function parseSession(v: unknown, where = 'Una sesión'): Session {
   if (!isObject(v)) throw new Error(`${where} no es un objeto válido.`);
   if (!isValidDateISO(v.date)) {
@@ -183,7 +170,6 @@ export function parseSession(v: unknown, where = 'Una sesión'): Session {
   };
 }
 
-/** Ajustes: cualquier campo inválido cae en el valor por defecto. */
 export function parseSettings(v: unknown): Settings {
   const raw = isObject(v) ? v : {};
   const presetsRaw = Array.isArray(raw.restPresets) ? raw.restPresets : [];
@@ -196,7 +182,6 @@ export function parseSettings(v: unknown): Settings {
     unit: raw.unit === 'lb' ? 'lb' : 'kg',
     restPresets: presets.length > 0 ? presets : DEFAULT_SETTINGS.restPresets,
     theme: normalizeThemeMode(raw.theme),
-    // Cualquier cosa que no sea `true` deja la copia automática desactivada.
     autoBackup: raw.autoBackup === true,
     ...(typeof raw.activeRoutineId === 'string' && raw.activeRoutineId
       ? { activeRoutineId: raw.activeRoutineId }
@@ -204,7 +189,6 @@ export function parseSettings(v: unknown): Settings {
   };
 }
 
-/** Lista de ejercicios del catálogo; cualquiera inválido invalida la copia. */
 export function parseExerciseList(v: unknown): Exercise[] {
   if (v === undefined || v === null) return [];
   const list = requiredArray(v, 'exercises', 'La copia');

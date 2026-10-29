@@ -24,7 +24,6 @@ function makeSet(over: Partial<PerformedSet> = {}): PerformedSet {
   return { weight: 100, reps: 10, done: true, ...over };
 }
 
-/** Sesión con una única entrada "Press banca" (id ex-press) y las series dadas. */
 function sessionWith(
   id: string,
   date: string,
@@ -105,9 +104,9 @@ describe('progressSeries', () => {
       REF,
     );
     expect(points).toHaveLength(1);
-    expect(points[0].e1rm).toBeCloseTo(133.333, 2); // 100 × 10
+    expect(points[0].e1rm).toBeCloseTo(133.333, 2);
     expect(points[0].weight).toBe(100);
-    expect(points[0].reps).toBe(12); // más reps de la sesión (sin carga extra)
+    expect(points[0].reps).toBe(12);
   });
 
   it('identidad: id del catálogo aunque el nombre cambie; si no, nombre normalizado', () => {
@@ -118,17 +117,15 @@ describe('progressSeries', () => {
         date: '2026-10-05',
         entries: [
           {
-            exerciseName: 'Press  banca', // sin id: nombre distinto en formato
+            exerciseName: 'Press  banca',
             sets: [makeSet({ weight: 90, reps: 10 })],
           },
         ],
       }),
     ];
-    // Por id: la sesión s2 no tiene id → solo aporta si coincide el nombre.
     const byId = progressSeries(sessions, { exerciseId: 'ex-press', name: 'Otro' });
     expect(byId.map((p) => p.date)).toEqual(['2026-09-28']);
 
-    // Sin id en el ref: fallback a nombre normalizado (mayúsculas/espacios).
     const byName = progressSeries(sessions, { name: 'press banca' });
     expect(byName.map((p) => p.date)).toEqual(['2026-09-28', '2026-10-05']);
   });
@@ -154,7 +151,7 @@ describe('progressSeries', () => {
     const points = progressSeries(
       [
         sessionWith('s1', '2026-09-28', [makeSet({ done: false })]),
-        makeSession({ id: 's2', date: '2026-10-03' }), // sin la entrada
+        makeSession({ id: 's2', date: '2026-10-03' }),
         sessionWith('s3', '2026-10-10', [makeSet({ weight: 100, reps: 10 })]),
       ],
       REF,

@@ -1,5 +1,3 @@
-// Panel inferior deslizante (modales de acciones, notas, presets...).
-
 import type { ComponentChildren } from 'preact';
 import { useEffect } from 'preact/hooks';
 

@@ -21,7 +21,6 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-/** Sustituye `fetch` y captura la URL y la configuración de cada llamada. */
 function stubFetch(handler: (url: string, init: RequestInit) => Response) {
   const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) =>
     handler(String(input), init ?? {}),
@@ -49,8 +48,7 @@ describe('findBackupFile', () => {
     const [url, init] = callOf(fetchMock);
     const decoded = decodeURIComponent(url);
     expect(decoded).toContain("name = 'segim-backup.json'");
-    // También el nombre anterior: si se perdió la referencia, se reutiliza la
-    // copia que ya está en Drive en lugar de crear un duplicado.
+    // Nombre anterior: si se perdió la referencia, se reutiliza la copia de Drive en vez de duplicarla.
     expect(decoded).toContain("name = 'gymrutinas-backup.json'");
     expect(decoded).toContain('trashed = false');
     expect(decoded).toContain('orderBy=modifiedTime desc');
@@ -124,7 +122,6 @@ describe('subida', () => {
     expect(text).toContain('"name":"segim-backup.json"');
     expect(text).toContain('"parents":["carpeta-9"]');
     expect(text).toContain('{"app":"gymrutinas"}');
-    // La frontera del Content-Type es la misma que la del cuerpo.
     const boundary = contentType.split('boundary=')[1];
     expect(text.startsWith(`--${boundary}`)).toBe(true);
     expect(text.endsWith(`--${boundary}--`)).toBe(true);
