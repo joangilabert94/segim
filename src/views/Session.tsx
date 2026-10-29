@@ -48,7 +48,7 @@ export function SessionView() {
   );
   const [confirmDeleteEntry, setConfirmDeleteEntry] = useState<number | null>(null);
   const [dateOpen, setDateOpen] = useState(false);
-  const [confirmEmptyFinish, setConfirmEmptyFinish] = useState(false);
+  const [confirmFinish, setConfirmFinish] = useState(false);
   const [dateText, setDateText] = useState('');
 
   const session = s.sessions.find((x) => x.status === 'in-progress');
@@ -234,7 +234,24 @@ export function SessionView() {
     navigate(`/historial/${session.id}`);
   };
 
-  const requestFinalize = () => (done === 0 ? setConfirmEmptyFinish(true) : finalize());
+  const requestFinalize = () => (done < total || total === 0 ? setConfirmFinish(true) : finalize());
+
+  const pendingByExercise = session.entries
+    .map((entry) => ({ name: entry.exerciseName, pending: entry.sets.filter((set) => !set.done).length }))
+    .filter((entry) => entry.pending > 0);
+  const finishWarning =
+    done === 0
+      ? {
+          title: 'Ninguna serie marcada',
+          message:
+            'No has marcado ninguna serie como hecha. Si la finalizas, contará para la racha y el día sugerido, pero no dejará resultados para la próxima vez.',
+        }
+      : {
+          title: 'Series sin marcar',
+          message: `${total - done === 1 ? 'Queda' : 'Quedan'} ${plural(total - done, 'serie', 'series')} sin marcar como hecha${
+            total - done === 1 ? '' : 's'
+          } (${pendingByExercise.map((e) => `${e.name}: ${e.pending}`).join(', ')}). Las que no marques no cuentan como resultado: ni para la próxima sugerencia ni para los récords.`,
+        };
 
   const serieSet =
     sheet?.kind === 'serie' ? session.entries[sheet.entry]?.sets[sheet.set] : undefined;
@@ -532,16 +549,16 @@ export function SessionView() {
       />
 
       <ConfirmDialog
-        open={confirmEmptyFinish}
-        title="Ninguna serie marcada"
-        message="No has marcado ninguna serie como hecha. Si la finalizas, contará para la racha y el día sugerido, pero no dejará resultados para la próxima vez."
+        open={confirmFinish}
+        title={finishWarning.title}
+        message={finishWarning.message}
         confirmLabel="Finalizar igualmente"
         cancelLabel="Seguir entrenando"
         onConfirm={() => {
-          setConfirmEmptyFinish(false);
+          setConfirmFinish(false);
           finalize();
         }}
-        onCancel={() => setConfirmEmptyFinish(false)}
+        onCancel={() => setConfirmFinish(false)}
       />
 
       <ConfirmDialog

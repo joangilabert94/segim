@@ -141,8 +141,9 @@ Settings {
 - **Fecha editable**: la cabecera tiene un botón 📅 para cambiar la fecha de realización de la sesión en curso (la sesión no guarda duración: sin marcar arranque/final).
 - Solo puede haber **una sesión en curso** a la vez (al empezar otra, la anterior se cierra con aviso).
 - **Progresión doble** (§9.2): la serie que sube respecto a la sesión anterior se marca con
-  `↑ +2,5`. Al finalizar, aviso con los **récords** de la sesión; si no hay ninguna serie
-  marcada, se pide confirmación antes de finalizar.
+  `↑ +2,5`. Al finalizar, aviso con los **récords** de la sesión. Si queda alguna serie sin
+  marcar como hecha, *Finalizar* avisa de cuántas y de qué ejercicios (no contarán como
+  resultado) y pide confirmación: *Seguir entrenando* o *Finalizar igualmente*.
 
 ### 4.3 Historial (`#/historial`)
 - Lista agrupada por mes: fecha, día, nº de ejercicios, volumen total (Σ peso × reps × series).
