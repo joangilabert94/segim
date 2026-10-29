@@ -181,6 +181,9 @@ Settings {
   `linkRoutinesToCatalog` (vinculado automático de datos antiguos).
 - `cloneRoutine(routine)`, `suggestNextDay(routine, history)`, `volumeOf(session)`,
   `streak(sessions)`.
+- Fase 6 (§9.2): `services/load.ts` (perfil de carga: sentido, carga efectiva, formato
+  PC±), `suggestExercise` (progresión doble), `sessionRecords` (récords) y
+  `weeklySetsByGroup` (series semanales por grupo).
 
 ## 6. Diseño
 
@@ -216,6 +219,10 @@ src/
     catalog.ts             # catálogo: buscar/crear, sembrado y vinculado
     prefill.ts             # emparejado serie↔serie
     session.ts             # construcción de sesión con prefill
+    load.ts                # tipo de carga: normal, peso corporal, asistido; por lado
+    doubleProgression.ts   # progresión doble de las series con rango
+    records.ts             # récords de una sesión frente al historial
+    weeklyVolume.ts        # series semanales por grupo muscular
     cloneRoutine.ts
     suggestDay.ts
     stats.ts
@@ -244,7 +251,7 @@ src/
     tokens.css
     base.css
     components.css
-tests/                     # vitest (220): comparación por id, catálogo, prefill, clonado, stats, Drive
+tests/                     # vitest (250): comparación por id, catálogo, prefill, clonado, stats, Drive
 README.md
 ```
 

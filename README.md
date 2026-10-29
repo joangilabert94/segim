@@ -17,6 +17,9 @@ dispositivo. Funciona sin conexión e instalable desde el navegador.
   (con fecha relativa) y tus inputs de hoy, precargados con tu mejor resultado de las últimas
   8 semanas si supera al plan en peso y reps (si no, con el plan); checks, notas, series extra y cronómetro
   de descanso opcional (presets 60/90/120/180/240/300 s, editables).
+  **Progresión doble**: cuando todas las series con rango (8-12) llegan al tope, la siguiente
+  sesión sube el peso (2,5 kg o el incremento del ejercicio) y lo marca con `↑ +2,5`.
+  Al finalizar, **récords** de peso, 1RM estimado, reps y volumen frente a todo tu historial.
   La sesión en curso se guarda en cada cambio: puedes cerrar la pestaña y volver.
   **No se mide la duración** (sin marcar arranque/final): solo cuenta la fecha de
   realización, que puedes cambiar cuando quieras.
@@ -28,11 +31,15 @@ dispositivo. Funciona sin conexión e instalable desde el navegador.
   ejercicio existente o crea uno nuevo (queda guardado); la comparación entre sesiones usa
   el **id**, no el nombre. Pestaña *Ejercicios* para buscar, renombrar (propaga a todas las
   rutinas) y limpiar el catálogo. Al cargar o importar se **fusionan los duplicados por
-  nombre** y se reparan los vínculos de rutinas e historial.
-- **Historial**: sesiones agrupadas por mes, detalle con todas las series, edición
-  (reabrir), **fecha de realización editable** y borrado, volumen y racha.
+  nombre** y se reparan los vínculos de rutinas e historial. Cada ejercicio puede ser
+  **normal, de peso corporal (con lastre) o asistido** (menos asistencia es mejor), hacerse
+  **por lado** (cuenta doble en kg) y tener su propio incremento de progresión.
+- **Historial**: sesiones agrupadas por mes, detalle con todas las series y sus récords,
+  edición (reabrir), **fecha de realización editable** y borrado, volumen, racha y **series
+  semanales por grupo muscular** (con la diferencia frente a la semana anterior).
 - **Ajustes**: **tema (automático/claro/oscuro)**, cambio de unidad kg/lb que **convierte
-  los pesos guardados** (con confirmación), presets de descanso, **exportar/importar JSON**
+  los pesos guardados** (con confirmación), presets de descanso, incremento de la progresión,
+  peso corporal opcional (para 1RM y volumen de lastrados y asistidos), **exportar/importar JSON**
   validado, **copia de seguridad en Google Drive** (opcional; manual o automática) y borrado
   total.
 
@@ -152,7 +159,7 @@ src/
   views/           # Hoy, Session, History, SessionDetail, Routines, RoutineEditor, Exercises, Settings
   components/      # SeriesRow, ExercisePicker, BottomSheet, ConfirmDialog, RestControls
   styles/          # tokens, base, componentes
-tests/             # vitest (220 tests)
+tests/             # vitest (250 tests)
 ```
 
 ## Roadmap
