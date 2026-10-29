@@ -1153,15 +1153,16 @@
   animation: toast-in 160ms ease-out;
 }
 
+/* Tinte sobre fondo opaco: el aviso flota sobre el contenido y no debe transparentarlo. */
 .toast.is-ok {
   border-color: var(--ok);
-  background: var(--ok-soft);
+  background: linear-gradient(var(--ok-soft), var(--ok-soft)), var(--surface);
   color: var(--ok);
 }
 
 .toast.is-error {
   border-color: var(--danger-edge);
-  background: var(--danger-soft);
+  background: linear-gradient(var(--danger-soft), var(--danger-soft)), var(--surface);
   color: var(--danger);
 }
 
