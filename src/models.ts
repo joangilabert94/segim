@@ -4,11 +4,17 @@ export type ThemeMode = 'auto' | 'light' | 'dark';
 
 export type ResolvedTheme = 'light' | 'dark';
 
+// bodyweight: el peso de la serie es lastre; assisted: es asistencia, y menos es mejor.
+export type LoadType = 'external' | 'bodyweight' | 'assisted';
+
 export interface Exercise {
   id: string;
   name: string;
   muscleGroup?: string;
   createdAt: string;
+  load?: LoadType;
+  unilateral?: boolean;
+  increment?: number;
 }
 
 export interface PlannedSet {
@@ -91,6 +97,8 @@ export interface Settings {
   theme: ThemeMode;
   // Desactivada por defecto: cada subida es una petición a un servicio externo.
   autoBackup: boolean;
+  progressionIncrement: number;
+  bodyweight?: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -98,6 +106,7 @@ export const DEFAULT_SETTINGS: Settings = {
   restPresets: [60, 90, 120, 180, 240, 300],
   theme: 'auto',
   autoBackup: false,
+  progressionIncrement: 2.5,
 };
 
 export function deepClone<T>(value: T): T {

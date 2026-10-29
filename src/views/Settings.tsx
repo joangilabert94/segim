@@ -17,7 +17,7 @@ import { DEFAULT_SETTINGS } from '../models';
 import { THEME_OPTIONS } from '../services/theme';
 import { currentTheme } from '../theme';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { fmtDateTime, plural } from '../services/format';
+import { fmtDateTime, fmtWeightInput, parseNumber, plural } from '../services/format';
 
 const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev';
 
@@ -249,6 +249,44 @@ export function SettingsView() {
         >
           Restaurar valores por defecto
         </button>
+      </div>
+
+      <div class="card">
+        <label class="field">
+          <span class="field-label">Incremento de la progresión ({s.settings.unit})</span>
+          <input
+            class="input"
+            inputMode="decimal"
+            value={fmtWeightInput(s.settings.progressionIncrement)}
+            onChange={(e) => {
+              const n = parseNumber(e.currentTarget.value);
+              if (n !== null && n > 0) updateSettings({ progressionIncrement: n });
+              else e.currentTarget.value = fmtWeightInput(s.settings.progressionIncrement);
+            }}
+          />
+        </label>
+        <p class="hint">
+          Cuando todas las series con rango de un ejercicio llegan al tope, la siguiente sesión
+          sube este peso. Cada ejercicio puede tener el suyo en la pestaña Ejercicios.
+        </p>
+        <label class="field" style="margin-top:12px">
+          <span class="field-label">Peso corporal ({s.settings.unit}, opcional)</span>
+          <input
+            class="input"
+            inputMode="decimal"
+            placeholder="Sin indicar"
+            value={s.settings.bodyweight !== undefined ? fmtWeightInput(s.settings.bodyweight) : ''}
+            onChange={(e) => {
+              const n = parseNumber(e.currentTarget.value);
+              if (n === null) updateSettings({ bodyweight: undefined });
+              else if (n > 0) updateSettings({ bodyweight: n });
+            }}
+          />
+        </label>
+        <p class="hint">
+          En los ejercicios de peso corporal y asistidos se suma (o se resta la ayuda) para el
+          1RM y el volumen. Sin él, esos ejercicios no cuentan en kg.
+        </p>
       </div>
 
       <div class="section-title">Apariencia</div>

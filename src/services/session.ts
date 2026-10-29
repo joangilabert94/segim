@@ -1,5 +1,6 @@
-import type { Exercise, Routine, RoutineDay, Session, SessionEntry } from '../models';
-import { newId } from '../models';
+import type { Exercise, Routine, RoutineDay, Session, SessionEntry, Settings } from '../models';
+import { DEFAULT_SETTINGS, newId } from '../models';
+import { loadProfile } from './load';
 import { findExercise } from './catalog';
 import { recentSince, setHistoryForExercise } from './bestResults';
 import { prefillFromHistory } from './prefill';
@@ -11,6 +12,7 @@ export function buildSessionFromDay(
   sessions: Session[],
   catalog: Exercise[] = [],
   date: string = todayISO(),
+  settings: Pick<Settings, 'progressionIncrement' | 'bodyweight'> = DEFAULT_SETTINGS,
 ): Session {
   const entries: SessionEntry[] = day.exercises.map((ex) => {
     const exerciseId =
@@ -23,7 +25,11 @@ export function buildSessionFromDay(
     return {
       exerciseId,
       exerciseName: ex.name,
-      sets: prefillFromHistory(ex.plannedSets, history),
+      sets: prefillFromHistory(
+        ex.plannedSets,
+        history,
+        loadProfile(catalog.find((e) => e.id === exerciseId), settings),
+      ),
     };
   });
 

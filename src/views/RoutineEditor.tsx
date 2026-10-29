@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import type { Exercise, PerformedSet, PlannedSet, Routine, SetMode } from '../models';
+import type { Exercise, PerformedSet, PlannedSet, Routine, SetMode, Unit } from '../models';
 import { setModeOf } from '../models';
 import { navigate } from '../router';
 import {
@@ -15,7 +15,8 @@ import { upsertRoutine } from '../state';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { BottomSheet } from '../components/BottomSheet';
 import { ExercisePicker } from '../components/ExercisePicker';
-import { fmtReps, fmtWeight, fmtWeightInput, parseNumber, parseRepsRange } from '../services/format';
+import { fmtReps, fmtWeightInput, parseNumber, parseRepsRange } from '../services/format';
+import { fmtLoadUnit, loadSuffix, profileLookup, type LoadProfile } from '../services/load';
 import {
   recentSince,
   setHistoryForExercise,
@@ -50,8 +51,9 @@ function modeChipText(set: PlannedSet): string {
   return 'reps';
 }
 
-function suggestionHint(set: PlannedSet, unit: string): string {
-  const weight = set.weight ? `${fmtWeight(set.weight)} ${unit} · ` : '';
+function suggestionHint(set: PlannedSet, profile: LoadProfile, unit: Unit): string {
+  const weight =
+    set.weight || profile.load !== 'external' ? `${fmtLoadUnit(set.weight, profile, unit)} · ` : '';
   if (set.durationSec !== undefined) return `Sugerido: ${weight}${set.durationSec} s`;
   return `Sugerido: ${weight}${fmtReps(set.reps, set.repsMax)}`;
 }
@@ -71,6 +73,7 @@ function modeChipAria(set: PlannedSet, n: number): string {
 
 export function RoutineEditor({ id }: { id: string }) {
   const s = useStore();
+  const profileOf = profileLookup(s.exercises, s.settings);
   const [noteTarget, setNoteTarget] = useState<NoteTarget>(null);
   const [noteText, setNoteText] = useState('');
   const [modeTarget, setModeTarget] = useState<NoteTarget>(null);
@@ -299,7 +302,10 @@ export function RoutineEditor({ id }: { id: string }) {
     patch((r) => {
       const target = r.days[di]?.exercises[ei];
       if (!target) return;
-      target.plannedSets = target.plannedSets.map((p, i) => suggestFromHistory(p, history[i]));
+      const profile = profileOf(target.exerciseId);
+      target.plannedSets = target.plannedSets.map((p, i) =>
+        suggestFromHistory(p, history[i], profile),
+      );
     });
   };
 
@@ -480,7 +486,10 @@ export function RoutineEditor({ id }: { id: string }) {
 
           {day.exercises.map((ex, ei) => {
             const history = historyByExercise.get(ex.id) ?? [];
-            const suggestions = ex.plannedSets.map((p, i) => suggestFromHistory(p, history[i]));
+            const profile = profileOf(ex.exerciseId);
+            const suggestions = ex.plannedSets.map((p, i) =>
+              suggestFromHistory(p, history[i], profile),
+            );
             const canUpdate = suggestions.some((sug, i) => !samePlannedSet(sug, ex.plannedSets[i]));
             return (
             <div class="exercise-edit" key={ex.id}>
@@ -566,7 +575,7 @@ export function RoutineEditor({ id }: { id: string }) {
                         }}
                         onBlur={() => clearDraft(weightKey)}
                       />
-                      <span class="num-suffix">{s.settings.unit}</span>
+                      <span class="num-suffix">{loadSuffix(profile, s.settings.unit)}</span>
                     </label>
                     <span class="times">×</span>
                     {set.durationSec !== undefined ? (
@@ -639,7 +648,7 @@ export function RoutineEditor({ id }: { id: string }) {
                     </div>
                     {!samePlannedSet(suggestions[si], set) && (
                       <p class="hint best-hint">
-                        {suggestionHint(suggestions[si], s.settings.unit)}
+                        {suggestionHint(suggestions[si], profile, s.settings.unit)}
                       </p>
                     )}
                   </div>

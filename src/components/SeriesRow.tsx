@@ -3,27 +3,23 @@ import type { PerformedSet, PlannedSet, Unit } from '../models';
 import {
   fmtReps,
   fmtRelative,
-  fmtWeight,
   fmtWeightInput,
   parseNumber,
   parseRepsFixed,
 } from '../services/format';
+import { EXTERNAL_LOAD, fmtLoad, loadSuffix, type LoadProfile } from '../services/load';
 
-function fmtSetForCompare(
-  weight: number | undefined,
-  reps: number,
-  repsMax?: number,
-  durationSec?: number,
-): string {
-  const w = weight !== undefined ? fmtWeight(weight) : '—';
-  return durationSec !== undefined
-    ? `${w} × ${durationSec} s`
-    : `${w} × ${fmtReps(reps, repsMax)}`;
+function fmtSetForCompare(set: PlannedSet, profile: LoadProfile): string {
+  const w = fmtLoad(set.weight, profile);
+  return set.durationSec !== undefined
+    ? `${w} × ${set.durationSec} s`
+    : `${w} × ${fmtReps(set.reps, set.repsMax)}`;
 }
 
 interface Props {
   index: number;
   unit: Unit;
+  profile?: LoadProfile;
   performed: PerformedSet;
   planned?: PlannedSet;
   previousSet?: PerformedSet;
@@ -35,6 +31,7 @@ interface Props {
 export function SeriesRow({
   index,
   unit,
+  profile = EXTERNAL_LOAD,
   performed,
   planned,
   previousSet,
@@ -75,18 +72,8 @@ export function SeriesRow({
     if (next !== null && next !== performed.durationSec) onPatch({ durationSec: next });
   };
 
-  const planText =
-    planned === undefined
-      ? '—'
-      : fmtSetForCompare(planned.weight, planned.reps, planned.repsMax, planned.durationSec);
-  const prevText = previousSet
-    ? fmtSetForCompare(
-        previousSet.weight,
-        previousSet.reps,
-        previousSet.repsMax,
-        previousSet.durationSec,
-      )
-    : '—';
+  const planText = planned === undefined ? '—' : fmtSetForCompare(planned, profile);
+  const prevText = previousSet ? fmtSetForCompare(previousSet, profile) : '—';
 
   return (
     <div class={`series-row ${performed.done ? 'is-done' : ''}`}>
@@ -121,7 +108,7 @@ export function SeriesRow({
                   else commitWeight(e.currentTarget.value);
                 }}
               />
-              <span class="num-suffix">{unit}</span>
+              <span class="num-suffix">{loadSuffix(profile, unit)}</span>
             </label>
             <span class="times">×</span>
             {timed ? (

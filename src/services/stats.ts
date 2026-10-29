@@ -1,16 +1,26 @@
-import type { Session } from '../models';
+import type { PerformedSet, Session } from '../models';
 import { daysBetween, todayISO } from './format';
+import { EXTERNAL_LOAD, effectiveLoad, type LoadProfile, type ProfileLookup } from './load';
 
-export function volumeOf(session: Session): number {
+const externalOnly: ProfileLookup = () => EXTERNAL_LOAD;
+
+/** kg × reps de las series hechas; undefined si alguna no tiene carga conocida. */
+export function setsVolume(sets: PerformedSet[], profile: LoadProfile): number | undefined {
   let total = 0;
-  for (const entry of session.entries) {
-    for (const set of entry.sets) {
-      if (set.done && set.durationSec === undefined) {
-        total += set.weight * (set.repsMax ?? set.reps);
-      }
-    }
+  for (const set of sets) {
+    if (!set.done || set.durationSec !== undefined) continue;
+    const load = effectiveLoad(set.weight, profile);
+    if (load === undefined) return undefined;
+    total += load * (set.repsMax ?? set.reps) * (profile.unilateral ? 2 : 1);
   }
   return total;
+}
+
+export function volumeOf(session: Session, profileOf: ProfileLookup = externalOnly): number {
+  return session.entries.reduce(
+    (total, entry) => total + (setsVolume(entry.sets, profileOf(entry.exerciseId)) ?? 0),
+    0,
+  );
 }
 
 export function setsCount(session: Session): number {
@@ -32,8 +42,12 @@ export function sessionsInLast(sessions: Session[], days: number): Session[] {
   return sessions.filter((s) => s.status === 'completed' && s.date >= fromISO);
 }
 
-export function volumeInLast(sessions: Session[], days: number): number {
-  return sessionsInLast(sessions, days).reduce((acc, s) => acc + volumeOf(s), 0);
+export function volumeInLast(
+  sessions: Session[],
+  days: number,
+  profileOf: ProfileLookup = externalOnly,
+): number {
+  return sessionsInLast(sessions, days).reduce((acc, s) => acc + volumeOf(s, profileOf), 0);
 }
 
 export function streak(sessions: Session[]): number {

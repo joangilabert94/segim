@@ -48,6 +48,9 @@ export function parseExercise(v: unknown, where = 'Un ejercicio'): Exercise {
     muscleGroup: optionalString(v.muscleGroup),
     createdAt:
       typeof v.createdAt === 'string' ? v.createdAt : new Date().toISOString(),
+    ...(v.load === 'bodyweight' || v.load === 'assisted' ? { load: v.load } : {}),
+    ...(v.unilateral === true ? { unilateral: true } : {}),
+    ...(isFiniteNumber(v.increment) && v.increment > 0 ? { increment: v.increment } : {}),
   };
 }
 
@@ -183,6 +186,11 @@ export function parseSettings(v: unknown): Settings {
     restPresets: presets.length > 0 ? presets : DEFAULT_SETTINGS.restPresets,
     theme: normalizeThemeMode(raw.theme),
     autoBackup: raw.autoBackup === true,
+    progressionIncrement:
+      isFiniteNumber(raw.progressionIncrement) && raw.progressionIncrement > 0
+        ? raw.progressionIncrement
+        : DEFAULT_SETTINGS.progressionIncrement,
+    ...(isFiniteNumber(raw.bodyweight) && raw.bodyweight > 0 ? { bodyweight: raw.bodyweight } : {}),
     ...(typeof raw.activeRoutineId === 'string' && raw.activeRoutineId
       ? { activeRoutineId: raw.activeRoutineId }
       : {}),

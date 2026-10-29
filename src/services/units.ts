@@ -1,4 +1,4 @@
-import type { Routine, Session, Unit } from '../models';
+import type { Exercise, Routine, Session, Unit } from '../models';
 
 export const KG_PER_LB = 0.45359237;
 
@@ -8,6 +8,15 @@ export function convertWeight(value: number, from: Unit, to: Unit): number {
   if (from === to || !Number.isFinite(value) || value === 0) return value;
   const kg = from === 'kg' ? value : value * KG_PER_LB;
   return round1(to === 'kg' ? kg : kg / KG_PER_LB);
+}
+
+export function convertExercises(exercises: Exercise[], from: Unit, to: Unit): Exercise[] {
+  if (from === to) return exercises;
+  return exercises.map((exercise) =>
+    exercise.increment === undefined
+      ? exercise
+      : { ...exercise, increment: convertWeight(exercise.increment, from, to) },
+  );
 }
 
 export function convertRoutines(

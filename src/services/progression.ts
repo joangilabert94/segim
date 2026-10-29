@@ -1,5 +1,6 @@
 import type { Session } from '../models';
 import { fmtDuration, fmtWeight } from './format';
+import { EXTERNAL_LOAD, effectiveLoad, type LoadProfile } from './load';
 import { findEntry, type ExerciseRef } from './previousSession';
 
 export type ProgressMetric = 'e1rm' | 'weight' | 'duration' | 'reps';
@@ -28,20 +29,21 @@ export const METRIC_LABELS: Record<ProgressMetric, string> = {
   reps: 'Reps',
 };
 
-export function e1rmOf(set: {
-  weight: number;
-  reps: number;
-  durationSec?: number;
-}): number | undefined {
+export function e1rmOf(
+  set: { weight: number; reps: number; durationSec?: number },
+  profile: LoadProfile = EXTERNAL_LOAD,
+): number | undefined {
   if (set.durationSec !== undefined) return undefined;
-  if (!(set.weight > 0)) return undefined;
+  const load = effectiveLoad(set.weight, profile);
+  if (load === undefined || !(load > 0)) return undefined;
   // Fórmula de Epley.
-  return set.weight * (1 + set.reps / 30);
+  return load * (1 + set.reps / 30);
 }
 
 export function progressSeries(
   sessions: Session[],
   ref: ExerciseRef,
+  profile: LoadProfile = EXTERNAL_LOAD,
 ): ProgressPoint[] {
   const completed = sessions
     .filter((s) => s.status === 'completed')
@@ -59,7 +61,7 @@ export function progressSeries(
 
     for (const set of entry.sets) {
       if (!set.done) continue;
-      const estimate = e1rmOf(set);
+      const estimate = e1rmOf(set, profile);
       if (estimate !== undefined && (e1rm === undefined || estimate > e1rm)) {
         e1rm = estimate;
       }
@@ -68,7 +70,9 @@ export function progressSeries(
           durationSec = set.durationSec;
         }
       } else {
-        if (set.weight > 0 && (weight === undefined || set.weight > weight)) {
+        if (profile.load === 'assisted') {
+          if (weight === undefined || set.weight < weight) weight = set.weight;
+        } else if (set.weight > 0 && (weight === undefined || set.weight > weight)) {
           weight = set.weight;
         }
         if (reps === undefined || set.reps > reps) reps = set.reps;

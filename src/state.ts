@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import type { Exercise, Routine, RoutineDay, Session, Settings, Unit } from './models';
+import type { Exercise, LoadType, Routine, RoutineDay, Session, Settings, Unit } from './models';
 import { DEFAULT_SETTINGS, deepClone, newId } from './models';
 import * as db from './db/idb';
 import { buildFreeSession, buildSessionFromDay } from './services/session';
@@ -11,7 +11,7 @@ import {
   repairExerciseLinks,
 } from './services/catalog';
 import { normalizeName } from './services/previousSession';
-import { convertRoutines, convertSessions } from './services/units';
+import { convertExercises, convertRoutines, convertSessions, convertWeight } from './services/units';
 import { applyTheme } from './theme';
 import { pushNotice } from './services/notices';
 import { buildRoutinesFile, downloadRoutinesFile, mergeRoutines, parseRoutinesFile } from './services/share';
@@ -209,6 +209,34 @@ export function ensureExercise(name: string, muscleGroup?: string): Exercise {
   return exercise;
 }
 
+/** Tipo de carga, unilateral e incremento propio: solo viven en el catálogo. */
+export function setExerciseTraining(
+  id: string,
+  patch: { load?: LoadType; unilateral?: boolean; increment?: number | null },
+): void {
+  setState({
+    exercises: state.exercises.map((ex) => {
+      if (ex.id !== id) return ex;
+      const next: Exercise = { ...ex };
+      if (patch.load !== undefined) {
+        if (patch.load === 'external') delete next.load;
+        else next.load = patch.load;
+      }
+      if (patch.unilateral !== undefined) {
+        if (patch.unilateral) next.unilateral = true;
+        else delete next.unilateral;
+      }
+      if (patch.increment !== undefined) {
+        if (patch.increment === null) delete next.increment;
+        else next.increment = patch.increment;
+      }
+      return next;
+    }),
+  });
+  persistExercises();
+  touchBackup('exercise-edit');
+}
+
 export function applyExerciseDefinition(
   id: string,
   patch: { name?: string; muscleGroup?: string },
@@ -291,9 +319,17 @@ export function setUnit(unit: Unit): void {
   const from = state.settings.unit;
   const routines = convertRoutines(state.routines, from, unit);
   const sessions = convertSessions(state.sessions, from, unit);
-  const settings = { ...state.settings, unit };
-  setState({ routines, sessions, settings });
+  const exercises = convertExercises(state.exercises, from, unit);
+  const { bodyweight } = state.settings;
+  const settings: Settings = {
+    ...state.settings,
+    unit,
+    progressionIncrement: convertWeight(state.settings.progressionIncrement, from, unit),
+    ...(bodyweight !== undefined ? { bodyweight: convertWeight(bodyweight, from, unit) } : {}),
+  };
+  setState({ routines, sessions, settings, exercises });
   persistRoutines();
+  persistExercises();
   db.saveSettings(settings).catch((e) => logError('guardar los ajustes', e));
   sessions.forEach(persistSession);
 }
@@ -331,7 +367,14 @@ export function closeCurrentSession(): Session | undefined {
 
 export function startSessionFromDay(routine: Routine, day: RoutineDay): Session {
   closeCurrentSession();
-  const session = buildSessionFromDay(routine, day, state.sessions, state.exercises);
+  const session = buildSessionFromDay(
+    routine,
+    day,
+    state.sessions,
+    state.exercises,
+    undefined,
+    state.settings,
+  );
   setState({ sessions: sortSessions([...state.sessions, session]) });
   persistSession(session);
   return session;

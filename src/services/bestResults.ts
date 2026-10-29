@@ -1,9 +1,12 @@
 import type { PerformedSet, PlannedSet, Session } from '../models';
 import { parseISODate, todayISO } from './format';
+import { compareLoad, EXTERNAL_LOAD, type LoadProfile } from './load';
 import { findEntry, type ExerciseRef } from './previousSession';
 
 // Tras un parón o una descarga, un récord antiguo no debe volver a sugerirse.
 export const RECENT_BEST_DAYS = 56;
+
+type LoadDirection = Pick<LoadProfile, 'load'>;
 
 export function recentSince(date: string = todayISO()): string {
   const from = parseISODate(date);
@@ -11,24 +14,37 @@ export function recentSince(date: string = todayISO()): string {
   return todayISO(from);
 }
 
-function atLeastAsDemanding(a: PerformedSet, b: PerformedSet): boolean {
+export function atLeastAsDemanding(
+  a: PerformedSet,
+  b: PerformedSet,
+  profile: LoadDirection = EXTERNAL_LOAD,
+): boolean {
   const aTimed = a.durationSec !== undefined;
   const bTimed = b.durationSec !== undefined;
   if (aTimed !== bTimed) return aTimed;
   if (aTimed) return (a.durationSec ?? 0) >= (b.durationSec ?? 0);
-  if (a.weight !== b.weight) return a.weight > b.weight;
+  if (a.weight !== b.weight) return compareLoad(a.weight, b.weight, profile) > 0;
   return a.reps >= b.reps;
 }
 
-const mostDemanding = (sets: PerformedSet[]): PerformedSet | undefined =>
+export const mostDemanding = (
+  sets: PerformedSet[],
+  profile: LoadDirection = EXTERNAL_LOAD,
+): PerformedSet | undefined =>
   sets.reduce<PerformedSet | undefined>(
-    (best, set) => (best === undefined || atLeastAsDemanding(set, best) ? set : best),
+    (best, set) => (best === undefined || atLeastAsDemanding(set, best, profile) ? set : best),
     undefined,
   );
 
 // Todo o nada: mezclar el peso de un día con las reps de otro sugeriría algo nunca hecho.
-function reachesPlan(best: PerformedSet, planned: PlannedSet): boolean {
-  if (best.weight < (planned.weight ?? 0)) return false;
+export function reachesPlan(
+  best: PerformedSet,
+  planned: PlannedSet,
+  profile: LoadDirection = EXTERNAL_LOAD,
+): boolean {
+  if (planned.weight !== undefined && compareLoad(best.weight, planned.weight, profile) < 0) {
+    return false;
+  }
   if (planned.durationSec !== undefined) {
     return best.durationSec !== undefined && best.durationSec >= planned.durationSec;
   }
@@ -61,14 +77,17 @@ export function setHistoryForExercise(
 export function bestSetsForExercise(
   sessions: Session[],
   ref: ExerciseRef,
-  options: { maxDate?: string; sinceDate?: string } = {},
+  options: { maxDate?: string; sinceDate?: string; profile?: LoadDirection } = {},
 ): (PerformedSet | undefined)[] {
-  return setHistoryForExercise(sessions, ref, options).map(mostDemanding);
+  return setHistoryForExercise(sessions, ref, options).map((sets) =>
+    mostDemanding(sets, options.profile),
+  );
 }
 
 export function bestOverallForExercise(
   sessions: Session[],
   ref: ExerciseRef,
+  profile: LoadDirection = EXTERNAL_LOAD,
 ): PerformedSet | undefined {
   let best: PerformedSet | undefined;
   for (const session of sessions) {
@@ -77,15 +96,19 @@ export function bestOverallForExercise(
     if (!entry) continue;
     for (const set of entry.sets) {
       if (!set.done) continue;
-      if (best === undefined || atLeastAsDemanding(set, best)) best = set;
+      if (best === undefined || atLeastAsDemanding(set, best, profile)) best = set;
     }
   }
   return best;
 }
 
-export function mergeWithBest(planned: PlannedSet, best?: PerformedSet): PlannedSet {
+export function mergeWithBest(
+  planned: PlannedSet,
+  best?: PerformedSet,
+  profile: LoadDirection = EXTERNAL_LOAD,
+): PlannedSet {
   const note = planned.note !== undefined ? { note: planned.note } : {};
-  if (best === undefined || !reachesPlan(best, planned)) {
+  if (best === undefined || !reachesPlan(best, planned, profile)) {
     return {
       weight: planned.weight,
       reps: planned.reps,
@@ -96,17 +119,21 @@ export function mergeWithBest(planned: PlannedSet, best?: PerformedSet): Planned
   }
 
   // Peso 0 en el resultado y sin peso en el plan: sigue siendo "sin carga".
-  const weight = best.weight > 0 ? best.weight : planned.weight;
+  const weight = best.weight === 0 && planned.weight === undefined ? undefined : best.weight;
   if (planned.durationSec !== undefined) {
     return { weight, reps: planned.reps, durationSec: best.durationSec, ...note };
   }
-  const isRange = planned.repsMax !== undefined && planned.repsMax > planned.reps;
-  if (isRange && best.reps <= (planned.repsMax as number)) {
+  if (planned.repsMax !== undefined && planned.repsMax > planned.reps) {
     return { weight, reps: planned.reps, repsMax: planned.repsMax, ...note };
   }
   return { weight, reps: best.reps, ...note };
 }
 
-export function suggestFromHistory(planned: PlannedSet, history: PerformedSet[] = []): PlannedSet {
-  return mergeWithBest(planned, mostDemanding(history.filter((set) => reachesPlan(set, planned))));
+export function suggestFromHistory(
+  planned: PlannedSet,
+  history: PerformedSet[] = [],
+  profile: LoadDirection = EXTERNAL_LOAD,
+): PlannedSet {
+  const reaching = history.filter((set) => reachesPlan(set, planned, profile));
+  return mergeWithBest(planned, mostDemanding(reaching, profile), profile);
 }

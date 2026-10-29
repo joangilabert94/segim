@@ -2,13 +2,15 @@ import { navigate } from '../router';
 import { useStore } from '../state';
 import { fmtDate, fmtMonth, fmtVolume, fmtWeekday, parseISODate, plural } from '../services/format';
 import { setsCount, sessionsInLast, streak, volumeInLast, volumeOf } from '../services/stats';
+import { profileLookup } from '../services/load';
 
 export function History() {
   const s = useStore();
   const sessions = s.sessions;
 
   const sesiones30 = sessionsInLast(sessions, 30).length;
-  const volumen30 = volumeInLast(sessions, 30);
+  const profileOf = profileLookup(s.exercises, s.settings);
+  const volumen30 = volumeInLast(sessions, 30, profileOf);
   const racha = streak(sessions);
 
   // Cuenta con que las sesiones ya vienen ordenadas desc.
@@ -85,7 +87,7 @@ export function History() {
                       {plural(ses.entries.length, 'ejercicio', 'ejercicios')} ·{' '}
                       {plural(setsCount(ses), 'serie', 'series')}
                       {ses.status === 'completed' &&
-                        ` · ${fmtVolume(volumeOf(ses), s.settings.unit)}`}
+                        ` · ${fmtVolume(volumeOf(ses, profileOf), s.settings.unit)}`}
                     </div>
                   </div>
                   <span class="list-arrow">›</span>

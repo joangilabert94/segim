@@ -13,12 +13,12 @@ import {
   fmtDateLong,
   fmtReps,
   fmtVolume,
-  fmtWeight,
   greeting,
   plural,
   todayISO,
 } from '../services/format';
 import { sessionsInLast, streak, volumeInLast, setsCount } from '../services/stats';
+import { fmtLoad, profileLookup } from '../services/load';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
 export function Hoy() {
@@ -38,7 +38,8 @@ export function Hoy() {
     day?.exercises.reduce((total, ex) => total + ex.plannedSets.length, 0) ?? 0;
 
   const sesiones30 = sessionsInLast(s.sessions, 30).length;
-  const volumen30 = volumeInLast(s.sessions, 30);
+  const profileOf = profileLookup(s.exercises, s.settings);
+  const volumen30 = volumeInLast(s.sessions, 30, profileOf);
   const racha = streak(s.sessions);
 
   const beginSessionNow = (target: 'day' | 'free', dayToStart?: RoutineDay) => {
@@ -144,11 +145,12 @@ export function Hoy() {
                   <b>{ex.name}</b>
                   <span class="sets-n">
                     {ex.plannedSets
-                      .map((p) =>
-                        p.durationSec !== undefined
-                          ? `${p.weight !== undefined ? fmtWeight(p.weight) : '—'}×${p.durationSec}s`
-                          : `${p.weight !== undefined ? fmtWeight(p.weight) : '—'}×${fmtReps(p.reps, p.repsMax)}`,
-                      )
+                      .map((p) => {
+                        const load = fmtLoad(p.weight, profileOf(ex.exerciseId));
+                        return p.durationSec !== undefined
+                          ? `${load}×${p.durationSec}s`
+                          : `${load}×${fmtReps(p.reps, p.repsMax)}`;
+                      })
                       .join(', ')}
                   </span>
                 </li>

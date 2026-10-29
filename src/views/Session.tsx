@@ -18,6 +18,7 @@ import {
 import { bestSetsForExercise, recentSince } from '../services/bestResults';
 import { fmtDate, fmtRelative, todayISO } from '../services/format';
 import { doneSetsCount, setsCount } from '../services/stats';
+import { LOAD_LABELS, profileLookup } from '../services/load';
 import { SeriesRow } from '../components/SeriesRow';
 import { ExercisePicker } from '../components/ExercisePicker';
 import { BottomSheet } from '../components/BottomSheet';
@@ -70,6 +71,7 @@ export function SessionView() {
 
   const total = setsCount(session);
   const done = doneSetsCount(session);
+  const profileOf = profileLookup(s.exercises, s.settings);
 
   const comparisons = session.entries.map((entry) => {
     const ref = refOfEntry(entry);
@@ -82,7 +84,7 @@ export function SessionView() {
     const plannedEx = day?.exercises.find((e) =>
       matchesExercise(ref, { exerciseId: e.exerciseId, name: e.name }),
     );
-    return { prevSession, prevEntry, plannedEx };
+    return { prevSession, prevEntry, plannedEx, profile: profileOf(entry.exerciseId) };
   });
 
   const patchSet = (ei: number, si: number, patch: Partial<PerformedSet>) => {
@@ -174,6 +176,7 @@ export function SessionView() {
     const best = bestSetsForExercise(s.sessions, ref, {
       maxDate: session.date,
       sinceDate: recentSince(session.date),
+      profile: profileOf(known.id),
     });
     const sets = best.reduce<PerformedSet[]>((acc, set) => {
       if (!set) return acc;
@@ -281,7 +284,7 @@ export function SessionView() {
       )}
 
       {session.entries.map((entry, ei) => {
-        const { prevSession, prevEntry, plannedEx } = comparisons[ei];
+        const { prevSession, prevEntry, plannedEx, profile } = comparisons[ei];
         const entryDone = entry.sets.filter((st) => st.done).length;
         return (
           <article class="exercise-card" key={`${ei}-${entry.exerciseName}`}>
@@ -293,6 +296,10 @@ export function SessionView() {
                     {entryDone}/{entry.sets.length} series
                   </span>
                   {plannedEx?.muscleGroup && <span>· {plannedEx.muscleGroup}</span>}
+                  {profile.load !== 'external' && (
+                    <span>· {LOAD_LABELS[profile.load].toLowerCase()}</span>
+                  )}
+                  {profile.unilateral && <span>· por lado</span>}
                   {prevSession && (
                     <span class="prev-hint">Ant. {fmtRelative(prevSession.date)}</span>
                   )}
@@ -329,6 +336,7 @@ export function SessionView() {
                   key={si}
                   index={si}
                   unit={s.settings.unit}
+                  profile={profile}
                   performed={set}
                   planned={plannedEx?.plannedSets[si]}
                   previousSet={previousSet}

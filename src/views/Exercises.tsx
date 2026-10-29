@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'preact/hooks';
-import type { Exercise, PerformedSet } from '../models';
+import type { Exercise, LoadType, PerformedSet, Unit } from '../models';
 import {
   applyExerciseDefinition,
   deleteExerciseFromCatalog,
   ensureExercise,
+  setExerciseTraining,
   useStore,
 } from '../state';
 import { normalizeName } from '../services/previousSession';
@@ -19,7 +20,8 @@ import {
   type ProgressMetric,
   type ProgressPoint,
 } from '../services/progression';
-import { fmtReps, fmtWeight } from '../services/format';
+import { fmtReps, fmtWeight, fmtWeightInput, parseNumber } from '../services/format';
+import { LOAD_LABELS, fmtLoadUnit, loadProfile, type LoadProfile } from '../services/load';
 import { BottomSheet } from '../components/BottomSheet';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ProgressChart } from '../components/ProgressChart';
@@ -28,9 +30,30 @@ interface EditState {
   id?: string;
   name: string;
   muscleGroup: string;
+  load: LoadType;
+  unilateral: boolean;
+  increment: string;
 }
 
-const EMPTY: EditState = { name: '', muscleGroup: '' };
+const EMPTY: EditState = {
+  name: '',
+  muscleGroup: '',
+  load: 'external',
+  unilateral: false,
+  increment: '',
+};
+
+const LOAD_HINTS: Record<LoadType, string> = {
+  external: 'Barra, mancuernas, máquina o polea: apuntas el peso que mueves.',
+  bodyweight: 'Dominadas, fondos…: apuntas el lastre (0 sin lastre).',
+  assisted: 'Máquina o goma de asistencia: apuntas la ayuda; menos es mejor.',
+};
+
+const WEIGHT_METRIC: Record<LoadType, { label: string; caption: string }> = {
+  external: { label: 'Peso', caption: 'Peso máximo · última sesión' },
+  bodyweight: { label: 'Lastre', caption: 'Lastre máximo · última sesión' },
+  assisted: { label: 'Asistencia', caption: 'Asistencia mínima · última sesión' },
+};
 
 const METRIC_CAPTIONS: Record<ProgressMetric, string> = {
   e1rm: '1RM estimado · última sesión',
@@ -39,8 +62,8 @@ const METRIC_CAPTIONS: Record<ProgressMetric, string> = {
   reps: 'Máx. reps · última sesión',
 };
 
-function fmtBest(best: PerformedSet, unit: string): string {
-  const load = best.weight > 0 ? `${fmtWeight(best.weight)} ${unit}` : undefined;
+function fmtBest(best: PerformedSet, profile: LoadProfile, unit: Unit): string {
+  const load = best.weight > 0 ? fmtLoadUnit(best.weight, profile, unit) : undefined;
   if (best.durationSec !== undefined) {
     return load ? `${load} × ${best.durationSec} s` : `${best.durationSec} s`;
   }
@@ -64,13 +87,14 @@ export function Exercises() {
     >();
     for (const ex of s.exercises) {
       const ref = { exerciseId: ex.id, name: ex.name };
+      const profile = loadProfile(ex, s.settings);
       map.set(ex.id, {
-        best: bestOverallForExercise(s.sessions, ref),
-        points: progressSeries(s.sessions, ref),
+        best: bestOverallForExercise(s.sessions, ref, profile),
+        points: progressSeries(s.sessions, ref, profile),
       });
     }
     return map;
-  }, [s.sessions, s.exercises]);
+  }, [s.sessions, s.exercises, s.settings]);
 
   const target = normalizeName(query);
   const list = s.exercises
@@ -96,8 +120,9 @@ export function Exercises() {
     if (!edit) return;
     const name = edit.name.trim();
     if (!name) return;
-    if (edit.id) {
-      const applied = applyExerciseDefinition(edit.id, {
+    let id = edit.id;
+    if (id) {
+      const applied = applyExerciseDefinition(id, {
         name,
         muscleGroup: edit.muscleGroup,
       });
@@ -106,8 +131,14 @@ export function Exercises() {
         return;
       }
     } else {
-      ensureExercise(name, edit.muscleGroup);
+      id = ensureExercise(name, edit.muscleGroup).id;
     }
+    const increment = parseNumber(edit.increment);
+    setExerciseTraining(id, {
+      load: edit.load,
+      unilateral: edit.unilateral,
+      increment: increment !== null && increment > 0 ? increment : null,
+    });
     setEdit(null);
     setEditError(null);
   };
@@ -167,6 +198,8 @@ export function Exercises() {
         <div style="margin-top:12px">
           {list.map((ex) => {
             const usedBy = usage(ex.id);
+            const profile = loadProfile(ex, s.settings);
+            const weightMetric = WEIGHT_METRIC[profile.load];
             const stat = statsById.get(ex.id);
             const best = stat?.best;
             const points = stat?.points ?? [];
@@ -179,6 +212,11 @@ export function Exercises() {
             const latest = serie[serie.length - 1];
             const prev = serie[serie.length - 2];
             const delta = prev && latest ? latest.value - prev.value : undefined;
+            // En asistidos, bajar la asistencia es mejorar: el color sigue a la mejora.
+            const better =
+              delta !== undefined && active === 'weight' && profile.load === 'assisted'
+                ? -delta
+                : delta;
             return (
             <div class="list-item has-panel" key={ex.id}>
               <div class="list-body">
@@ -200,13 +238,15 @@ export function Exercises() {
                 </button>
                 <div class="sub">
                   {ex.muscleGroup ? `${ex.muscleGroup} · ` : ''}
+                  {ex.load ? `${LOAD_LABELS[ex.load].toLowerCase()} · ` : ''}
+                  {ex.unilateral ? 'por lado · ' : ''}
                   {usedBy > 0
                     ? `en ${usedBy} rutina${usedBy === 1 ? '' : 's'}`
                     : 'sin usar en rutinas'}
                 </div>
                 {best !== undefined && (
                   <div class="sub">
-                    🏆 Mejor: {fmtBest(best, s.settings.unit)}
+                    🏆 Mejor: {fmtBest(best, profile, s.settings.unit)}
                     {lastE1rm
                       ? ` · 📈 1RM ${fmtMetricValue(lastE1rm.value, 'e1rm', s.settings.unit)}`
                       : ''}
@@ -222,6 +262,9 @@ export function Exercises() {
                     id: ex.id,
                     name: ex.name,
                     muscleGroup: ex.muscleGroup ?? '',
+                    load: ex.load ?? 'external',
+                    unilateral: ex.unilateral === true,
+                    increment: ex.increment !== undefined ? fmtWeightInput(ex.increment) : '',
                   });
                 }}
               >
@@ -248,12 +291,14 @@ export function Exercises() {
                           <span class="pv-num">
                             {fmtMetricValue(latest.value, active, s.settings.unit)}
                           </span>
-                          <span class="pv-label">{METRIC_CAPTIONS[active]}</span>
+                          <span class="pv-label">
+                            {active === 'weight' ? weightMetric.caption : METRIC_CAPTIONS[active]}
+                          </span>
                         </div>
                         {delta !== undefined && (
                           <span
                             class={`progress-delta${
-                              delta > 0 ? ' is-up' : delta < 0 ? ' is-down' : ''
+                              (better ?? 0) > 0 ? ' is-up' : (better ?? 0) < 0 ? ' is-down' : ''
                             }`}
                           >
                             {fmtMetricDelta(delta, active, s.settings.unit)}
@@ -270,7 +315,7 @@ export function Exercises() {
                               aria-pressed={m === active}
                               onClick={() => setMetric(m)}
                             >
-                              {METRIC_LABELS[m]}
+                              {m === 'weight' ? weightMetric.label : METRIC_LABELS[m]}
                             </button>
                           ))}
                         </div>
@@ -283,8 +328,10 @@ export function Exercises() {
                       />
                       {active === 'e1rm' && (
                         <p class="progress-note">
-                          1RM estimado con Epley: peso × (1 + reps/30). Solo series con
-                          carga.
+                          1RM estimado con Epley: peso × (1 + reps/30).{' '}
+                          {profile.load === 'external'
+                            ? 'Solo series con carga.'
+                            : 'Incluye tu peso corporal (Ajustes).'}
                         </p>
                       )}
                     </>
@@ -326,6 +373,55 @@ export function Exercises() {
             placeholder="Pecho, Espalda, Piernas…"
             onInput={(e) =>
               setEdit((cur) => (cur ? { ...cur, muscleGroup: e.currentTarget.value } : cur))
+            }
+          />
+        </label>
+        <span class="field-label">Tipo de carga</span>
+        <div class="segmented segmented--full">
+          {(['external', 'bodyweight', 'assisted'] as const).map((load) => (
+            <button
+              key={load}
+              type="button"
+              class={edit?.load === load ? 'is-active' : ''}
+              aria-pressed={edit?.load === load}
+              onClick={() => setEdit((cur) => (cur ? { ...cur, load } : cur))}
+            >
+              {LOAD_LABELS[load]}
+            </button>
+          ))}
+        </div>
+        <p class="hint" style="margin:6px 0 12px">{LOAD_HINTS[edit?.load ?? 'external']}</p>
+        <div class="segmented segmented--full">
+          <button
+            type="button"
+            class={edit?.unilateral ? '' : 'is-active'}
+            aria-pressed={!edit?.unilateral}
+            onClick={() => setEdit((cur) => (cur ? { ...cur, unilateral: false } : cur))}
+          >
+            Ambos lados a la vez
+          </button>
+          <button
+            type="button"
+            class={edit?.unilateral ? 'is-active' : ''}
+            aria-pressed={edit?.unilateral === true}
+            onClick={() => setEdit((cur) => (cur ? { ...cur, unilateral: true } : cur))}
+          >
+            Por lado
+          </button>
+        </div>
+        <p class="hint" style="margin:6px 0 12px">
+          Por lado: apuntas una serie con el peso y las reps de cada lado; cuenta doble en el
+          volumen.
+        </p>
+        <label class="field">
+          <span class="field-label">Incremento de la progresión ({s.settings.unit})</span>
+          <input
+            class="input"
+            inputMode="decimal"
+            value={edit?.increment ?? ''}
+            placeholder={`${fmtWeight(s.settings.progressionIncrement)} (el general de Ajustes)`}
+            onInput={(e) =>
+              setEdit((cur) => (cur ? { ...cur, increment: e.currentTarget.value } : cur))
             }
           />
         </label>

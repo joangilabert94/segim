@@ -2,8 +2,9 @@ import { useState } from 'preact/hooks';
 import { navigate } from '../router';
 import { deleteSession, reopenSession, setSessionDate, useStore } from '../state';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { fmtDateLong, fmtReps, fmtVolume, fmtWeight } from '../services/format';
+import { fmtDateLong, fmtReps, fmtVolume } from '../services/format';
 import { doneSetsCount, setsCount, volumeOf } from '../services/stats';
+import { fmtLoadUnit, profileLookup } from '../services/load';
 
 export function SessionDetail({ id }: { id: string }) {
   const s = useStore();
@@ -25,6 +26,7 @@ export function SessionDetail({ id }: { id: string }) {
   const routine = session.routineId
     ? s.routines.find((r) => r.id === session.routineId)
     : undefined;
+  const profileOf = profileLookup(s.exercises, s.settings);
 
   const edit = () => {
     reopenSession(session.id);
@@ -65,7 +67,7 @@ export function SessionDetail({ id }: { id: string }) {
         </div>
         <div class="stat">
           <div class="stat-value">
-            {fmtVolume(volumeOf(session), s.settings.unit).split(' ')[0]}
+            {fmtVolume(volumeOf(session, profileOf), s.settings.unit).split(' ')[0]}
           </div>
           <div class="stat-label">Volumen {s.settings.unit}</div>
         </div>
@@ -89,9 +91,14 @@ export function SessionDetail({ id }: { id: string }) {
 
       <div class="section-title">Ejercicios</div>
 
-      {session.entries.map((entry, ei) => (
+      {session.entries.map((entry, ei) => {
+        const profile = profileOf(entry.exerciseId);
+        return (
         <div class="entry-block" key={ei}>
-          <h3>{entry.exerciseName}</h3>
+          <h3>
+            {entry.exerciseName}
+            {profile.unilateral && <span class="chip" style="margin-left:8px">por lado</span>}
+          </h3>
           <ul class="entry-sets">
             {entry.sets.map((set, si) => (
               <li key={si}>
@@ -101,7 +108,7 @@ export function SessionDetail({ id }: { id: string }) {
                 </span>
                 <span>
                   <b>
-                    {fmtWeight(set.weight)} {s.settings.unit} ×{' '}
+                    {fmtLoadUnit(set.weight, profile, s.settings.unit)} ×{' '}
                     {set.durationSec !== undefined
                       ? `${set.durationSec} s`
                       : fmtReps(set.reps, set.repsMax)}
@@ -122,7 +129,8 @@ export function SessionDetail({ id }: { id: string }) {
           )}
           {entry.note && <div class="entry-note">✎ {entry.note}</div>}
         </div>
-      ))}
+        );
+      })}
 
       <div class="btn-row" style="margin-top:18px">
         <button class="btn" style="flex:1" onClick={edit}>
