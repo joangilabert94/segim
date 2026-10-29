@@ -2,15 +2,16 @@
 
 > Documento vivo. Cada cambio acordado se refleja aquí antes de tocar código.
 >
-> **Estado (29 oct 2026): v0.9.1.** Fases 0–4 completadas, catálogo de ejercicios, revisión
+> **Estado (29 oct 2026): v0.9.2.** Fases 0–4 completadas, catálogo de ejercicios, revisión
 > de robustez, **fase 2: copia de seguridad en Google Drive** (manual o automática, con
 > retardos), **renombrado de la app a Segim** e **iconos rediseñados** (PNG + SVG con
 > generador propio). v0.9.0 añade la **fase 6, entrenamiento guiado** (§9.2): lastrados,
 > asistidos y unilaterales, progresión doble, récords al finalizar y series semanales por
-> grupo muscular; v0.9.1 corrige detalles visuales. Verificado: `npm run typecheck` ✓ · `npm test` (250 tests) ✓ ·
+> grupo muscular; v0.9.1 corrige detalles visuales y v0.9.2 avisa al finalizar con series
+> sin marcar. Verificado: `npm run typecheck` ✓ · `npm test` (250 tests) ✓ ·
 > `npm run build` ✓ (PWA offline instalable). Incluye la **política de privacidad**
 > pública (`/segim/privacidad.html`) que Google exige para publicar la app. El despliegue
-> va por etiqueta de versión (`v0.9.1`).
+> va por etiqueta de versión (`v0.9.2`).
 
 ## 1. Objetivo
 
@@ -438,9 +439,11 @@ la primera vez que se hace un ejercicio no hay récord):
 
 ## 11. Estado del repositorio y pendientes
 
-- **Versión**: `v0.9.1` — aviso opaco y barras inferiores menos transparentes; el signo de
-  lastre o asistencia va a la izquierda del campo y ya no tapa el número.
-  El despliegue va por etiqueta: publicar `v0.9.1` actualiza GitHub Pages.
+- **Versión**: `v0.9.2` — *Finalizar sesión* avisa si queda alguna serie sin marcar (cuántas
+  y de qué ejercicios) y pide confirmación.
+  El despliegue va por etiqueta: publicar `v0.9.2` actualiza GitHub Pages.
+- **v0.9.1** — aviso opaco y barras inferiores menos transparentes; el signo de lastre o
+  asistencia va a la izquierda del campo y ya no tapa el número.
 - **v0.9.0** — fase 6 (§9.2): ejercicios de peso corporal con lastre, asistidos
   y por lado, con peso corporal opcional en Ajustes; progresión doble en las series con
   rango (incremento general o por ejercicio); récords al finalizar (peso, 1RM, reps y
