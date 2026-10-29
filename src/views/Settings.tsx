@@ -407,6 +407,16 @@ export function SettingsView() {
         </ul>
       </div>
 
+      <p class="card-sub" style="text-align:center;margin-top:18px">
+        <a
+          href={`${import.meta.env.BASE_URL}privacidad.html`}
+          target="_blank"
+          rel="noopener"
+        >
+          Política de privacidad
+        </a>
+      </p>
+
       <ConfirmDialog
         open={pendingUnit !== null}
         title={`Cambiar a ${pendingUnit ?? ''}`}

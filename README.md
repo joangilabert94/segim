@@ -77,8 +77,13 @@ Segim/
 3. En GitHub Pages, define la **variable del repositorio** `VITE_GOOGLE_CLIENT_ID`
    (Settings → Secrets and variables → Actions → Variables).
 
+La app publica su **política de privacidad** en `/segim/privacidad.html` (enlazada desde
+Ajustes): Google exige una URL pública y el dominio verificado en Search Console.
+
 Con el proyecto en modo *Testing* solo conectan las cuentas de prueba (hasta 100) y la
-autorización caduca a los 7 días; publicar y verificar la marca elimina ambos límites.
+autorización caduca a los 7 días. Publicar la app (**Audience → Publish app**) elimina ambos
+límites; con `drive.file`, que no es sensible, no hay verificación de scopes, y la de marca
+solo es necesaria para que el consentimiento muestre el nombre y el logo.
 
 ## Stack
 

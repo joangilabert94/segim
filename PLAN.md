@@ -2,12 +2,13 @@
 
 > Documento vivo. Cada cambio acordado se refleja aquí antes de tocar código.
 >
-> **Estado (29 oct 2026): v0.8.0.** Fases 0–4 completadas, catálogo de ejercicios, revisión
+> **Estado (29 oct 2026): v0.8.1.** Fases 0–4 completadas, catálogo de ejercicios, revisión
 > de robustez, **fase 2: copia de seguridad en Google Drive** (manual o automática, con
 > retardos), **renombrado de la app a Segim** e **iconos rediseñados** (PNG + SVG con
 > generador propio). Verificado: `npm run typecheck` ✓ · `npm test` (194 tests) ✓ ·
-> `npm run build` ✓ (~36,6 kB JS + 5,5 kB CSS gzip, PWA offline instalable). El despliegue
-> va por etiqueta de versión (`v0.8.0`).
+> `npm run build` ✓ (PWA offline instalable). Incluye la **política de privacidad**
+> pública (`/segim/privacidad.html`) que Google exige para publicar la app. El despliegue
+> va por etiqueta de versión (`v0.8.1`).
 
 ## 1. Objetivo
 
@@ -328,14 +329,18 @@ Implementada como **copia de seguridad** (manual o automática), no como sincron
 
 ## 11. Estado del repositorio y pendientes
 
-- **Versión**: `v0.8.0` — iconos rediseñados, copia automática en Drive con retardos y
-  renombrado de la app a Segim. El despliegue va por etiqueta: publicar `v0.8.0` actualiza
-  GitHub Pages.
+- **Versión**: `v0.8.1` — iconos rediseñados, copia automática en Drive con retardos,
+  renombrado de la app a Segim y política de privacidad pública. El despliegue va por
+  etiqueta: publicar `v0.8.1` actualiza GitHub Pages.
 - **Iconos**: generador propio sin dependencias (`npm run icons`) con antialiasing 4×4,
   mancuerna diagonal, sombra y exportación de `public/icons/icon.svg` para la pestaña.
 - **Configuración local**: `VITE_GOOGLE_CLIENT_ID` en `.env.local` (ignorado por Git);
   en CI es una variable del repositorio. Sin ella, Ajustes muestra Drive "no configurado".
-- **Caducidad de Google**: en modo Testing el consentimiento expira a los 7 días.
+- **Caducidad de Google**: en modo Testing el consentimiento expira a los 7 días. Para
+  salir de Testing: Branding completo, dominio `joangilabert94.github.io` verificado en
+  Search Console, homepage y política de privacidad publicadas, y **Audience → Publish app**.
+  Con `drive.file` (no sensible) no hay verificación de scopes; la de marca solo hace falta
+  para que se vean nombre y logo en el consentimiento.
 - **Decisiones aparcadas**: publicar y verificar la app en Google (quita Testing y los 7
   días), copias ocultas (`appDataFolder`) y más automatismos de subida.
 
