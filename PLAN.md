@@ -2,14 +2,15 @@
 
 > Documento vivo. Cada cambio acordado se refleja aquí antes de tocar código.
 >
-> **Estado (29 oct 2026): v0.8.5.** Fases 0–4 completadas, catálogo de ejercicios, revisión
+> **Estado (29 oct 2026): v0.9.0.** Fases 0–4 completadas, catálogo de ejercicios, revisión
 > de robustez, **fase 2: copia de seguridad en Google Drive** (manual o automática, con
 > retardos), **renombrado de la app a Segim** e **iconos rediseñados** (PNG + SVG con
-> generador propio). v0.8.5 corrige los fallos de la revisión de código (copia de Drive,
-> editor de ejercicios, sugerencia de peso y reps) y actualiza dependencias. Verificado: `npm run typecheck` ✓ · `npm test` (220 tests) ✓ ·
+> generador propio). v0.9.0 añade la **fase 6, entrenamiento guiado** (§9.2): lastrados,
+> asistidos y unilaterales, progresión doble, récords al finalizar y series semanales por
+> grupo muscular. Verificado: `npm run typecheck` ✓ · `npm test` (250 tests) ✓ ·
 > `npm run build` ✓ (PWA offline instalable). Incluye la **política de privacidad**
 > pública (`/segim/privacidad.html`) que Google exige para publicar la app. El despliegue
-> va por etiqueta de versión (`v0.8.5`).
+> va por etiqueta de versión (`v0.9.0`).
 
 ## 1. Objetivo
 
@@ -395,13 +396,17 @@ la primera vez que se hace un ejercicio no hay récord):
 
 ## 11. Estado del repositorio y pendientes
 
-- **Versión**: `v0.8.5` — "Borrar todo" ya no sube una copia vacía a Drive; conectar un
+- **Versión**: `v0.9.0` — fase 6 (§9.2): ejercicios de peso corporal con lastre, asistidos
+  y por lado, con peso corporal opcional en Ajustes; progresión doble en las series con
+  rango (incremento general o por ejercicio); récords al finalizar (peso, 1RM, reps y
+  volumen); series semanales por grupo muscular en Historial. Siguiente: superseries.
+  El despliegue va por etiqueta: publicar `v0.9.0` actualiza GitHub Pages.
+- **v0.8.5** — "Borrar todo" ya no sube una copia vacía a Drive; conectar un
   dispositivo nuevo no pisa la copia existente (Restaurar siempre visible, carpeta reutilizada);
   cambiar un ejercicio en el editor no lo renombra en toda la app; la sugerencia no mezcla
   peso y reps de días distintos y solo mira 8 semanas; la copia automática ofrece reautorizar
   con un toque; avisos al fallar un guardado; importación sin estado vacío; confirmación al
   finalizar sin series; Vite 8, Vitest 5, TypeScript 7, Preact 11 y Node 24 en CI.
-  El despliegue va por etiqueta: publicar `v0.8.5` actualiza GitHub Pages.
 - **Iconos**: generador propio sin dependencias (`npm run icons`) con antialiasing 4×4,
   mancuerna diagonal, sombra y exportación de `public/icons/icon.svg` para la pestaña.
 - **Configuración local**: `VITE_GOOGLE_CLIENT_ID` en `.env.local` (ignorado por Git);
