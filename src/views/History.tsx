@@ -3,6 +3,7 @@ import { useStore } from '../state';
 import { fmtDate, fmtMonth, fmtVolume, fmtWeekday, parseISODate, plural } from '../services/format';
 import { setsCount, sessionsInLast, streak, volumeInLast, volumeOf } from '../services/stats';
 import { profileLookup } from '../services/load';
+import { WeeklySets } from '../components/WeeklySets';
 
 export function History() {
   const s = useStore();
@@ -47,6 +48,13 @@ export function History() {
           <div class="stat-label">Volumen 30 d</div>
         </div>
       </div>
+
+      {sessions.length > 0 && (
+        <>
+          <div class="section-title">Series por grupo muscular</div>
+          <WeeklySets sessions={sessions} exercises={s.exercises} />
+        </>
+      )}
 
       {sessions.length === 0 ? (
         <div class="empty">

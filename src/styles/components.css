@@ -1222,6 +1222,76 @@
   margin-right: 8px;
 }
 
+.weekly-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.weekly-title {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.weekly-title span {
+  font-size: 0.78rem;
+  color: var(--dim);
+}
+
+.weekly-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.weekly-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 7.5rem) 1fr 2rem 2.2rem;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.86rem;
+}
+
+.weekly-group {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+.weekly-bar {
+  height: 8px;
+  background: var(--surface-3);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.weekly-bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-2), var(--accent));
+  border-radius: 999px;
+}
+
+.weekly-n {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.weekly-delta {
+  text-align: right;
+  font-size: 0.76rem;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
 .records-group + .records-group {
   margin-top: 10px;
 }
