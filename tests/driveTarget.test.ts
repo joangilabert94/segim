@@ -53,6 +53,7 @@ function fakeClient() {
     downloadBackupText: vi.fn(async (): Promise<string> => JSON.stringify(backup)),
     listDatedCopies: vi.fn(async (): Promise<DriveFileMeta[]> => []),
     deleteFile: vi.fn(async (): Promise<void> => undefined),
+    getDriveAccount: vi.fn(async (): Promise<{ email?: string }> => ({})),
     // Drive devuelve el fichero con el nombre nuevo ya aplicado.
     renameFile: vi.fn(
       async (_token: string, fileId: string, name: string): Promise<DriveFileMeta> => ({
@@ -305,6 +306,41 @@ describe('renombrado de la carpeta', () => {
     expect(client.createFolder).toHaveBeenCalledTimes(1);
     expect(client.renameFile).not.toHaveBeenCalled();
     expect(store.peek()?.folderName).toBe('Segim');
+  });
+});
+
+describe('cuenta que recibe la copia', () => {
+  it('guarda el correo de about.get y lo devuelve en status', async () => {
+    const client = fakeClient();
+    client.getDriveAccount.mockResolvedValue({ email: 'me.joang+segim@gmail.com' });
+    const store = memoryStore({ fileId: 'file-1', folderId: 'folder-1' });
+
+    await target(client, store).upload(backup);
+
+    expect(client.getDriveAccount).toHaveBeenCalledWith('tok');
+    expect(store.peek()?.account).toBe('me.joang+segim@gmail.com');
+    await expect(target(client, store).status()).resolves.toMatchObject({
+      connected: true,
+      account: 'me.joang+segim@gmail.com',
+    });
+  });
+
+  it('si about.get falla la copia se sube igual y se conserva el correo anterior', async () => {
+    const client = fakeClient();
+    client.getDriveAccount.mockRejectedValue(new DriveError('network', 0, 'Sin conexión'));
+    const store = memoryStore({
+      fileId: 'file-1',
+      folderId: 'folder-1',
+      account: 'antes@ejemplo.com',
+    });
+
+    const result = await target(client, store).upload(backup);
+
+    expect(result.warning).toBeUndefined();
+    expect(store.peek()?.account).toBe('antes@ejemplo.com');
+    await expect(target(client, store).status()).resolves.toMatchObject({
+      account: 'antes@ejemplo.com',
+    });
   });
 });
 

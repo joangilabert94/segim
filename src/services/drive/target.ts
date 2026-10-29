@@ -38,6 +38,11 @@ export interface DriveClient {
   downloadBackupText(token: string, fileId: string): Promise<string>;
   listDatedCopies(token: string, folderId?: string): Promise<DriveFileMeta[]>;
   deleteFile(token: string, fileId: string): Promise<void>;
+  /**
+   * Cuenta de Drive. Opcional a propósito: es cosmético, y los dobles de
+   * test no la implementan. Si falta o falla, la copia se sube igual.
+   */
+  getDriveAccount?(token: string): Promise<{ email?: string; displayName?: string }>;
 }
 
 export interface DriveTargetOptions {
@@ -153,6 +158,17 @@ export function createDriveTarget(options: DriveTargetOptions = {}): BackupTarge
           }
         }
 
+        // Cuenta que recibe la copia, para mostrarla en Ajustes. `about.get`
+        // entra en el scope `drive.file`, así que no pide permisos nuevos.
+        // Es cosmético: si falla, la copia ya está a salvo y se mantiene el
+        // correo anterior (si lo había).
+        try {
+          const account = await client.getDriveAccount?.(token);
+          if (account?.email) meta.account = account.email;
+        } catch {
+          /* sin aviso: la subida no depende de esto */
+        }
+
         const syncedAt = file.modifiedTime ?? new Date().toISOString();
         await metaStore.save({ ...meta, fileId: file.id, lastSyncAt: syncedAt });
         return warning ? { syncedAt, warning } : { syncedAt };
@@ -193,6 +209,7 @@ export function createDriveTarget(options: DriveTargetOptions = {}): BackupTarge
         available: true,
         connected: !!meta?.fileId,
         lastSyncAt: meta?.lastSyncAt,
+        account: meta?.account,
       };
     },
   };

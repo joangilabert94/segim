@@ -10,6 +10,7 @@ import {
   findBackupFile,
   listDatedCopies,
   renameFile,
+  getDriveAccount,
   updateBackupFile,
 } from '../src/services/drive/api';
 
@@ -59,6 +60,33 @@ describe('findBackupFile', () => {
   it('devuelve null si no hay ninguna copia', async () => {
     stubFetch(() => jsonResponse({ files: [] }));
     await expect(findBackupFile('tok')).resolves.toBeNull();
+  });
+});
+
+describe('getDriveAccount', () => {
+  it('consulta about.get con el correo de la cuenta', async () => {
+    const fetchMock = stubFetch(() =>
+      jsonResponse({
+        user: { emailAddress: 'me.joang+segim@gmail.com', displayName: 'Joan' },
+      }),
+    );
+
+    const account = await getDriveAccount('tok');
+
+    expect(account.email).toBe('me.joang+segim@gmail.com');
+    expect(account.displayName).toBe('Joan');
+    const [url, init] = callOf(fetchMock);
+    // `fields` es obligatorio en about.get, y el scope drive.file basta.
+    expect(decodeURIComponent(url)).toContain('/about?fields=user(emailAddress,displayName)');
+    expect(new Headers(init.headers).get('Authorization')).toBe('Bearer tok');
+  });
+
+  it('devuelve campos vacíos si Drive no trae usuario', async () => {
+    stubFetch(() => jsonResponse({}));
+    await expect(getDriveAccount('tok')).resolves.toEqual({
+      email: undefined,
+      displayName: undefined,
+    });
   });
 });
 

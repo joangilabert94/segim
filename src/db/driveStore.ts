@@ -20,6 +20,8 @@ export interface DriveMeta {
   fileId?: string;
   /** `modifiedTime` que devolvió Drive en la última subida (ISO). */
   lastSyncAt?: string;
+  /** Correo de la cuenta de Google que recibe la copia (se muestra en Ajustes). */
+  account?: string;
 }
 
 export interface DriveMetaStore {
@@ -40,6 +42,7 @@ export const driveMetaStore: DriveMetaStore = {
       folderName: typeof m.folderName === 'string' ? m.folderName : undefined,
       fileId: typeof m.fileId === 'string' ? m.fileId : undefined,
       lastSyncAt: typeof m.lastSyncAt === 'string' ? m.lastSyncAt : undefined,
+      account: typeof m.account === 'string' ? m.account : undefined,
     };
   },
 

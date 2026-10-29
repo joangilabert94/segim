@@ -319,7 +319,7 @@ export function SettingsView() {
           <>
             <p class="card-sub" style="margin-bottom:12px">
               {drive?.connected
-                ? `Copia en tu propio Drive. Última subida: ${
+                ? `Copia en tu propio Drive${drive.account ? ` de ${drive.account}` : ''}. Última subida: ${
                     drive.lastSyncAt ? fmtDateTime(drive.lastSyncAt) : 'desconocida'
                   }.`
                 : 'Sube todas tus sesiones, rutinas y ajustes a tu propio Google Drive. Solo se toca el fichero que crea esta app.'}

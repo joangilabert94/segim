@@ -38,6 +38,8 @@ export interface BackupTargetStatus {
   connected: boolean;
   /** Última subida correcta (ISO), según el destino. */
   lastSyncAt?: string;
+  /** Cuenta del destino a la que se sube la copia (correo), si la conoce. */
+  account?: string;
 }
 
 export interface BackupTarget {

@@ -62,6 +62,8 @@ Segim/
   `Segim` sin mover ni duplicar nada; el fichero de la copia conserva el nombre con el que se
   creó.
 - Permiso **`drive.file`** (no sensible): la app solo ve los ficheros que ella crea.
+- En Ajustes se muestra **la cuenta de Google a la que se sube la copia**: se consulta con
+  `about.get`, que también admite `drive.file`, así que no pide ningún permiso nuevo.
 - *Restaurar* valida el JSON con el mismo criterio que el import por fichero y pide
   confirmación antes de reemplazar los datos locales.
 - El token de Google dura ~1 h; al caducar, el botón vuelve a autorizar sin repetir el
@@ -143,12 +145,12 @@ src/
   views/           # Hoy, Session, History, SessionDetail, Routines, RoutineEditor, Exercises, Settings
   components/      # SeriesRow, ExercisePicker, BottomSheet, ConfirmDialog, RestControls
   styles/          # tokens, base, componentes
-tests/             # vitest (170 tests)
+tests/             # vitest (198 tests)
 ```
 
 ## Roadmap
 
-- ✓ **Copia de seguridad en Google Drive** (v0.8.0; manual o automática, con retardos).
+- ✓ **Copia de seguridad en Google Drive** (v0.8.4; manual o automática, con retardos).
 - Sincronización automática entre dispositivos (requiere backend que custodie refresh
   tokens: un access token de navegador dura ~1 h y renovarlo exige un gesto).
 - Estadísticas y gráficas de progresión.

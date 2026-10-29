@@ -285,6 +285,27 @@ export async function renameFile(
   return (await res.json()) as DriveFileMeta;
 }
 
+export interface DriveAccount {
+  email?: string;
+  displayName?: string;
+}
+
+/**
+ * Cuenta de Google a la que se sube la copia, para mostrarla en Ajustes.
+ * `about.get` admite también el scope `drive.file`, así que no hace falta
+ * pedir ningún permiso nuevo para consultarla.
+ */
+export async function getDriveAccount(token: string): Promise<DriveAccount> {
+  const res = await request(
+    token,
+    `${API_BASE}/about?fields=user(emailAddress,displayName)`,
+  );
+  const data = (await res.json()) as {
+    user?: { emailAddress?: string; displayName?: string };
+  };
+  return { email: data.user?.emailAddress, displayName: data.user?.displayName };
+}
+
 export async function deleteFile(token: string, fileId: string): Promise<void> {
   await request(token, `${API_BASE}/files/${encodeURIComponent(fileId)}`, { method: 'DELETE' });
 }
