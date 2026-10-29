@@ -265,6 +265,8 @@ README.md
 | **3. Historial y datos** | Lista/detalle/edición de sesiones, métricas y racha, ajustes (unidad, presets), export/import JSON | Ciclo completo de datos |
 | **4. Pulido y salida** | Diseño fino y microinteracciones, iconos, instalabilidad, offline real, README, tests de lógica | **v1 publicada** |
 | **5. Google Drive** (v0.7.0) | OAuth con Google Identity Services, cliente REST, copia visible + 10 fechadas con rotación, restauración validada | Copia de seguridad en la nube (manual o automática) |
+| **6. Entrenamiento guiado** (v0.9.0) | Lastrados, asistidos y unilaterales; progresión doble; récords al finalizar; series semanales por grupo muscular | La app propone qué levantar y celebra los récords |
+| **7. Superseries** (siguiente versión) | Agrupar ejercicios que se alternan en la sesión | Pendiente de diseñar |
 
 ### 9.1 Fase 2 — Copia en Google Drive (v0.7.0)
 
@@ -314,6 +316,51 @@ Implementada como **copia de seguridad** (manual o automática), no como sincron
   7 días; publicar y verificar la marca elimina ambos. La copia es **visible** en el Drive
   del usuario (la variante oculta con `drive.appdata` queda como opción futura).
 
+### 9.2 Fase 6 — Entrenamiento guiado (v0.9.0)
+
+**Tipo de carga y unilaterales** (por ejercicio, en el catálogo; las rutinas y el historial lo
+leen por `exerciseId`, así que cambiarlo reinterpreta también el historial):
+
+- `Exercise.load`: `external` (por defecto: barra, mancuernas, máquina), `bodyweight` (peso
+  corporal; el peso de la serie es el **lastre**, 0 = sin lastre) o `assisted` (el peso de la
+  serie es la **asistencia**: **menos es mejor**). Se muestra `60`, `PC`, `PC+10` y `PC−20`.
+- `Exercise.unilateral`: la serie se registra una vez «por lado» (mismo peso y reps en los dos
+  lados). Cuenta **doble en el volumen en kg** y **una vez** en las series semanales.
+- **Peso corporal** opcional en Ajustes (`Settings.bodyweight`, un único valor actual). Con él,
+  la carga efectiva de un lastrado es peso corporal + lastre y la de un asistido, peso corporal −
+  asistencia; es la que usan el 1RM y el volumen en kg. Sin él, esos ejercicios no tienen 1RM
+  ni volumen en kg.
+- La comparación «más exigente» (mejores, sugerencia, progresión, récords) respeta el sentido:
+  en asistidos gana la menor asistencia.
+
+**Progresión doble** (solo series con rango, p. ej. 8-12):
+
+- Si en la **última sesión** con el ejercicio **todas** sus series con rango llegaron al tope
+  del rango con al menos el peso sugerido, la siguiente sugerencia sube **todas** esas series
+  el incremento y vuelve al mínimo del rango. Si no, se mantiene el peso (sin descarga
+  automática).
+- Incremento: `Settings.progressionIncrement` (2,5 kg por defecto, editable en Ajustes) o
+  `Exercise.increment` si el ejercicio tiene uno propio. En asistidos, el incremento **resta**
+  asistencia (mínimo 0).
+- Las series de reps fijas y las cronometradas no cambian de comportamiento. Un rango ya no
+  se convierte en reps fijas cuando el mejor resultado lo supera: para eso está la subida.
+- La sesión marca la serie con `↑ +2,5` cuando su peso es más exigente que el de la sesión
+  anterior. *Actualizar plan* aplica la misma regla.
+
+**Récords al finalizar** (contra todo el historial completado anterior, sin la propia sesión;
+la primera vez que se hace un ejercicio no hay récord):
+
+- **Peso máximo** (en asistidos, la menor asistencia), **1RM estimado** (carga efectiva),
+  **más reps** con ese peso o uno más exigente, y **volumen del ejercicio** en la sesión
+  (carga efectiva × reps, doble si es unilateral).
+- Se calculan al vuelo (no se guardan): aviso al finalizar y tarjeta 🏆 en el detalle.
+
+**Series semanales por grupo muscular** (pestaña Historial):
+
+- Series hechas de sesiones completadas por grupo muscular (el del catálogo; sin grupo →
+  «Sin grupo»), semana de lunes a domingo, con navegación entre semanas y comparación con
+  la anterior.
+
 ## 10. Riesgos y decisiones tomadas
 
 - **Identidad de ejercicios**: resuelta con **catálogo + `exerciseId` estable** (fase «catálogo").
@@ -359,6 +406,8 @@ Implementada como **copia de seguridad** (manual o automática), no como sincron
   para que se vean nombre y logo en el consentimiento.
 - **Decisiones aparcadas**: publicar y verificar la app en Google (quita Testing y los 7
   días), copias ocultas (`appDataFolder`) y más automatismos de subida.
+- **Siguiente versión (después de v0.9.0)**: **superseries** (agrupar ejercicios que se
+  alternan en la sesión).
 
 ---
 

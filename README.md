@@ -158,6 +158,9 @@ tests/             # vitest (220 tests)
 ## Roadmap
 
 - ✓ **Copia de seguridad en Google Drive** (v0.8.4; manual o automática, con retardos).
+- **v0.9.0**: lastrados, asistidos y unilaterales; progresión doble; récords al finalizar;
+  series semanales por grupo muscular.
+- **Siguiente**: superseries.
 - Sincronización automática entre dispositivos (requiere backend que custodie refresh
   tokens: un access token de navegador dura ~1 h y renovarlo exige un gesto).
 - Estadísticas y gráficas de progresión.
