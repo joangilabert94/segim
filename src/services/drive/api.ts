@@ -8,6 +8,7 @@
 
 export const BACKUP_FILE_NAME = 'segim-backup.json';
 export const BACKUP_FOLDER_NAME = 'Segim';
+export const LEGACY_BACKUP_FOLDER_NAME = 'GymRutinas';
 /**
  * Nombre con el que la app (antes "GymRutinas") creó la copia. Se sigue
  * buscando al leer: si el navegador perdió la referencia al fichero, se
@@ -31,13 +32,14 @@ const API_BASE = 'https://www.googleapis.com/drive/v3';
 const UPLOAD_BASE = 'https://www.googleapis.com/upload/drive/v3';
 
 /** Campos de Drive que nos hacen falta: id y fecha de modificación bastan. */
-const FILE_FIELDS = 'id,name,modifiedTime,size';
+const FILE_FIELDS = 'id,name,modifiedTime,size,parents';
 
 export interface DriveFileMeta {
   id: string;
   name?: string;
   modifiedTime?: string;
   size?: string;
+  parents?: string[];
 }
 
 export type DriveErrorKind =
@@ -180,6 +182,22 @@ export async function listDatedCopies(
   const url =
     `${API_BASE}/files?q=${q}&spaces=drive` +
     `&fields=files(${FILE_FIELDS})&orderBy=name desc&pageSize=100`;
+  const res = await request(token, url);
+  const data = (await res.json()) as { files?: DriveFileMeta[] };
+  return data.files ?? [];
+}
+
+/** Carpetas de la app (actual o con el nombre antiguo), de la más antigua a la más nueva. */
+export async function findBackupFolders(token: string): Promise<DriveFileMeta[]> {
+  const names = [BACKUP_FOLDER_NAME, LEGACY_BACKUP_FOLDER_NAME]
+    .map((name) => `name = '${name}'`)
+    .join(' or ');
+  const q = encodeURIComponent(
+    `mimeType = 'application/vnd.google-apps.folder' and (${names}) and trashed = false`,
+  );
+  const url =
+    `${API_BASE}/files?q=${q}&spaces=drive` +
+    `&fields=files(${FILE_FIELDS})&orderBy=createdTime&pageSize=10`;
   const res = await request(token, url);
   const data = (await res.json()) as { files?: DriveFileMeta[] };
   return data.files ?? [];

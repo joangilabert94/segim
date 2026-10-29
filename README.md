@@ -65,7 +65,11 @@ Segim/
 - En Ajustes se muestra **la cuenta de Google a la que se sube la copia**: se consulta con
   `about.get`, que también admite `drive.file`, así que no pide ningún permiso nuevo.
 - *Restaurar* valida el JSON con el mismo criterio que el import por fichero y pide
-  confirmación antes de reemplazar los datos locales.
+  confirmación antes de reemplazar los datos locales. Está disponible aunque el dispositivo
+  no esté conectado, para recuperar la copia en un móvil nuevo.
+- Conectar un dispositivo que nunca ha subido nada **no pisa** una copia que ya esté en
+  Drive: la app avisa con su fecha y solo la sustituye si lo confirmas. También reutiliza la
+  carpeta `Segim` existente en vez de crear otra.
 - El token de Google dura ~1 h; al caducar, el botón vuelve a autorizar sin repetir el
   consentimiento mientras la sesión de Google siga activa.
 - *Desconectar* revoca el permiso; los ficheros siguen en tu Drive.

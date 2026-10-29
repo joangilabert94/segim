@@ -288,7 +288,12 @@ Implementada como **copia de seguridad** (manual o automática), no como sincron
   solo en memoria; se renueva con `prompt: 'none'` (sin UI) mientras el consentimiento
   siga vivo y, si Google exige interacción, al pulsar el botón.
 - **Restaurar**: descarga, valida con `parseBackup` (una copia dañada se rechaza sin tocar
-  los datos) y pide confirmación mostrando fecha y recuentos.
+  los datos) y pide confirmación mostrando fecha y recuentos. Disponible también sin
+  conexión previa (busca la copia por nombre), que es como se migra a un móvil nuevo.
+- **Primera subida desde un dispositivo**: si Drive ya tiene una copia, no se sobrescribe;
+  se avisa con su fecha y solo se sustituye si el usuario lo confirma (`replaceExisting`).
+  Sin `folderId` guardado se reutiliza la carpeta de la app (la que contiene la copia, o
+  cualquier `Segim`/`GymRutinas`) antes de crear otra.
 - **Sin mezcla de datos**: no hay merge ni resolución de conflictos; restaurar sustituye.
   (La copia automática añadida después solo **sube** al terminar una sesión o al editar;
   nunca restaura ni mezcla por su cuenta, así que este modelo no cambia.)

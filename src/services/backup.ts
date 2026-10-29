@@ -54,12 +54,26 @@ export interface BackupTarget {
    */
   upload(
     backup: BackupFile,
-    options?: { interactive?: boolean; dated?: boolean },
+    options?: { interactive?: boolean; dated?: boolean; replaceExisting?: boolean },
   ): Promise<{ syncedAt: string; warning?: string }>;
   /** Descarga la última copia del destino, ya validada con `parseBackup`. */
   downloadLatest(options?: { interactive?: boolean }): Promise<BackupFile>;
   /** Estado local del destino, sin llamadas de red. */
   status(): Promise<BackupTargetStatus>;
+}
+
+/**
+ * El destino ya tiene una copia que este dispositivo nunca ha subido (otro
+ * móvil, navegador limpiado). Sobrescribirla exige `replaceExisting: true`.
+ */
+export class ExistingBackupError extends Error {
+  readonly modifiedTime?: string;
+
+  constructor(modifiedTime?: string) {
+    super('Ya hay una copia de Segim en tu Google Drive.');
+    this.name = 'ExistingBackupError';
+    this.modifiedTime = modifiedTime;
+  }
 }
 
 export function buildBackup(data: {

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { buildBackup } from '../src/services/backup';
+import { ExistingBackupError, buildBackup } from '../src/services/backup';
 import { DEFAULT_SETTINGS } from '../src/models';
 import { type DriveMeta, type DriveMetaStore } from '../src/db/driveStore';
 import { type DriveFileMeta, DriveError } from '../src/services/drive/api';
@@ -33,6 +33,10 @@ function memoryStore(initial: DriveMeta | null = null) {
 function fakeClient() {
   return {
     findBackupFile: vi.fn(async (): Promise<DriveFileMeta | null> => null),
+    getFileMeta: vi.fn(async (_token: string, fileId: string): Promise<DriveFileMeta> => ({
+      id: fileId,
+    })),
+    findBackupFolders: vi.fn(async (): Promise<DriveFileMeta[]> => []),
     createFolder: vi.fn(async (): Promise<DriveFileMeta> => ({ id: 'folder-1' })),
     createBackupFile: vi.fn(
       async (): Promise<DriveFileMeta> => ({
@@ -132,16 +136,72 @@ describe('subida a Drive', () => {
     expect(client.createFolder).not.toHaveBeenCalled();
   });
 
-  it('si se perdió la referencia reutiliza la copia que ya está en Drive', async () => {
+  it('sin referencia no pisa la copia que ya está en Drive', async () => {
     const client = fakeClient();
-    client.findBackupFile.mockResolvedValue({ id: 'file-9' });
+    client.findBackupFile.mockResolvedValue({ id: 'file-9', modifiedTime: '2026-10-20T09:00:00.000Z' });
     const store = memoryStore({});
 
-    await target(client, store).upload(backup);
+    const err = await target(client, store)
+      .upload(backup)
+      .catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(ExistingBackupError);
+    expect((err as ExistingBackupError).modifiedTime).toBe('2026-10-20T09:00:00.000Z');
+    expect(client.updateBackupFile).not.toHaveBeenCalled();
+    expect(client.createBackupFile).not.toHaveBeenCalled();
+    expect(client.createFolder).not.toHaveBeenCalled();
+    expect(store.peek()).toEqual({});
+  });
+
+  it('con replaceExisting sustituye la copia de Drive y usa su carpeta', async () => {
+    const client = fakeClient();
+    client.findBackupFile.mockResolvedValue({ id: 'file-9', parents: ['folder-9'] });
+    client.findBackupFolders.mockResolvedValue([
+      { id: 'folder-1', name: 'Segim' },
+      { id: 'folder-9', name: 'Segim' },
+    ]);
+    const store = memoryStore({});
+
+    await target(client, store).upload(backup, { replaceExisting: true });
 
     expect(client.updateBackupFile).toHaveBeenCalledWith('tok', 'file-9', JSON.stringify(backup));
     expect(client.createBackupFile).not.toHaveBeenCalled();
-    expect(store.peek()?.fileId).toBe('file-9');
+    expect(client.createFolder).not.toHaveBeenCalled();
+    expect(store.peek()).toMatchObject({ fileId: 'file-9', folderId: 'folder-9' });
+  });
+
+  it('reutiliza la carpeta de la app en vez de crear otra', async () => {
+    const client = fakeClient();
+    client.findBackupFolders.mockResolvedValue([{ id: 'folder-7', name: 'Segim' }]);
+    const store = memoryStore();
+
+    await target(client, store).upload(backup);
+
+    expect(client.createFolder).not.toHaveBeenCalled();
+    expect(client.createBackupFile).toHaveBeenCalledWith('tok', JSON.stringify(backup), 'folder-7');
+    expect(store.peek()?.folderId).toBe('folder-7');
+  });
+
+  it('tras restaurar en otro dispositivo sube a la carpeta que contiene la copia', async () => {
+    const client = fakeClient();
+    client.getFileMeta.mockResolvedValue({ id: 'file-9', parents: ['folder-9'] });
+    client.findBackupFolders.mockResolvedValue([
+      { id: 'folder-1', name: 'Segim' },
+      { id: 'folder-9', name: 'Segim' },
+    ]);
+    const store = memoryStore({ fileId: 'file-9' });
+
+    await target(client, store).upload(backup);
+
+    expect(client.findBackupFile).not.toHaveBeenCalled();
+    expect(client.updateBackupFile).toHaveBeenCalledWith('tok', 'file-9', JSON.stringify(backup));
+    expect(client.createJsonFile).toHaveBeenCalledWith(
+      'tok',
+      'copia-2026-10-28-1842.json',
+      JSON.stringify(backup),
+      'folder-9',
+    );
+    expect(store.peek()?.folderId).toBe('folder-9');
   });
 
   it('si el fichero se borró en Drive, lo vuelve a crear al momento', async () => {
@@ -295,6 +355,18 @@ describe('renombrado de la carpeta', () => {
     // Sin nombre recordado: la próxima subida volverá a intentarlo.
     expect(store.peek()?.folderName).toBeUndefined();
     expect(store.peek()?.lastSyncAt).toBe('2026-10-28T11:00:00.000Z');
+  });
+
+  it('una carpeta antigua encontrada en Drive se renombra al reutilizarla', async () => {
+    const client = fakeClient();
+    client.findBackupFolders.mockResolvedValue([{ id: 'folder-old', name: 'GymRutinas' }]);
+    const store = memoryStore();
+
+    await target(client, store).upload(backup);
+
+    expect(client.createFolder).not.toHaveBeenCalled();
+    expect(client.renameFile).toHaveBeenCalledWith('tok', 'folder-old', 'Segim');
+    expect(store.peek()).toMatchObject({ folderId: 'folder-old', folderName: 'Segim' });
   });
 
   it('una carpeta recién creada ya lleva el nombre actual', async () => {

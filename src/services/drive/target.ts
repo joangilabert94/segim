@@ -12,7 +12,7 @@
 // Todo es inyectable para poder probar la orquestación sin red ni IndexedDB.
 
 import type { BackupFile, BackupTarget, BackupTargetStatus } from '../backup';
-import { parseBackup } from '../backup';
+import { ExistingBackupError, parseBackup } from '../backup';
 import { BACKUP_FOLDER_NAME, type DriveFileMeta, DriveError, datedCopyName } from './api';
 import * as api from './api';
 import { forgetToken, getAccessToken, isDriveConfigured } from './auth';
@@ -25,6 +25,8 @@ export const MAX_DATED_COPIES = 10;
 /** Las operaciones de Drive que necesita el destino. */
 export interface DriveClient {
   findBackupFile(token: string): Promise<DriveFileMeta | null>;
+  getFileMeta(token: string, fileId: string): Promise<DriveFileMeta>;
+  findBackupFolders(token: string): Promise<DriveFileMeta[]>;
   createFolder(token: string): Promise<DriveFileMeta>;
   createBackupFile(token: string, content: string, folderId?: string): Promise<DriveFileMeta>;
   createJsonFile(
@@ -80,12 +82,16 @@ export function createDriveTarget(options: DriveTargetOptions = {}): BackupTarge
     }
   }
 
-  /** Sube la "última copia", actualizándola si ya existe (o recreándola). */
+  /**
+   * Sube la "última copia", actualizándola si ya existe (o recreándola).
+   * `known` es el resultado de buscarla por nombre, si ya se buscó.
+   */
   async function saveLatest(
     token: string,
     meta: DriveMeta,
     content: string,
     folderId: string,
+    known?: DriveFileMeta | null,
   ): Promise<DriveFileMeta> {
     if (meta.fileId) {
       try {
@@ -95,11 +101,27 @@ export function createDriveTarget(options: DriveTargetOptions = {}): BackupTarge
         if (!(err instanceof DriveError) || err.kind !== 'notFound') throw err;
       }
     }
-    // Sin referencia (navegador limpiado, fichero borrado): se busca por nombre
-    // antes de crear otra copia, para no duplicar el fichero.
-    const existing = await client.findBackupFile(token);
+    const existing = known !== undefined ? known : await client.findBackupFile(token);
     if (existing) return client.updateBackupFile(token, existing.id, content);
     return client.createBackupFile(token, content, folderId);
+  }
+
+  /**
+   * Carpeta donde guardar cuando este dispositivo no la conoce: la que ya
+   * contiene la copia, otra de la app o, si no hay ninguna, una nueva.
+   */
+  async function resolveFolder(
+    token: string,
+    meta: DriveMeta,
+    known: DriveFileMeta | null | undefined,
+  ): Promise<DriveFileMeta> {
+    let file = known ?? null;
+    if (!file && meta.fileId) {
+      file = await client.getFileMeta(token, meta.fileId).catch(() => null);
+    }
+    const folders = await client.findBackupFolders(token);
+    const parent = folders.find((folder) => file?.parents?.includes(folder.id));
+    return parent ?? folders[0] ?? client.createFolder(token);
   }
 
   return {
@@ -116,17 +138,27 @@ export function createDriveTarget(options: DriveTargetOptions = {}): BackupTarge
       return run(async (token) => {
         const meta: DriveMeta = { ...((await metaStore.load()) ?? {}) };
 
-        // La carpeta hace falta también para las copias fechadas.
-        // Si viene de la versión anterior (nombre "GymRutinas", o sin nombre
-        // guardado porque el metadato se creó antes), se renombra UNA vez y se
-        // recuerda el nombre para no repetir la petición en cada subida.
+        // Primera subida desde este dispositivo: una copia que ya esté en Drive
+        // viene de otro sitio y puede ser la buena. No se pisa sin permiso.
+        let known: DriveFileMeta | null | undefined;
+        if (!meta.fileId) {
+          known = await client.findBackupFile(token);
+          if (known && uploadOptions.replaceExisting !== true) {
+            throw new ExistingBackupError(known.modifiedTime);
+          }
+        }
+
+        // Si la carpeta viene de la versión anterior (nombre "GymRutinas", o sin
+        // nombre guardado porque el metadato se creó antes), se renombra UNA vez
+        // y se recuerda el nombre para no repetir la petición en cada subida.
         let folderId = meta.folderId;
         let folderName = meta.folderName;
         if (!folderId) {
-          const folder = await client.createFolder(token);
+          const folder = await resolveFolder(token, meta, known);
           folderId = folder.id;
           folderName = folder.name ?? BACKUP_FOLDER_NAME;
-        } else if (folderName !== BACKUP_FOLDER_NAME) {
+        }
+        if (folderName !== BACKUP_FOLDER_NAME) {
           try {
             const renamed = await client.renameFile(token, folderId, BACKUP_FOLDER_NAME);
             folderName = renamed.name ?? BACKUP_FOLDER_NAME;
@@ -139,7 +171,7 @@ export function createDriveTarget(options: DriveTargetOptions = {}): BackupTarge
         meta.folderName = folderName;
 
         // 1) La copia principal: si esto falla, la subida se considera fallida.
-        const file = await saveLatest(token, meta, content, folderId);
+        const file = await saveLatest(token, meta, content, folderId, known);
 
         // 2) Copia fechada + rotación. Es secundaria: si falla, la copia del
         //    punto 1 ya está a salvo y solo se avisa con `warning`.
