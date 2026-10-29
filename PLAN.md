@@ -2,13 +2,13 @@
 
 > Documento vivo. Cada cambio acordado se refleja aquí antes de tocar código.
 >
-> **Estado (29 oct 2026): v0.8.2.** Fases 0–4 completadas, catálogo de ejercicios, revisión
+> **Estado (29 oct 2026): v0.8.3.** Fases 0–4 completadas, catálogo de ejercicios, revisión
 > de robustez, **fase 2: copia de seguridad en Google Drive** (manual o automática, con
 > retardos), **renombrado de la app a Segim** e **iconos rediseñados** (PNG + SVG con
 > generador propio). Verificado: `npm run typecheck` ✓ · `npm test` (194 tests) ✓ ·
 > `npm run build` ✓ (PWA offline instalable). Incluye la **política de privacidad**
 > pública (`/segim/privacidad.html`) que Google exige para publicar la app. El despliegue
-> va por etiqueta de versión (`v0.8.2`).
+> va por etiqueta de versión (`v0.8.3`).
 
 ## 1. Objetivo
 
@@ -329,9 +329,9 @@ Implementada como **copia de seguridad** (manual o automática), no como sincron
 
 ## 11. Estado del repositorio y pendientes
 
-- **Versión**: `v0.8.2` — iconos rediseñados, copia automática en Drive con retardos,
+- **Versión**: `v0.8.3` — iconos rediseñados, copia automática en Drive con retardos,
   renombrado de la app a Segim y política de privacidad pública. El despliegue va por
-  etiqueta: publicar `v0.8.2` actualiza GitHub Pages.
+  etiqueta: publicar `v0.8.3` actualiza GitHub Pages.
 - **Iconos**: generador propio sin dependencias (`npm run icons`) con antialiasing 4×4,
   mancuerna diagonal, sombra y exportación de `public/icons/icon.svg` para la pestaña.
 - **Configuración local**: `VITE_GOOGLE_CLIENT_ID` en `.env.local` (ignorado por Git);
