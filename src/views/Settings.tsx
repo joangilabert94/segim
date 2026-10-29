@@ -41,6 +41,7 @@ export function SettingsView() {
   } | null>(null);
   const [pendingDrive, setPendingDrive] = useState<BackupFile | null>(null);
 
+  const autoOn = s.settings.autoBackup === true;
   const nonArchived = s.routines.filter((r) => !r.archived);
   // Si la rutina activa está archivada o ya no existe, el selector muestra el
   // placeholder en vez de quedarse en blanco.
@@ -318,7 +319,7 @@ export function SettingsView() {
           <>
             <p class="card-sub" style="margin-bottom:12px">
               {drive?.connected
-                ? `Copia manual en tu propio Drive. Última subida: ${
+                ? `Copia en tu propio Drive. Última subida: ${
                     drive.lastSyncAt ? fmtDateTime(drive.lastSyncAt) : 'desconocida'
                   }.`
                 : 'Sube todas tus sesiones, rutinas y ajustes a tu propio Google Drive. Solo se toca el fichero que crea esta app.'}
@@ -342,6 +343,36 @@ export function SettingsView() {
                 </button>
               )}
             </div>
+            {/* Visible siempre (para que se descubra), pero solo se puede
+                activar con una copia ya vinculada: sin conexión no haría nada. */}
+            <div style="margin-top:14px">
+              <span class="field-label">Copia automática</span>
+              <div class="segmented segmented--full">
+                <button
+                  class={autoOn ? '' : 'is-active'}
+                  aria-pressed={!autoOn}
+                  disabled={!drive?.connected}
+                  onClick={() => updateSettings({ autoBackup: false })}
+                >
+                  Solo manual
+                </button>
+                <button
+                  class={autoOn ? 'is-active' : ''}
+                  aria-pressed={autoOn}
+                  disabled={!drive?.connected}
+                  onClick={() => updateSettings({ autoBackup: true })}
+                >
+                  Al terminar sesión
+                </button>
+              </div>
+              <p class="hint" style="margin-top:8px">
+                {!drive?.connected
+                  ? 'Conecta con tu Drive para poder activarla.'
+                  : autoOn
+                    ? 'Al finalizar una sesión se sube a los pocos segundos; al editar una sesión, una rutina o un ejercicio, tras un rato sin tocar nada (30 s). Verás un aviso con el resultado, también si Google pide volver a autorizar.'
+                    : 'Solo se sube cuando pulses ☁️ Subir ahora.'}
+              </p>
+            </div>
             {drive?.connected && (
               <button
                 class="btn btn-block"
@@ -353,8 +384,10 @@ export function SettingsView() {
               </button>
             )}
             <p class="hint" style="margin-top:10px">
-              Se conservan las últimas 10 copias fechadas. Al conectar se abre la ventana de
-              Google: elige tu cuenta y acepta el permiso (solo ficheros de esta app).
+              Se conservan las últimas 10 copias fechadas: se crean al terminar una sesión y al
+              subir a mano, mientras que las ediciones solo actualizan la copia principal. Al
+              conectar se abre la ventana de Google: elige tu cuenta y acepta el permiso (solo
+              ficheros de esta app).
             </p>
             {driveMessage && (
               <div class={`inline-msg is-${driveMessage.kind}`}>{driveMessage.text}</div>
@@ -370,10 +403,7 @@ export function SettingsView() {
           <li>Instálala desde tu navegador: menú → "Añadir a pantalla de inicio".</li>
           <li>Funciona sin conexión: todo se guarda en el dispositivo.</li>
           <li>Las sesiones en curso se guardan solas: puedes cerrar y volver.</li>
-          <li>
-            Fase 2 (prevista): sincronización opcional con Google Drive a partir de las copias
-            JSON.
-          </li>
+          <li>Copia en tu propio Google Drive: manual o automática (al terminar y al editar).</li>
         </ul>
       </div>
 

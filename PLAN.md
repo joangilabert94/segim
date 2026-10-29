@@ -12,7 +12,7 @@
 
 Aplicación PWA mobile-first para gestionar rutinas de gimnasio y registrar sesiones de entrenamiento: rutinas multi-día, modo "entrenamiento" con series/pesos/reps planeados vs. reales, comparación con la sesión anterior (progresión semana a semana), historial con fechas, clonado de rutinas y persistencia **local** (IndexedDB) con exportación/importación JSON. Desplegable en GitHub Pages y usable offline desde cualquier dispositivo.
 
-Fase 2 (v0.7.0, ya implementada): copia de seguridad manual en el Google Drive del usuario — ver §9.1.
+Fase 2 (v0.7.0, ya implementada): copia de seguridad en el Google Drive del usuario, manual o al terminar cada sesión — ver §9.1.
 
 ## 2. Stack técnico
 
@@ -156,8 +156,10 @@ Settings {
 - Editar los 6 presets de descanso.
 - **Exportar backup** (JSON descargado) / **Importar backup** (restaurar — incluye
   rutinas, catálogo de ejercicios, sesiones y ajustes).
-- **Copia en Google Drive** (opcional y manual): conectar/desconectar, *Subir ahora* y
-  *Restaurar*. Deja `gymrutinas-backup.json` (última) y las 10 copias fechadas más recientes.
+- **Copia en Google Drive** (opcional): conectar/desconectar, *Subir ahora* y *Restaurar*,
+  más el ajuste **copia automática** (por defecto, desactivado) al terminar una sesión o al
+  editar una sesión, rutina o ejercicio. Deja `gymrutinas-backup.json` (última) y las 10
+  copias fechadas más recientes.
 - Borrar todos los datos, versión, instrucciones de instalación PWA.
 
 ## 5. Lógica clave (servicios puros, testeadas)
@@ -255,14 +257,21 @@ README.md
 | **2. Sesión** | Modo entrenamiento: prefill serie↔serie, comparación Plan/Ant./Hoy por serie, checks, notas, series extra, atajos de relleno, cronómetro con presets, persistencia incremental, finalizar | Núcleo de la app funcionando |
 | **3. Historial y datos** | Lista/detalle/edición de sesiones, métricas y racha, ajustes (unidad, presets), export/import JSON | Ciclo completo de datos |
 | **4. Pulido y salida** | Diseño fino y microinteracciones, iconos, instalabilidad, offline real, README, tests de lógica | **v1 publicada** |
-| **5. Google Drive** (v0.7.0) | OAuth con Google Identity Services, cliente REST, copia visible + 10 fechadas con rotación, restauración validada | Copia de seguridad en la nube (manual) |
+| **5. Google Drive** (v0.7.0) | OAuth con Google Identity Services, cliente REST, copia visible + 10 fechadas con rotación, restauración validada | Copia de seguridad en la nube (manual o automática) |
 
 ### 9.1 Fase 2 — Copia en Google Drive (v0.7.0)
 
-Implementada como **copia de seguridad manual**, no como sincronización.
+Implementada como **copia de seguridad** (manual o automática), no como sincronización.
 
 - **Qué se sube**: el mismo `BackupFile` del export/import (rutinas, catálogo, todas
   las sesiones —incluida la que está en curso— y ajustes). Nada más.
+- **Cuándo se sube**: al pulsar *Subir ahora* y, si se activa la copia automática en
+  Ajustes, al **terminar una sesión** (5 s de retardo) y al **editar** una sesión, una
+  rutina o un ejercicio (20–30 s sin tocar nada, para que una ráfaga de cambios acabe en
+  una sola subida). Una subida a la vez (cola), token pedido en silencio y, si Google
+  exige interacción, aviso con la vía manual. Las ediciones solo actualizan
+  `gymrutinas-backup.json`; las copias fechadas se crean al cerrar sesión o a mano, para
+  que la rotación de 10 no expulse las de días anteriores.
 - **Dónde**: carpeta `GymRutinas` del Drive del usuario: `gymrutinas-backup.json`
   (última copia, la que se restaura) y `copia-AAAA-MM-DD-HHmm.json` (se conservan las
   10 más recientes; el resto se borra al subir). Drive mantiene además el historial de
@@ -275,7 +284,8 @@ Implementada como **copia de seguridad manual**, no como sincronización.
 - **Restaurar**: descarga, valida con `parseBackup` (una copia dañada se rechaza sin tocar
   los datos) y pide confirmación mostrando fecha y recuentos.
 - **Sin mezcla de datos**: no hay merge ni resolución de conflictos; restaurar sustituye.
-  Por eso quedó fuera de alcance la copia automática.
+  (La copia automática añadida después solo **sube** al terminar una sesión o al editar;
+  nunca restaura ni mezcla por su cuenta, así que este modelo no cambia.)
 - **Metadatos**: `drive:meta` (fileId, carpeta, última subida) se guarda aparte y
   **sobrevive a "borrar todos los datos"**, para no duplicar ni sobrescribir el fichero
   remoto por accidente.
@@ -297,7 +307,9 @@ Implementada como **copia de seguridad manual**, no como sincronización.
 - **IndexedDB vs localStorage**: IndexedDB por el volumen de sesiones con series y notas (límite ~5 MB en localStorage).
 - Una sola sesión en curso a la vez (modelo simple, sin confusiones).
 - **OAuth sin backend**: no hay refresh token; el token dura ~1 h y renovarlo exige un
-  gesto del usuario. Por eso la copia es manual a propósito.
+  gesto del usuario. La copia manual sigue siendo la vía principal; la automática pide el
+  token en silencio (`prompt: 'none'`) y, si Google exige interacción, avisa en lugar de
+  abrir una ventana sin gesto previo.
 - **Modo Testing de Google**: 100 usuarios y consentimiento cada 7 días hasta publicar y
   verificar la marca (con `drive.file` no hay auditoría de seguridad).
 - **Multi-dispositivo**: sin merge; dos dispositivos comparten un único fichero y la

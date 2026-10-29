@@ -104,6 +104,8 @@ export function createDriveTarget(options: DriveTargetOptions = {}): BackupTarge
       warning?: string;
     }> {
       const content = JSON.stringify(backup);
+      // Las ediciones (que llegan a ráfagas) solo refrescan la copia viva.
+      const withDated = uploadOptions.dated !== false;
 
       return run(async (token) => {
         const meta: DriveMeta = { ...((await metaStore.load()) ?? {}) };
@@ -118,16 +120,18 @@ export function createDriveTarget(options: DriveTargetOptions = {}): BackupTarge
         // 2) Copia fechada + rotación. Es secundaria: si falla, la copia del
         //    punto 1 ya está a salvo y solo se avisa con `warning`.
         let warning: string | undefined;
-        try {
-          await client.createJsonFile(token, datedCopyName(now()), content, folderId);
-          const copies = await client.listDatedCopies(token, folderId);
-          const sobrantes = copies.slice(maxCopies);
-          if (sobrantes.length > 0) {
-            await Promise.all(sobrantes.map((copy) => client.deleteFile(token, copy.id)));
+        if (withDated) {
+          try {
+            await client.createJsonFile(token, datedCopyName(now()), content, folderId);
+            const copies = await client.listDatedCopies(token, folderId);
+            const sobrantes = copies.slice(maxCopies);
+            if (sobrantes.length > 0) {
+              await Promise.all(sobrantes.map((copy) => client.deleteFile(token, copy.id)));
+            }
+          } catch (err) {
+            warning =
+              err instanceof DriveError ? err.message : 'No se pudo guardar la copia fechada.';
           }
-        } catch (err) {
-          warning =
-            err instanceof DriveError ? err.message : 'No se pudo guardar la copia fechada.';
         }
 
         const syncedAt = file.modifiedTime ?? new Date().toISOString();

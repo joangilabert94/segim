@@ -81,13 +81,13 @@ export function classifyError(
   if (status === 429) {
     return {
       kind: 'server',
-      message: 'Google ha limitado las peticiones. La copia se reintentará más tarde.',
+      message: 'Google ha limitado las peticiones. Inténtalo de nuevo en un rato.',
     };
   }
   if (status >= 500) {
     return {
       kind: 'server',
-      message: 'Google Drive no responde ahora mismo. La copia se reintentará más tarde.',
+      message: 'Google Drive no responde ahora mismo. Inténtalo de nuevo en un rato.',
     };
   }
   return { kind: 'unknown', message: 'No se pudo hablar con Google Drive.' };
@@ -121,7 +121,7 @@ async function request(token: string, url: string, init: RequestInit = {}): Prom
     throw new DriveError(
       'network',
       0,
-      'Sin conexión: la copia se subirá cuando vuelvas a estar online.',
+      'Sin conexión: no se ha podido hablar con Google Drive.',
     );
   }
 

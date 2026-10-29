@@ -39,10 +39,13 @@ export interface BackupTarget {
    * Sube la copia y devuelve la fecha que reporta el destino (o la actual).
    * `interactive` permite abrir la ventana de consentimiento de Google y, por
    * tanto, solo debe usarse dentro de un clic del usuario.
+   * `dated: false` actualiza solo la copia viva, sin crear una copia fechada:
+   * lo usan las subidas disparadas por ediciones, que llegan a ráfagas y no
+   * deben expulsar del historial de Drive a las copias de días anteriores.
    */
   upload(
     backup: BackupFile,
-    options?: { interactive?: boolean },
+    options?: { interactive?: boolean; dated?: boolean },
   ): Promise<{ syncedAt: string; warning?: string }>;
   /** Descarga la última copia del destino, ya validada con `parseBackup`. */
   downloadLatest(options?: { interactive?: boolean }): Promise<BackupFile>;

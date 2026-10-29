@@ -436,6 +436,11 @@ textarea.input {
   color: var(--accent-ink);
 }
 
+.segmented button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 /* Selector a ancho completo (varias opciones: tema, por ejemplo). */
 .segmented--full {
   display: flex;

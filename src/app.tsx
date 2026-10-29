@@ -13,6 +13,7 @@ import { Exercises } from './views/Exercises';
 import { SettingsView } from './views/Settings';
 import { matchPath, navigate } from './router';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { NoticeToast } from './components/NoticeToast';
 
 const TABS = [
   { path: '/', ico: '🏠', label: 'Hoy' },
@@ -69,6 +70,9 @@ export function App() {
         )}
         <ErrorBoundary key={path}>{view}</ErrorBoundary>
       </main>
+
+      {/* Avisos de acciones en segundo plano (copia automática en Drive). */}
+      <NoticeToast />
 
       {!inSession && (
         <nav class="tabbar" aria-label="Navegación principal">

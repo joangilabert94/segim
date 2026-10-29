@@ -196,6 +196,8 @@ export function parseSettings(v: unknown): Settings {
     unit: raw.unit === 'lb' ? 'lb' : 'kg',
     restPresets: presets.length > 0 ? presets : DEFAULT_SETTINGS.restPresets,
     theme: normalizeThemeMode(raw.theme),
+    // Cualquier cosa que no sea `true` deja la copia automática desactivada.
+    autoBackup: raw.autoBackup === true,
     ...(typeof raw.activeRoutineId === 'string' && raw.activeRoutineId
       ? { activeRoutineId: raw.activeRoutineId }
       : {}),

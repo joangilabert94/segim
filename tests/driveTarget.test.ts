@@ -75,6 +75,21 @@ const target = (
   });
 
 describe('subida a Drive', () => {
+  it('con dated:false refresca la copia viva sin crear copia fechada', async () => {
+    const client = fakeClient();
+    const store = memoryStore({ folderId: 'folder-1', fileId: 'file-1' });
+
+    const result = await target(client, store).upload(backup, { dated: false });
+
+    expect(client.updateBackupFile).toHaveBeenCalledWith('tok', 'file-1', JSON.stringify(backup));
+    // Ni copia fechada ni rotación: no se toca el historial del Drive.
+    expect(client.createJsonFile).not.toHaveBeenCalled();
+    expect(client.listDatedCopies).not.toHaveBeenCalled();
+    expect(client.deleteFile).not.toHaveBeenCalled();
+    expect(store.peek()?.lastSyncAt).toBe('2026-10-28T11:00:00.000Z');
+    expect(result.warning).toBeUndefined();
+  });
+
   it('la primera vez crea carpeta, última copia y copia fechada', async () => {
     const client = fakeClient();
     const store = memoryStore();

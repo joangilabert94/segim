@@ -17,6 +17,12 @@ import { normalizeName } from './services/previousSession';
 import { convertRoutines, convertSessions } from './services/units';
 import { applyTheme } from './theme';
 import { buildRoutinesFile, downloadRoutinesFile, mergeRoutines, parseRoutinesFile } from './services/share';
+import { buildBackup } from './services/backup';
+import {
+  type AutoBackupReason,
+  cancelPendingAutoBackup,
+  requestAutoBackup,
+} from './services/drive/autoBackup';
 
 export interface AppState {
   routines: Routine[];
@@ -75,6 +81,27 @@ export function sortSessions(sessions: Session[]): Session[] {
 }
 
 const logError = (what: string, err: unknown) => console.error(`No se pudo ${what}`, err);
+
+// ---------------------------------------------------------------------------
+// Copia automática en Google Drive
+// ---------------------------------------------------------------------------
+
+/**
+ * Avisa de que hay datos nuevos. **No sube todavía**: encola la subida con el
+ * retardo del motivo (ver services/drive/autoBackup), para que una ráfaga de
+ * ediciones acabe en una sola copia en vez de en veinte.
+ */
+function touchBackup(reason: AutoBackupReason): void {
+  requestAutoBackup({
+    reason,
+    enabled: state.settings.autoBackup === true,
+    // Los datos se leen al subir, no ahora: la copia lleva lo último.
+    build: () => buildBackup(state),
+    // Las ediciones solo refrescan la copia viva; las fechadas se reservan a
+    // hitos (cerrar sesión o subir a mano), o la rotación de 10 se las comería.
+    dated: reason === 'session-complete',
+  });
+}
 
 /** Carga todo el estado desde IndexedDB. */
 export async function loadState(): Promise<void> {
@@ -162,6 +189,7 @@ export function upsertRoutine(routine: Routine): void {
       : [...state.routines, routine],
   });
   persistRoutines();
+  touchBackup('routine-edit');
 }
 
 /** Copia profunda + mutación + guardado. Devuelve la rutina resultante. */
@@ -185,6 +213,7 @@ export function deleteRoutine(id: string): void {
   });
   persistRoutines();
   db.saveSettings(state.settings).catch((e) => logError('guardar los ajustes', e));
+  touchBackup('routine-edit');
 }
 
 // ---------------------------------------------------------------------------
@@ -208,6 +237,7 @@ export function ensureExercise(name: string, muscleGroup?: string): Exercise {
   if (!state.exercises.some((e) => e.id === exercise.id)) {
     setState({ exercises: [...state.exercises, exercise] });
     persistExercises();
+    touchBackup('exercise-edit');
   }
   return exercise;
 }
@@ -266,6 +296,7 @@ export function applyExerciseDefinition(
   });
   persistExercises();
   persistRoutines();
+  touchBackup('exercise-edit');
   return true;
 }
 
@@ -290,6 +321,7 @@ export function deleteExerciseFromCatalog(id: string): void {
       db.saveSession(changed).catch((e) => logError('guardar la sesión', e));
     }
   }
+  touchBackup('exercise-edit');
 }
 
 // ---------------------------------------------------------------------------
@@ -300,6 +332,8 @@ export function updateSettings(patch: Partial<Settings>): void {
   const settings = { ...state.settings, ...patch };
   setState({ settings });
   db.saveSettings(settings).catch((e) => logError('guardar los ajustes', e));
+  // Desactivarla olvida también la subida que estuviera esperando.
+  if (patch.autoBackup === false) cancelPendingAutoBackup();
 }
 
 /**
@@ -378,9 +412,14 @@ export function startFreeSession(): Session {
 }
 
 export function finalizeSession(id: string): Session | undefined {
-  return patchSession(id, (s) => {
+  const updated = patchSession(id, (s) => {
     s.status = 'completed';
   });
+  // Copia en Drive al terminar: se sube en segundo plano (nunca se espera:
+  // cerrar una sesión no puede depender de la red) tras un retardo corto. Es
+  // un hito, así que sí deja copia fechada.
+  if (updated) touchBackup('session-complete');
+  return updated;
 }
 
 /**
@@ -392,21 +431,28 @@ export function setSessionDate(id: string, date: string): Session | undefined {
   const updated = patchSession(id, (s) => {
     s.date = date;
   });
-  if (updated) setState({ sessions: sortSessions(state.sessions) });
+  if (updated) {
+    setState({ sessions: sortSessions(state.sessions) });
+    touchBackup('session-edit');
+  }
   return updated;
 }
 
 /** Reabre una sesión del historial para editarla (cierra la que estuviera en curso). */
 export function reopenSession(id: string): Session | undefined {
   closeCurrentSession();
-  return patchSession(id, (s) => {
+  const reopened = patchSession(id, (s) => {
     s.status = 'in-progress';
   });
+  // Reabrir ya cambia el historial (la sesión deja de estar cerrada).
+  if (reopened) touchBackup('session-edit');
+  return reopened;
 }
 
 export function deleteSession(id: string): void {
   setState({ sessions: state.sessions.filter((s) => s.id !== id) });
   db.removeSession(id).catch((e) => logError('borrar la sesión', e));
+  touchBackup('session-edit');
 }
 
 // ---------------------------------------------------------------------------

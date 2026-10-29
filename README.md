@@ -32,7 +32,8 @@ dispositivo. Funciona sin conexión e instalable desde el navegador.
   (reabrir), **fecha de realización editable** y borrado, volumen y racha.
 - **Ajustes**: **tema (automático/claro/oscuro)**, cambio de unidad kg/lb que **convierte
   los pesos guardados** (con confirmación), presets de descanso, **exportar/importar JSON**
-  validado, **copia de seguridad en Google Drive** (opcional y manual) y borrado total.
+  validado, **copia de seguridad en Google Drive** (opcional; manual o automática) y borrado
+  total.
 
 ## Copia de seguridad en Google Drive (opcional)
 
@@ -46,7 +47,14 @@ GymRutinas/
   copia-2026-10-28-1842.json    ← copias fechadas (se conservan las 10 últimas)
 ```
 
-- Copia **manual**: se sube al pulsar *Subir ahora*; no hay sincronización automática.
+- Copia **manual** (*Subir ahora*) o **automática**, que se activa en Ajustes: sube al
+  terminar una sesión (a los 5 s) y, tras editar una sesión, una rutina o un ejercicio,
+  cuando dejas de tocar nada (20–30 s), de modo que una ráfaga de cambios produce una sola
+  copia.
+- Las copias fechadas se crean al terminar una sesión y al subir a mano; las ediciones solo
+  actualizan `gymrutinas-backup.json`, para no expulsar del historial las de días anteriores.
+- Si no hay conexión o Google pide volver a autorizar, la app lo avisa y queda la vía
+  manual; nunca restaura nada por su cuenta.
 - Permiso **`drive.file`** (no sensible): la app solo ve los ficheros que ella crea.
 - *Restaurar* valida el JSON con el mismo criterio que el import por fichero y pide
   confirmación antes de reemplazar los datos locales.
@@ -123,7 +131,7 @@ tests/             # vitest (170 tests)
 
 ## Roadmap
 
-- ✓ **Copia de seguridad en Google Drive** (v0.7.0, manual; ver arriba).
+- ✓ **Copia de seguridad en Google Drive** (v0.7.0; manual o automática).
 - Sincronización automática entre dispositivos (requiere backend que custodie refresh
   tokens: un access token de navegador dura ~1 h y renovarlo exige un gesto).
 - Estadísticas y gráficas de progresión.

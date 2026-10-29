@@ -113,12 +113,19 @@ export interface Settings {
   restPresets: number[]; // 6 duraciones en segundos
   activeRoutineId?: string;
   theme: ThemeMode; // por defecto, el del dispositivo
+  /**
+   * Subir la copia a Google Drive al terminar una sesión. Desactivado por
+   * defecto: cada subida es una petición de red a un servicio externo, así que
+   * se activa a propósito desde Ajustes.
+   */
+  autoBackup: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   unit: 'kg',
   restPresets: [60, 90, 120, 180, 240, 300],
   theme: 'auto',
+  autoBackup: false,
 };
 
 /**
