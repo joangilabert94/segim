@@ -70,10 +70,17 @@ export function fmtLoadUnit(
   return text === 'PC' || text === '—' ? text : `${text} ${unit}`;
 }
 
-export function loadSuffix(profile: Pick<LoadProfile, 'load'>, unit: Unit): string {
-  if (profile.load === 'bodyweight') return `+${unit}`;
-  if (profile.load === 'assisted') return `−${unit}`;
-  return unit;
+/** Signo que acompaña al peso de la serie: `+` lastre, `−` asistencia. */
+export function loadSign(profile: Pick<LoadProfile, 'load'>): string {
+  if (profile.load === 'bodyweight') return '+';
+  if (profile.load === 'assisted') return '−';
+  return '';
+}
+
+export function loadFieldLabel(profile: Pick<LoadProfile, 'load'>): string {
+  if (profile.load === 'bodyweight') return 'Lastre';
+  if (profile.load === 'assisted') return 'Asistencia';
+  return 'Peso';
 }
 
 export const LOAD_LABELS: Record<LoadType, string> = {

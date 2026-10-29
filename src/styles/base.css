@@ -395,6 +395,20 @@ textarea.input {
   pointer-events: none;
 }
 
+.num-sign {
+  position: absolute;
+  left: 8px;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--accent-text);
+  pointer-events: none;
+}
+
+.num-field.has-sign input {
+  width: 74px;
+  padding-left: 20px;
+}
+
 .segmented {
   display: inline-flex;
   background: var(--surface-2);

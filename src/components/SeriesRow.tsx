@@ -8,7 +8,14 @@ import {
   parseNumber,
   parseRepsFixed,
 } from '../services/format';
-import { compareLoad, EXTERNAL_LOAD, fmtLoad, loadSuffix, type LoadProfile } from '../services/load';
+import {
+  compareLoad,
+  EXTERNAL_LOAD,
+  fmtLoad,
+  loadFieldLabel,
+  loadSign,
+  type LoadProfile,
+} from '../services/load';
 
 function fmtSetForCompare(set: PlannedSet, profile: LoadProfile): string {
   const w = fmtLoad(set.weight, profile);
@@ -108,12 +115,13 @@ export function SeriesRow({
             {performed.note && <em class="tag-note" title={performed.note}>✎</em>}
           </span>
           <div class="series-inputs">
-            <label class="num-field">
+            <label class={`num-field${loadSign(profile) ? ' has-sign' : ''}`}>
+              {loadSign(profile) && <span class="num-sign">{loadSign(profile)}</span>}
               <input
                 type="text"
                 inputMode="decimal"
                 value={weightText}
-                aria-label={`Peso de la serie ${index + 1}`}
+                aria-label={`${loadFieldLabel(profile)} de la serie ${index + 1}`}
                 onInput={(e) => setWeightText(e.currentTarget.value)}
                 onChange={(e) => commitWeight(e.currentTarget.value)}
                 onBlur={(e) => {
@@ -122,7 +130,7 @@ export function SeriesRow({
                   else commitWeight(e.currentTarget.value);
                 }}
               />
-              <span class="num-suffix">{loadSuffix(profile, unit)}</span>
+              <span class="num-suffix">{unit}</span>
             </label>
             <span class="times">×</span>
             {timed ? (

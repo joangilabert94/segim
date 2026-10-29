@@ -16,7 +16,13 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { BottomSheet } from '../components/BottomSheet';
 import { ExercisePicker } from '../components/ExercisePicker';
 import { fmtReps, fmtWeightInput, parseNumber, parseRepsRange } from '../services/format';
-import { fmtLoadUnit, loadSuffix, profileLookup, type LoadProfile } from '../services/load';
+import {
+  fmtLoadUnit,
+  loadFieldLabel,
+  loadSign,
+  profileLookup,
+  type LoadProfile,
+} from '../services/load';
 import { recentSince, setHistoryForExercise } from '../services/bestResults';
 import { lastRecentSets, suggestExercise } from '../services/doubleProgression';
 import { todayISO } from '../services/format';
@@ -567,7 +573,8 @@ export function RoutineEditor({ id }: { id: string }) {
                         {modeChipText(set)}
                       </button>
                     </span>
-                    <label class="num-field">
+                    <label class={`num-field${loadSign(profile) ? ' has-sign' : ''}`}>
+                      {loadSign(profile) && <span class="num-sign">{loadSign(profile)}</span>}
                       <input
                         type="text"
                         inputMode="decimal"
@@ -576,14 +583,14 @@ export function RoutineEditor({ id }: { id: string }) {
                           (set.weight !== undefined ? fmtWeightInput(set.weight) : '')
                         }
                         placeholder="peso"
-                        aria-label={`Peso planeado de la serie ${si + 1}`}
+                        aria-label={`${loadFieldLabel(profile)} ${profile.load === 'assisted' ? 'planeada' : 'planeado'} de la serie ${si + 1}`}
                         onInput={(e) => {
                           updateDraft(weightKey, e.currentTarget.value);
                           setPlannedWeight(di, ei, si, e.currentTarget.value);
                         }}
                         onBlur={() => clearDraft(weightKey)}
                       />
-                      <span class="num-suffix">{loadSuffix(profile, s.settings.unit)}</span>
+                      <span class="num-suffix">{s.settings.unit}</span>
                     </label>
                     <span class="times">×</span>
                     {set.durationSec !== undefined ? (
