@@ -381,7 +381,7 @@ export function SettingsView() {
                 {!drive?.connected
                   ? 'Conecta con tu Drive para poder activarla.'
                   : autoOn
-                    ? 'Al finalizar una sesión se sube a los pocos segundos; al editar una sesión, una rutina o un ejercicio, tras un rato sin tocar nada (30 s). Verás un aviso con el resultado, también si Google pide volver a autorizar.'
+                    ? 'Al finalizar una sesión se sube a los pocos segundos; al editar una sesión, una rutina o un ejercicio, tras un rato sin tocar nada (30 s). El permiso de Google dura una hora: si ha caducado, el aviso trae un botón para autorizar y subir en un toque.'
                     : 'Solo se sube cuando pulses ☁️ Subir ahora.'}
               </p>
             </div>

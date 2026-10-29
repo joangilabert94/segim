@@ -15,6 +15,18 @@ export function NoticeToast() {
       aria-live={notice.kind === 'error' ? 'assertive' : 'polite'}
     >
       <span class="toast-text">{notice.text}</span>
+      {notice.action && (
+        <button
+          class="btn btn-sm toast-action"
+          onClick={() => {
+            const run = notice.action?.run;
+            dismissNotice();
+            run?.();
+          }}
+        >
+          {notice.action.label}
+        </button>
+      )}
       <button class="toast-close" aria-label="Cerrar aviso" onClick={() => dismissNotice()}>
         ✕
       </button>

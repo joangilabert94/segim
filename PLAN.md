@@ -274,8 +274,9 @@ Implementada como **copia de seguridad** (manual o automática), no como sincron
 - **Cuándo se sube**: al pulsar *Subir ahora* y, si se activa la copia automática en
   Ajustes, al **terminar una sesión** (5 s de retardo) y al **editar** una sesión, una
   rutina o un ejercicio (20–30 s sin tocar nada, para que una ráfaga de cambios acabe en
-  una sola subida). Una subida a la vez (cola), token pedido en silencio y, si Google
-  exige interacción, aviso con la vía manual. Las ediciones solo actualizan
+  una sola subida). Una subida a la vez (cola). Sin token vigente no se pide en segundo
+  plano (Google lo pide con una ventana emergente que el navegador bloquea sin un toque):
+  se avisa con un botón *☁️ Subir ahora* que autoriza y sube en un toque. Las ediciones solo actualizan
   `segim-backup.json`; las copias fechadas se crean al cerrar sesión o a mano, para
   que la rotación de 10 no expulse las de días anteriores.
 - **Dónde**: carpeta `Segim` del Drive del usuario: `segim-backup.json` (la app se llamó
@@ -289,8 +290,9 @@ Implementada como **copia de seguridad** (manual o automática), no como sincron
 - **Permiso**: `https://www.googleapis.com/auth/drive.file`, **no sensible**: la app solo
   ve los ficheros que ella crea. Sin client secret y sin backend.
 - **Sesión**: modelo token de Google Identity Services. El access token dura ~1 h y vive
-  solo en memoria; se renueva con `prompt: 'none'` (sin UI) mientras el consentimiento
-  siga vivo y, si Google exige interacción, al pulsar el botón.
+  solo en memoria; renovarlo abre la ventana de Google (incluso con `prompt: 'none'`,
+  comprobado), así que solo se pide desde un toque: *Subir ahora*, *Restaurar* o el botón
+  del aviso de la copia automática.
 - **Restaurar**: descarga, valida con `parseBackup` (una copia dañada se rechaza sin tocar
   los datos) y pide confirmación mostrando fecha y recuentos. Disponible también sin
   conexión previa (busca la copia por nombre), que es como se migra a un móvil nuevo.
@@ -322,9 +324,9 @@ Implementada como **copia de seguridad** (manual o automática), no como sincron
 - **IndexedDB vs localStorage**: IndexedDB por el volumen de sesiones con series y notas (límite ~5 MB en localStorage).
 - Una sola sesión en curso a la vez (modelo simple, sin confusiones).
 - **OAuth sin backend**: no hay refresh token; el token dura ~1 h y renovarlo exige un
-  gesto del usuario. La copia manual sigue siendo la vía principal; la automática pide el
-  token en silencio (`prompt: 'none'`) y, si Google exige interacción, avisa en lugar de
-  abrir una ventana sin gesto previo.
+  gesto del usuario. La copia automática sube sola durante la hora que dura el token;
+  después avisa con un botón para autorizar y subir en un toque, en lugar de abrir una
+  ventana sin gesto previo.
 - **Modo Testing de Google**: 100 usuarios y consentimiento cada 7 días hasta publicar y
   verificar la marca (con `drive.file` no hay auditoría de seguridad).
 - **Multi-dispositivo**: sin merge; dos dispositivos comparten un único fichero y la

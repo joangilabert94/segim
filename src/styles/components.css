@@ -1207,6 +1207,11 @@
   flex: 1;
 }
 
+.toast-action {
+  flex: none;
+  align-self: center;
+}
+
 .toast-close {
   flex: none;
   width: 24px;

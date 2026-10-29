@@ -7,17 +7,16 @@
 //
 // Reglas que no se negocian:
 // - Solo si el usuario lo activa en Ajustes y ya hay una copia vinculada.
-// - Nunca abre ventanas de Google: al terminar una sesión no hay gesto de
-//   usuario, así que el token se pide en silencio (`interactive: false`). Si
-//   Google exige interacción, se avisa y se deja la vía manual; jamás se dice
-//   que se ha subido algo que no se ha subido.
+// - Nunca abre ventanas de Google por su cuenta: al terminar una sesión no hay
+//   gesto de usuario. Sin token vigente se avisa con un botón que sube en un
+//   toque; jamás se dice que se ha subido algo que no se ha subido.
 // - Una subida a la vez: dos sesiones seguidas se encolan en lugar de competir
 //   por el token o duplicar la copia fechada.
 // - Un fallo no interrumpe nada: la sesión ya está guardada en el dispositivo.
 
 import type { BackupFile, BackupTarget } from '../backup';
 import { fmtDateTime } from '../format';
-import { pushNotice } from '../notices';
+import { type NoticeAction, pushNotice } from '../notices';
 import { DriveError } from './api';
 import { driveTarget } from './target';
 
@@ -49,7 +48,7 @@ export type AutoBackupSkipReason = 'disabled' | 'unavailable' | 'not-connected';
 export type AutoBackupOutcome =
   | { status: 'uploaded'; syncedAt: string; warning?: string }
   | { status: 'skipped'; reason: AutoBackupSkipReason }
-  | { status: 'failed'; message: string };
+  | { status: 'failed'; message: string; needsAuth?: boolean };
 
 export interface AutoBackupOptions {
   /** Datos a copiar. Se lee al subir, no al encolar: así lleva lo último. */
@@ -57,13 +56,16 @@ export interface AutoBackupOptions {
   /** `settings.autoBackup`. Si es false no se hace nada, ni siquiera se avisa. */
   enabled: boolean;
   target?: BackupTarget;
-  notify?: (text: string, kind: 'ok' | 'info' | 'error') => void;
+  notify?: (text: string, kind: 'ok' | 'info' | 'error', action?: NoticeAction) => void;
   /** `false` = solo actualiza la copia viva (ediciones). Por defecto, true. */
   dated?: boolean;
+  /** Solo desde un toque del usuario: permite abrir la ventana de Google. */
+  interactive?: boolean;
 }
 
 /** Recordatorio que acompaña a cualquier fallo: siempre queda la vía manual. */
 export const MANUAL_HINT = 'Puedes subirla a mano desde Ajustes (☁️ Subir ahora).';
+export const AUTH_HINT = 'Toca ☁️ Subir ahora para autorizar y subirla.';
 
 export interface AutoBackupNotice {
   text: string;
@@ -75,7 +77,7 @@ export function autoBackupNotice(outcome: AutoBackupOutcome): AutoBackupNotice |
   if (outcome.status === 'skipped') return null;
   if (outcome.status === 'failed') {
     return {
-      text: `No se pudo subir la copia. ${outcome.message} ${MANUAL_HINT}`,
+      text: `No se pudo subir la copia. ${outcome.message} ${outcome.needsAuth ? AUTH_HINT : MANUAL_HINT}`,
       kind: 'error',
     };
   }
@@ -106,13 +108,24 @@ function failureMessage(err: unknown): string {
 
 export async function autoBackup(options: AutoBackupOptions): Promise<AutoBackupOutcome> {
   const target = options.target ?? driveTarget;
-  const notify = options.notify ?? pushNotice;
+  const notify =
+    options.notify ??
+    ((text: string, kind: 'ok' | 'info' | 'error', action?: NoticeAction) =>
+      pushNotice(text, kind, { action }));
 
   if (!options.enabled) return { status: 'skipped', reason: 'disabled' };
 
   const finish = (outcome: AutoBackupOutcome): AutoBackupOutcome => {
     const notice = autoBackupNotice(outcome);
-    if (notice) notify(notice.text, notice.kind);
+    if (!notice) return outcome;
+    const action: NoticeAction | undefined =
+      outcome.status === 'failed' && outcome.needsAuth
+        ? {
+            label: '☁️ Subir ahora',
+            run: () => void scheduleAutoBackup({ ...options, interactive: true }),
+          }
+        : undefined;
+    notify(notice.text, notice.kind, action);
     return outcome;
   };
 
@@ -123,13 +136,28 @@ export async function autoBackup(options: AutoBackupOptions): Promise<AutoBackup
     // explícita del usuario en Ajustes (la primera subida es la que conecta).
     if (!status.connected) return finish({ status: 'skipped', reason: 'not-connected' });
 
-    const uploadOptions: { interactive: boolean; dated?: boolean } = { interactive: false };
+    const interactive = options.interactive === true;
+    // Pedir el permiso sin un toque abre una ventana de Google que el navegador
+    // bloquea: se avisa y el toque llega desde el botón del aviso.
+    if (!interactive && status.authorized === false) {
+      return finish({
+        status: 'failed',
+        message: 'El permiso de Google ha caducado.',
+        needsAuth: true,
+      });
+    }
+
+    const uploadOptions: { interactive: boolean; dated?: boolean } = { interactive };
     if (options.dated === false) uploadOptions.dated = false;
 
     const result = await target.upload(options.build(), uploadOptions);
     return finish({ status: 'uploaded', ...result });
   } catch (err) {
-    return finish({ status: 'failed', message: failureMessage(err) });
+    return finish({
+      status: 'failed',
+      message: failureMessage(err),
+      ...(err instanceof DriveError && err.kind === 'auth' ? { needsAuth: true } : {}),
+    });
   }
 }
 

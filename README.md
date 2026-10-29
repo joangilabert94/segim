@@ -55,7 +55,9 @@ Segim/
 - Las copias fechadas se crean al terminar una sesión y al subir a mano; las ediciones solo
   actualizan `segim-backup.json`, para no expulsar del historial las de días anteriores.
 - Si no hay conexión o Google pide volver a autorizar, la app lo avisa y queda la vía
-  manual; nunca restaura nada por su cuenta.
+  manual; nunca restaura nada por su cuenta. Sin permiso vigente (dura ~1 h) no intenta
+  pedirlo en segundo plano, porque el navegador bloquea esa ventana: el aviso trae un botón
+  *☁️ Subir ahora* que autoriza y sube en un toque.
 - El JSON conserva la marca interna `"app": "gymrutinas"` y la app sigue leyendo
   `gymrutinas-backup.json`: son identificadores de formato, no el nombre visible, y cambiarlos
   invalidaría las copias ya guardadas.

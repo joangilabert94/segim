@@ -15,7 +15,7 @@ import type { BackupFile, BackupTarget, BackupTargetStatus } from '../backup';
 import { ExistingBackupError, parseBackup } from '../backup';
 import { BACKUP_FOLDER_NAME, type DriveFileMeta, DriveError, datedCopyName } from './api';
 import * as api from './api';
-import { forgetToken, getAccessToken, isDriveConfigured } from './auth';
+import { forgetToken, getAccessToken, hasValidToken, isDriveConfigured } from './auth';
 import type { DriveMeta, DriveMetaStore } from '../../db/driveStore';
 import { driveMetaStore } from '../../db/driveStore';
 
@@ -52,6 +52,7 @@ export interface DriveTargetOptions {
   client?: DriveClient;
   metaStore?: DriveMetaStore;
   isConfigured?: () => boolean;
+  hasToken?: () => boolean;
   maxCopies?: number;
   /** Reloj inyectable: los tests fijan el nombre de la copia fechada. */
   now?: () => Date;
@@ -62,6 +63,7 @@ export function createDriveTarget(options: DriveTargetOptions = {}): BackupTarge
   const client: DriveClient = options.client ?? api;
   const metaStore = options.metaStore ?? driveMetaStore;
   const configured = options.isConfigured ?? isDriveConfigured;
+  const hasToken = options.hasToken ?? hasValidToken;
   const maxCopies = options.maxCopies ?? MAX_DATED_COPIES;
   const now = options.now ?? (() => new Date());
 
@@ -242,6 +244,7 @@ export function createDriveTarget(options: DriveTargetOptions = {}): BackupTarge
         connected: !!meta?.fileId,
         lastSyncAt: meta?.lastSyncAt,
         account: meta?.account,
+        authorized: hasToken(),
       };
     },
   };

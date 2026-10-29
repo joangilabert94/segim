@@ -1,10 +1,9 @@
 // Autorización con Google Identity Services (modelo token).
 //
 // Sin backend no hay refresh token: Google emite un access token de ~1 h y hay
-// que volver a pedirlo. Con `prompt: 'none'` Google lo devuelve SIN mostrar
-// nada mientras el consentimiento siga vivo; si exige interacción (sesión de
-// Google cerrada, permiso revocado), hay que abrir la ventana con un gesto del
-// usuario. El token vive SOLO en memoria: nunca en localStorage ni IndexedDB.
+// que volver a pedirlo. Incluso con `prompt: 'none'` lo pide con una ventana
+// emergente, que el navegador bloquea si no viene de un toque del usuario.
+// El token vive SOLO en memoria: nunca en localStorage ni IndexedDB.
 
 import { DriveError } from './api';
 
@@ -113,8 +112,8 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
 /**
  * Devuelve un access token.
  *
- * - `interactive: false` intenta sin abrir nada (`prompt: 'none'`) y lanza
- *   `DriveError` de tipo `auth` si Google necesita al usuario.
+ * - `interactive: false` usa `prompt: 'none'` y lanza `DriveError` de tipo
+ *   `auth` si Google necesita al usuario o el navegador bloquea la ventana.
  * - `interactive: true` abre la ventana de Google (debe venir de un clic).
  */
 export async function getAccessToken(interactive = true): Promise<string> {
@@ -162,7 +161,7 @@ export async function getAccessToken(interactive = true): Promise<string> {
     interactive ? 180_000 : 20_000,
     interactive
       ? 'La ventana de Google no ha respondido. Inténtalo de nuevo.'
-      : 'Google no ha devuelto el permiso. Toca "Sincronizar" para volver a autorizar.',
+      : 'Google no ha devuelto el permiso. Toca "☁️ Subir ahora" para volver a autorizar.',
   );
 
   if (response.error || !response.access_token) {

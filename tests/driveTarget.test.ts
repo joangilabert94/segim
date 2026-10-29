@@ -73,6 +73,7 @@ const target = (
   store: DriveMetaStore,
   options: {
     getToken?: (interactive: boolean) => Promise<string>;
+    hasToken?: () => boolean;
     maxCopies?: number;
     now?: () => Date;
   } = {},
@@ -81,6 +82,7 @@ const target = (
     client,
     metaStore: store,
     getToken: options.getToken ?? (async () => 'tok'),
+    hasToken: options.hasToken ?? (() => true),
     isConfigured: () => true,
     maxCopies: options.maxCopies,
     now: options.now ?? (() => NOW),
@@ -435,6 +437,15 @@ describe('estado', () => {
       available: true,
       connected: true,
       lastSyncAt: '2026-10-28T11:00:00.000Z',
+      authorized: true,
     });
+  });
+
+  it('indica si hace falta volver a autorizar antes de subir', async () => {
+    const store = memoryStore({ fileId: 'file-1' });
+
+    await expect(
+      target(fakeClient(), store, { hasToken: () => false }).status(),
+    ).resolves.toMatchObject({ connected: true, authorized: false });
   });
 });

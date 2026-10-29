@@ -7,6 +7,7 @@ import { DEFAULT_SETTINGS } from '../src/models';
 import { DriveError } from '../src/services/drive/api';
 import { fmtDateTime } from '../src/services/format';
 import {
+  AUTH_HINT,
   AUTO_BACKUP_DELAY_MS,
   MANUAL_HINT,
   autoBackup,
@@ -18,6 +19,9 @@ import {
   scheduleAutoBackup,
 } from '../src/services/drive/autoBackup';
 import { parseSettings } from '../src/services/validation';
+import { type NoticeAction, pushNotice } from '../src/services/notices';
+
+vi.mock('../src/services/notices', () => ({ pushNotice: vi.fn() }));
 
 const SYNCED_AT = '2026-10-28T18:42:00.000Z';
 
@@ -61,10 +65,11 @@ function fakeTarget(options: FakeOptions = {}) {
 }
 
 function collect() {
-  const notices: { text: string; kind: 'ok' | 'info' | 'error' }[] = [];
+  const notices: { text: string; kind: 'ok' | 'info' | 'error'; action?: NoticeAction }[] = [];
   return {
     notices,
-    notify: (text: string, kind: 'ok' | 'info' | 'error') => notices.push({ text, kind }),
+    notify: (text: string, kind: 'ok' | 'info' | 'error', action?: NoticeAction) =>
+      notices.push(action ? { text, kind, action } : { text, kind }),
   };
 }
 
@@ -140,7 +145,7 @@ describe('autoBackup: subida correcta', () => {
 });
 
 describe('autoBackup: fallos', () => {
-  it('si Google pide reautorizar, lo dice y recuerda la vía manual', async () => {
+  it('si Google pide reautorizar, lo dice y ofrece subir con un toque', async () => {
     const { target } = fakeTarget({
       upload: async () => {
         throw new DriveError('auth', 401, 'La sesión con Google ha caducado.');
@@ -155,7 +160,50 @@ describe('autoBackup: fallos', () => {
     expect(out.message).toContain('volver a autorizar');
     expect(notices).toHaveLength(1);
     expect(notices[0].kind).toBe('error');
-    expect(notices[0].text).toContain(MANUAL_HINT);
+    expect(notices[0].text).toContain(AUTH_HINT);
+    expect(notices[0].action?.label).toContain('Subir ahora');
+  });
+
+  it('sin permiso vigente no pide token en segundo plano: avisa con un botón', async () => {
+    const { target, upload } = fakeTarget({
+      status: { available: true, connected: true, authorized: false },
+    });
+    const { notices, notify } = collect();
+
+    const out = await autoBackup({ build: backup, enabled: true, target, notify });
+
+    expect(out).toMatchObject({ status: 'failed', needsAuth: true });
+    expect(upload).not.toHaveBeenCalled();
+    expect(notices[0].text).toContain(AUTH_HINT);
+    expect(notices[0].action).toBeDefined();
+  });
+
+  it('sin notify propio, el aviso global lleva el botón', async () => {
+    const { target } = fakeTarget({
+      status: { available: true, connected: true, authorized: false },
+    });
+
+    await autoBackup({ build: backup, enabled: true, target });
+
+    expect(pushNotice).toHaveBeenCalledWith(
+      expect.stringContaining(AUTH_HINT),
+      'error',
+      { action: expect.objectContaining({ label: '☁️ Subir ahora' }) },
+    );
+  });
+
+  it('el botón del aviso sube de forma interactiva', async () => {
+    const { target, upload, status } = fakeTarget();
+    status.mockResolvedValueOnce({ available: true, connected: true, authorized: false });
+    const { notices, notify } = collect();
+
+    await autoBackup({ build: backup, enabled: true, target, notify, dated: false });
+    notices[0].action?.run();
+    await vi.waitFor(() => expect(upload).toHaveBeenCalledTimes(1));
+
+    expect(upload.mock.calls[0][1]).toEqual({ interactive: true, dated: false });
+    await vi.waitFor(() => expect(notices).toHaveLength(2));
+    expect(notices[1].kind).toBe('ok');
   });
 
   it('reutiliza el mensaje del error de Drive (sin conexión, cuota…)', async () => {

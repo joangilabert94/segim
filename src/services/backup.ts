@@ -40,6 +40,8 @@ export interface BackupTargetStatus {
   lastSyncAt?: string;
   /** Cuenta del destino a la que se sube la copia (correo), si la conoce. */
   account?: string;
+  /** `false` si subir ahora exige abrir la ventana de autorización. */
+  authorized?: boolean;
 }
 
 export interface BackupTarget {
