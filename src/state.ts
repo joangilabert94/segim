@@ -527,6 +527,8 @@ export function replaceAll(data: {
 }
 
 export function clearAllData(): void {
+  // La subida pendiente leería el estado ya vacío y machacaría la copia de Drive.
+  cancelPendingAutoBackup();
   setState({
     routines: [],
     exercises: [],
