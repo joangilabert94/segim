@@ -120,99 +120,104 @@ export function Hoy() {
         </div>
       )}
 
-      <div class="section-title">Siguiente entrenamiento</div>
+      {/* Con una sesión en curso no se propone empezar otra: al hacerlo se cerraría la actual. */}
+      {!inProgress && (
+        <>
+        <div class="section-title">Siguiente entrenamiento</div>
 
-      {active && day ? (
-        <div class="card">
-          <div class="card-title">
-            🎯 {day.name}
-            {active && <span class="chip">{active.name}</span>}
-          </div>
-          <p class="card-sub">
-            {day.exercises.length === 0
-              ? 'Este día todavía no tiene ejercicios.'
-              : `${plural(day.exercises.length, 'ejercicio', 'ejercicios')} · ${plural(
-                  plannedSets,
-                  'serie planeada',
-                  'series planeadas',
-                )}`}
-          </p>
-
-          {day.exercises.length > 0 && (
-            <ul class="day-preview">
-              {day.exercises.slice(0, 6).map((ex) => (
-                <li key={ex.id}>
-                  <b>{ex.name}</b>
-                  <span class="sets-n">
-                    {ex.plannedSets
-                      .map((p) => {
-                        const load = fmtLoad(p.weight, profileOf(ex.exerciseId));
-                        return p.durationSec !== undefined
-                          ? `${load}×${p.durationSec}s`
-                          : `${load}×${fmtReps(p.reps, p.repsMax)}`;
-                      })
-                      .join(', ')}
-                  </span>
-                </li>
-              ))}
-              {day.exercises.length > 6 && (
-                <li>
-                  <span>…y {day.exercises.length - 6} más</span>
-                </li>
-              )}
-            </ul>
-          )}
-
-          <div class="routine-actions" style="margin-top:16px">
-            <button
-              class="btn btn-primary btn-lg btn-block"
-              disabled={day.exercises.length === 0}
-              onClick={() => requestBegin('day')}
-            >
-              Empezar {day.name}
-            </button>
-            {active && active.days.length > 1 && (
-              <button class="btn btn-secondary btn-block" onClick={() => setPickOpen(true)}>
-                🗓 Otro día de la rutina
-              </button>
-            )}
-          </div>
-        </div>
-      ) : (
-        <div class="card">
-          <div class="empty" style="padding:18px 8px">
-            <span class="empty-ico">📋</span>
-            <h3>
-              {active
-                ? 'Tu rutina no tiene días'
-                : s.routines.length > 0
-                  ? 'Todas tus rutinas están archivadas'
-                  : 'Crea tu primera rutina'}
-            </h3>
-            <p>
-              {active
-                ? 'Añade un día con sus ejercicios y series para poder empezar desde aquí.'
-                : s.routines.length > 0
-                  ? 'Desarchiva una rutina para recuperar el día sugerido. También puedes entrenar sin rutina.'
-                  : 'Define tus días, ejercicios y las series con su peso y repeticiones.'}
+        {active && day ? (
+          <div class="card">
+            <div class="card-title">
+              🎯 {day.name}
+              {active && <span class="chip">{active.name}</span>}
+            </div>
+            <p class="card-sub">
+              {day.exercises.length === 0
+                ? 'Este día todavía no tiene ejercicios.'
+                : `${plural(day.exercises.length, 'ejercicio', 'ejercicios')} · ${plural(
+                    plannedSets,
+                    'serie planeada',
+                    'series planeadas',
+                  )}`}
             </p>
-            <button
-              class="btn btn-primary"
-              onClick={() => navigate(active ? `/rutinas/${active.id}` : '/rutinas')}
-            >
-              {active ? 'Editar rutina' : s.routines.length > 0 ? 'Ver rutinas' : 'Ir a Rutinas'}
-            </button>
-          </div>
-        </div>
-      )}
 
-      <button
-        class="btn btn-block"
-        style="margin-top:12px"
-        onClick={() => requestBegin('free')}
-      >
-        Sesión libre (sin rutina)
-      </button>
+            {day.exercises.length > 0 && (
+              <ul class="day-preview">
+                {day.exercises.slice(0, 6).map((ex) => (
+                  <li key={ex.id}>
+                    <b>{ex.name}</b>
+                    <span class="sets-n">
+                      {ex.plannedSets
+                        .map((p) => {
+                          const load = fmtLoad(p.weight, profileOf(ex.exerciseId));
+                          return p.durationSec !== undefined
+                            ? `${load}×${p.durationSec}s`
+                            : `${load}×${fmtReps(p.reps, p.repsMax)}`;
+                        })
+                        .join(', ')}
+                    </span>
+                  </li>
+                ))}
+                {day.exercises.length > 6 && (
+                  <li>
+                    <span>…y {day.exercises.length - 6} más</span>
+                  </li>
+                )}
+              </ul>
+            )}
+
+            <div class="routine-actions" style="margin-top:16px">
+              <button
+                class="btn btn-primary btn-lg btn-block"
+                disabled={day.exercises.length === 0}
+                onClick={() => requestBegin('day')}
+              >
+                Empezar {day.name}
+              </button>
+              {active && active.days.length > 1 && (
+                <button class="btn btn-secondary btn-block" onClick={() => setPickOpen(true)}>
+                  🗓 Otro día de la rutina
+                </button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div class="card">
+            <div class="empty" style="padding:18px 8px">
+              <span class="empty-ico">📋</span>
+              <h3>
+                {active
+                  ? 'Tu rutina no tiene días'
+                  : s.routines.length > 0
+                    ? 'Todas tus rutinas están archivadas'
+                    : 'Crea tu primera rutina'}
+              </h3>
+              <p>
+                {active
+                  ? 'Añade un día con sus ejercicios y series para poder empezar desde aquí.'
+                  : s.routines.length > 0
+                    ? 'Desarchiva una rutina para recuperar el día sugerido. También puedes entrenar sin rutina.'
+                    : 'Define tus días, ejercicios y las series con su peso y repeticiones.'}
+              </p>
+              <button
+                class="btn btn-primary"
+                onClick={() => navigate(active ? `/rutinas/${active.id}` : '/rutinas')}
+              >
+                {active ? 'Editar rutina' : s.routines.length > 0 ? 'Ver rutinas' : 'Ir a Rutinas'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <button
+          class="btn btn-block"
+          style="margin-top:12px"
+          onClick={() => requestBegin('free')}
+        >
+          Sesión libre (sin rutina)
+        </button>
+        </>
+      )}
 
       <div class="section-title">Últimas sesiones</div>
       {recent.length === 0 ? (

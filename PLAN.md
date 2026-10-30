@@ -123,6 +123,9 @@ Settings {
 - Tarjeta con el día que toca: ejercicios que lo componen (vista previa).
 - Últimas sesiones (3-5) con fecha y nº de ejercicios.
 - Botón fijo grande **"Iniciar sesión"**.
+- Con una **sesión en curso** solo se muestra esa sesión (*Reanudar entrenamiento*): se ocultan
+  el siguiente entrenamiento, *Otro día de la rutina* y *Sesión libre*, porque empezar otra
+  cerraría la actual.
 
 ### 4.2 Sesión / Modo entrenamiento (`#/sesion`)
 - Al iniciar desde un día de rutina: se crean las `SessionEntry` con **una `PerformedSet` por cada `PlannedSet`**, y **se pre-rellena serie a serie** con el resultado más exigente de esa serie en las **últimas 8 semanas** que alcance el plan en peso **y** reps a la vez; si ninguno lo alcanza, con el plan. Nunca se combina el peso de un día con las reps de otro, y un récord antiguo no vuelve tras un parón. *Actualizar plan* (editor) aplica la misma regla.
