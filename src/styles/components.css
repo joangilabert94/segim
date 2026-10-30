@@ -660,6 +660,35 @@
   margin-top: 14px;
 }
 
+.routine-span {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.routine-span div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border-radius: var(--r-sm);
+}
+
+.routine-span span {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.routine-span b {
+  font-size: 0.86rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .day-preview {
   list-style: none;
   margin: 12px 0 0;

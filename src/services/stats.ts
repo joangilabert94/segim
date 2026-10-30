@@ -1,8 +1,28 @@
 import type { PerformedSet, Session } from '../models';
 import { daysBetween, todayISO } from './format';
 import { EXTERNAL_LOAD, effectiveLoad, type LoadProfile, type ProfileLookup } from './load';
+import { weekStart } from './weeklyVolume';
 
 const externalOnly: ProfileLookup = () => EXTERNAL_LOAD;
+
+export interface RoutineSpan {
+  first: string;
+  last: string;
+  weeks: number;
+}
+
+/** Primera y última sesión completada de la rutina y las semanas (de lunes a domingo) entre ambas. */
+export function routineSpan(routineId: string, sessions: Session[]): RoutineSpan | undefined {
+  let first: string | undefined;
+  let last: string | undefined;
+  for (const session of sessions) {
+    if (session.status !== 'completed' || session.routineId !== routineId) continue;
+    if (first === undefined || session.date < first) first = session.date;
+    if (last === undefined || session.date > last) last = session.date;
+  }
+  if (first === undefined || last === undefined) return undefined;
+  return { first, last, weeks: daysBetween(weekStart(first), weekStart(last)) / 7 };
+}
 
 /** kg × reps de las series hechas; undefined si alguna no tiene carga conocida. */
 export function setsVolume(sets: PerformedSet[], profile: LoadProfile): number | undefined {

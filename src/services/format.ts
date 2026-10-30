@@ -1,4 +1,9 @@
 const fmtDayMonth = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short' });
+const fmtDayMonthYear = new Intl.DateTimeFormat('es-ES', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+});
 const fmtLong = new Intl.DateTimeFormat('es-ES', {
   weekday: 'long',
   day: 'numeric',
@@ -34,6 +39,11 @@ export function daysBetween(a: string, b: string): number {
 
 export function fmtDate(iso: string): string {
   return fmtDayMonth.format(parseISODate(iso));
+}
+
+/** "4 oct 2026" */
+export function fmtDateYear(iso: string): string {
+  return fmtDayMonthYear.format(parseISODate(iso));
 }
 
 export function fmtDateLong(iso: string): string {

@@ -159,6 +159,9 @@ Settings {
 
 ### 4.4 Rutinas (`#/rutinas`) y editor (`#/rutinas/:id`)
 - Lista con nº de días/ejercicios; acciones: editar, **clonar**, archivar, eliminar.
+- Cada rutina muestra la **primera** y la **última vez** que se completó una sesión suya y la
+  **duración en semanas**: semana (de lunes a domingo) del último día menos la del primero, así
+  que una sola sesión son 0 semanas. Sin sesiones: «Todavía no la has entrenado».
 - **Clonar rutina**: deep clone con todos los ids nuevos y `sourceRoutineId` apuntando al original; nombre "Copia de …" editable.
 - Editor en 3 niveles: días → ejercicios → **series planeadas**, donde **cada serie se edita individualmente** (peso objetivo opcional + reps + nota), con añadir/eliminar/reordenar series, reordenar ejercicios y días.
 - **Selector de ejercicio con autocompletado**: escribe y elige uno del catálogo (vincula

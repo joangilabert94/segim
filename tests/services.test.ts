@@ -14,7 +14,7 @@ import {
 } from '../src/services/bestResults';
 import { cloneRoutine } from '../src/services/cloneRoutine';
 import { suggestDay } from '../src/services/suggestDay';
-import { sessionsInLast, streak, volumeOf } from '../src/services/stats';
+import { routineSpan, sessionsInLast, streak, volumeOf } from '../src/services/stats';
 import {
   fmtRelative,
   fmtReps,
@@ -805,6 +805,40 @@ describe('plural — concordancia de cantidades', () => {
     expect(plural(1, 'serie', 'series')).toBe('1 serie');
     expect(plural(2, 'serie', 'series')).toBe('2 series');
     expect(plural(0, 'sesión', 'sesiones')).toBe('0 sesiones');
+  });
+});
+
+describe('routineSpan — primera y última vez de una rutina', () => {
+  const sessions = [
+    makeSession({ id: 'a', date: '2026-09-02', routineId: 'r1' }),
+    makeSession({ id: 'b', date: '2026-10-23', routineId: 'r1' }),
+    makeSession({ id: 'c', date: '2026-09-20', routineId: 'r1' }),
+    makeSession({ id: 'd', date: '2026-11-05', routineId: 'r1', status: 'in-progress' }),
+    makeSession({ id: 'e', date: '2026-08-01', routineId: 'otra' }),
+  ];
+
+  it('usa solo las sesiones completadas de esa rutina', () => {
+    expect(routineSpan('r1', sessions)).toMatchObject({ first: '2026-09-02', last: '2026-10-23' });
+  });
+
+  it('las semanas son la resta de la semana del último día menos la del primero', () => {
+    // Miércoles 2 sep (semana del 31 ago) → viernes 23 oct (semana del 19 oct): 7 semanas.
+    expect(routineSpan('r1', sessions)?.weeks).toBe(7);
+    expect(
+      routineSpan('r2', [
+        makeSession({ id: 'x', date: '2026-10-25', routineId: 'r2' }),
+        makeSession({ id: 'y', date: '2026-10-26', routineId: 'r2' }),
+      ])?.weeks,
+    ).toBe(1);
+  });
+
+  it('una sola sesión: 0 semanas; sin sesiones: nada', () => {
+    expect(routineSpan('r3', [makeSession({ date: '2026-10-29', routineId: 'r3' })])).toEqual({
+      first: '2026-10-29',
+      last: '2026-10-29',
+      weeks: 0,
+    });
+    expect(routineSpan('vacia', sessions)).toBeUndefined();
   });
 });
 

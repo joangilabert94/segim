@@ -12,7 +12,8 @@ import {
 import { cloneRoutine } from '../services/cloneRoutine';
 import { upsertRoutine } from '../state';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { plural } from '../services/format';
+import { fmtDateYear, plural } from '../services/format';
+import { routineSpan } from '../services/stats';
 
 export function Routines() {
   const s = useStore();
@@ -123,6 +124,7 @@ export function Routines() {
         s.routines.map((routine) => {
           const nExercises = routine.days.reduce((a, d) => a + d.exercises.length, 0);
           const isActive = activeId === routine.id;
+          const span = routineSpan(routine.id, s.sessions);
           return (
             <div class="card" key={routine.id}>
               <div class="routine-card-head">
@@ -139,6 +141,24 @@ export function Routines() {
                 {plural(routine.days.length, 'día', 'días')} ·{' '}
                 {plural(nExercises, 'ejercicio', 'ejercicios')}
               </p>
+              {span ? (
+                <div class="routine-span">
+                  <div>
+                    <span>Primera vez</span>
+                    <b>{fmtDateYear(span.first)}</b>
+                  </div>
+                  <div>
+                    <span>Última vez</span>
+                    <b>{fmtDateYear(span.last)}</b>
+                  </div>
+                  <div>
+                    <span>Duración</span>
+                    <b>{plural(span.weeks, 'semana', 'semanas')}</b>
+                  </div>
+                </div>
+              ) : (
+                <p class="hint">Todavía no la has entrenado.</p>
+              )}
 
               <div class="routine-actions">
                 <button class="btn btn-sm" onClick={() => navigate(`/rutinas/${routine.id}`)}>
