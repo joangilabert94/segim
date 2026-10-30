@@ -24,13 +24,14 @@ dispositivo. Funciona sin conexión e instalable desde el navegador.
   **No se mide la duración** (sin marcar arranque/final): solo cuenta la fecha de
   realización, que puedes cambiar cuando quieras.
 - **Rutinas**: editor por días → ejercicios → series (cada serie con su peso y reps),
-  reordenación de días, ejercicios y series, clonado profundo, rutina activa, archivar.
+  reordenación de días, ejercicios y series, clonado profundo, rutina activa, archivar. Cada
+  rutina muestra la **primera y la última vez** que la entrenaste y su **duración en semanas**.
 - **Compartir rutinas**: exportar/importar un `.json` con solo rutinas y sus ejercicios
   (nunca sesiones ni ajustes) desde la pestaña *Rutinas*; reimportar no duplica.
 - **Catálogo de ejercicios con id estable**: al montar una rutina autocompleta y elige un
   ejercicio existente o crea uno nuevo (queda guardado); la comparación entre sesiones usa
   el **id**, no el nombre. Pestaña *Ejercicios* para buscar, renombrar (propaga a todas las
-  rutinas) y limpiar el catálogo. Al cargar o importar se **fusionan los duplicados por
+  rutinas), ver la **última vez** que hiciste cada ejercicio y limpiar el catálogo. Al cargar o importar se **fusionan los duplicados por
   nombre** y se reparan los vínculos de rutinas e historial. Cada ejercicio puede ser
   **normal, de peso corporal (con lastre) o asistido** (menos asistencia es mejor), hacerse
   **por lado** (cuenta doble en kg) y tener su propio incremento de progresión.
@@ -174,7 +175,7 @@ src/
   views/           # Hoy, Session, History, SessionDetail, Routines, RoutineEditor, Exercises, Settings
   components/      # SeriesRow, ExercisePicker, BottomSheet, ConfirmDialog, RestControls
   styles/          # tokens, base, componentes
-tests/             # vitest (250 tests)
+tests/             # vitest (253 tests)
 ```
 
 ## Roadmap

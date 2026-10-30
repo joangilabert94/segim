@@ -2,16 +2,17 @@
 
 > Documento vivo. Cada cambio acordado se refleja aquí antes de tocar código.
 >
-> **Estado (29 oct 2026): v0.9.2.** Fases 0–4 completadas, catálogo de ejercicios, revisión
+> **Estado (30 oct 2026): v0.9.3.** Fases 0–4 completadas, catálogo de ejercicios, revisión
 > de robustez, **fase 2: copia de seguridad en Google Drive** (manual o automática, con
 > retardos), **renombrado de la app a Segim** e **iconos rediseñados** (PNG + SVG con
 > generador propio). v0.9.0 añade la **fase 6, entrenamiento guiado** (§9.2): lastrados,
 > asistidos y unilaterales, progresión doble, récords al finalizar y series semanales por
-> grupo muscular; v0.9.1 corrige detalles visuales y v0.9.2 avisa al finalizar con series
-> sin marcar. Verificado: `npm run typecheck` ✓ · `npm test` (250 tests) ✓ ·
+> grupo muscular; v0.9.1 corrige detalles visuales, v0.9.2 avisa al finalizar con series
+> sin marcar y v0.9.3 añade fechas de uso a rutinas y ejercicios. Verificado:
+> `npm run typecheck` ✓ · `npm test` (253 tests) ✓ ·
 > `npm run build` ✓ (PWA offline instalable). Incluye la **política de privacidad**
 > pública (`/segim/privacidad.html`) que Google exige para publicar la app. El despliegue
-> va por etiqueta de versión (`v0.9.2`).
+> va por etiqueta de versión (`v0.9.3`).
 
 ## 1. Objetivo
 
@@ -279,7 +280,7 @@ src/
     tokens.css
     base.css
     components.css
-tests/                     # vitest (250): comparación por id, catálogo, prefill, clonado, stats, Drive
+tests/                     # vitest (253): comparación por id, catálogo, prefill, clonado, stats, Drive
 README.md
 ```
 
@@ -447,9 +448,12 @@ la primera vez que se hace un ejercicio no hay récord):
 
 ## 11. Estado del repositorio y pendientes
 
-- **Versión**: `v0.9.2` — *Finalizar sesión* avisa si queda alguna serie sin marcar (cuántas
-  y de qué ejercicios) y pide confirmación.
-  El despliegue va por etiqueta: publicar `v0.9.2` actualiza GitHub Pages.
+- **Versión**: `v0.9.3` — Rutinas muestra la primera y la última vez de cada rutina y su
+  duración en semanas; Ejercicios muestra la última vez que se hizo cada ejercicio; Hoy no
+  propone otro entrenamiento si hay una sesión en curso.
+  El despliegue va por etiqueta: publicar `v0.9.3` actualiza GitHub Pages.
+- **v0.9.2** — *Finalizar sesión* avisa si queda alguna serie sin marcar (cuántas y de qué
+  ejercicios) y pide confirmación.
 - **v0.9.1** — aviso opaco y barras inferiores menos transparentes; el signo de lastre o
   asistencia va a la izquierda del campo y ya no tapa el número.
 - **v0.9.0** — fase 6 (§9.2): ejercicios de peso corporal con lastre, asistidos
