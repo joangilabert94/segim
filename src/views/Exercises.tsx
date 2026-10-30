@@ -7,7 +7,7 @@ import {
   setExerciseTraining,
   useStore,
 } from '../state';
-import { normalizeName } from '../services/previousSession';
+import { findPreviousSession, normalizeName } from '../services/previousSession';
 import { bestOverallForExercise } from '../services/bestResults';
 import {
   METRIC_LABELS,
@@ -20,7 +20,14 @@ import {
   type ProgressMetric,
   type ProgressPoint,
 } from '../services/progression';
-import { fmtReps, fmtWeight, fmtWeightInput, parseNumber } from '../services/format';
+import {
+  fmtDateYear,
+  fmtRelative,
+  fmtReps,
+  fmtWeight,
+  fmtWeightInput,
+  parseNumber,
+} from '../services/format';
 import { LOAD_LABELS, fmtLoadUnit, loadProfile, type LoadProfile } from '../services/load';
 import { BottomSheet } from '../components/BottomSheet';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -83,7 +90,7 @@ export function Exercises() {
   const statsById = useMemo(() => {
     const map = new Map<
       string,
-      { best: PerformedSet | undefined; points: ProgressPoint[] }
+      { best: PerformedSet | undefined; points: ProgressPoint[]; lastDate?: string }
     >();
     for (const ex of s.exercises) {
       const ref = { exerciseId: ex.id, name: ex.name };
@@ -91,6 +98,7 @@ export function Exercises() {
       map.set(ex.id, {
         best: bestOverallForExercise(s.sessions, ref, profile),
         points: progressSeries(s.sessions, ref, profile),
+        lastDate: findPreviousSession(s.sessions, ref)?.date,
       });
     }
     return map;
@@ -244,6 +252,11 @@ export function Exercises() {
                     ? `en ${usedBy} rutina${usedBy === 1 ? '' : 's'}`
                     : 'sin usar en rutinas'}
                 </div>
+                {stat?.lastDate && (
+                  <div class="sub">
+                    📅 Última vez: {fmtDateYear(stat.lastDate)} · {fmtRelative(stat.lastDate)}
+                  </div>
+                )}
                 {best !== undefined && (
                   <div class="sub">
                     🏆 Mejor: {fmtBest(best, profile, s.settings.unit)}

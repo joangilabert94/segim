@@ -174,6 +174,8 @@ Settings {
 
 ### 4.5 Ejercicios (`#/ejercicios`) — catálogo
 - Lista de todos los ejercicios con grupo muscular y nº de rutinas que lo usan.
+- **Última vez** que se hizo cada ejercicio (última sesión completada con alguna serie suya
+  marcada), con fecha relativa; los que nunca se han hecho no la muestran.
 - Buscador, crear nuevos, editar (renombrar/reagrupar con propagación) y quitar del catálogo
   (las rutinas y sesiones conservan sus datos).
 - **Sembrado automático**: si el catálogo está vacío pero hay rutinas, se rellena con sus
