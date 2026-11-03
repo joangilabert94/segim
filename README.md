@@ -27,11 +27,11 @@ dispositivo. Funciona sin conexión e instalable desde el navegador.
   reordenación de días, ejercicios y series, clonado profundo, rutina activa, archivar. Cada
   rutina muestra la **primera y la última vez** que la entrenaste y su **duración en semanas**.
 - **Compartir rutinas**: exportar/importar un `.json` desde la pestaña *Rutinas* (todas o una
-  sola desde su tarjeta), eligiendo
-  entre **solo rutinas y sus ejercicios** (para compartirla con otra persona, sin tus pesos)
-  o **rutinas + las sesiones realizadas de esas rutinas** (copia de seguridad o pasar el
-  historial a otro dispositivo). Nunca incluye ajustes, y reimportar no duplica rutinas,
-  ejercicios ni sesiones.
+  sola desde su tarjeta), eligiendo entre **solo rutinas y sus ejercicios** (para compartirla
+  con otra persona, sin tus pesos) o **rutinas + las sesiones realizadas de esas rutinas**
+  (copia de seguridad o pasar el historial a otro dispositivo). Nunca incluye ajustes, y
+  reimportar no duplica rutinas, ejercicios ni sesiones. Detalle y ejemplo del fichero en
+  [Compartir rutinas y llevar el historial](#compartir-rutinas-y-llevar-el-historial).
 - **Catálogo de ejercicios con id estable**: al montar una rutina autocompleta y elige un
   ejercicio existente o crea uno nuevo (queda guardado); la comparación entre sesiones usa
   el **id**, no el nombre. Pestaña *Ejercicios* para buscar, renombrar (propaga a todas las
@@ -47,6 +47,98 @@ dispositivo. Funciona sin conexión e instalable desde el navegador.
   peso corporal opcional (para 1RM y volumen de lastrados y asistidos), **exportar/importar JSON**
   validado, **copia de seguridad en Google Drive** (opcional; manual o automática) y borrado
   total.
+
+## Compartir rutinas y llevar el historial
+
+En *Rutinas*, **⬇️ Exportar rutinas** exporta todas y **⬇️ Exportar** en una tarjeta exporta solo
+esa. En los dos casos eliges qué lleva el `.json`:
+
+- **Solo rutinas y ejercicios**: la rutina y los ejercicios que usa. Es el fichero para pasársela a
+  otra persona, que empieza sin tus pesos.
+- **Rutinas + sesiones realizadas**: lo anterior más las sesiones **terminadas** de esas rutinas
+  (las que están en curso no viajan), con su fecha, su día, las notas y todas sus series.
+
+Los ajustes (unidad, tema, descansos, peso corporal…) nunca van en este fichero: para eso está la
+copia de **Ajustes** o la de Google Drive.
+
+### Qué hace la importación
+
+Al importar desde *Rutinas*:
+
+- **Rutinas**: se añaden por `id`. Si ya tienes una con el mismo `id` se omite en vez de
+  sobrescribirla, así que reimportar el mismo fichero no duplica ni pisa tus ediciones.
+- **Ejercicios**: se reutiliza el del catálogo con el mismo `id` o, si no, el que se llame igual;
+  solo se crean los que faltan, y las rutinas y sesiones importadas quedan vinculadas a él.
+- **Sesiones**: se añaden al historial por `id`, también sin duplicar. Su `exerciseId` se revincula
+  al ejercicio local equivalente (como en las rutinas), de modo que la comparación serie a serie y
+  los récords siguen funcionando. Una sesión inválida se descarta sin tumbar el resto.
+- El campo `sessions` es **opcional**: un fichero sin él (los antiguos, o cuando eliges solo
+  rutinas) importa únicamente rutinas.
+- Las sesiones de una **copia completa** (`"app": "gymrutinas"`) no se leen desde *Rutinas*: esa
+  copia se restaura entera en **Ajustes → Importar JSON**, que es donde también va el historial.
+
+### Ejemplo del fichero
+
+Un fichero de rutinas con sesiones, recortado a una rutina, un ejercicio y una sesión:
+
+```json
+{
+  "kind": "gymrutinas-routines",
+  "version": 1,
+  "exportedAt": "2026-11-03T07:30:00.000Z",
+  "routines": [
+    {
+      "id": "r-push",
+      "name": "Push",
+      "archived": false,
+      "createdAt": "2026-09-01T07:00:00.000Z",
+      "updatedAt": "2026-10-20T18:00:00.000Z",
+      "days": [
+        {
+          "id": "d1",
+          "name": "Día 1",
+          "exercises": [
+            {
+              "id": "re1",
+              "exerciseId": "e-press",
+              "name": "Press banca",
+              "plannedSets": [{ "weight": 60, "reps": 8 }]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "exercises": [
+    {
+      "id": "e-press",
+      "name": "Press banca",
+      "muscleGroup": "Pecho",
+      "createdAt": "2026-09-01T07:00:00.000Z"
+    }
+  ],
+  "sessions": [
+    {
+      "id": "s-2026-10-28",
+      "date": "2026-10-28",
+      "routineId": "r-push",
+      "dayId": "d1",
+      "dayName": "Día 1",
+      "status": "completed",
+      "entries": [
+        {
+          "exerciseId": "e-press",
+          "exerciseName": "Press banca",
+          "sets": [{ "weight": 62.5, "reps": 8, "done": true }]
+        }
+      ]
+    }
+  ]
+}
+```
+
+`kind` es lo que identifica el fichero; `sessions` solo aparece cuando se exportan y su `status`
+es `completed` en todas las que viajan. El orden de las claves no importa.
 
 ## Peso corporal, asistidos y unilaterales
 
