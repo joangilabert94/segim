@@ -12,13 +12,16 @@ import {
 import { cloneRoutine } from '../services/cloneRoutine';
 import { upsertRoutine } from '../state';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { BottomSheet } from '../components/BottomSheet';
 import { fmtDateYear, plural } from '../services/format';
 import { routineSpan } from '../services/stats';
+import { sessionsOfRoutines } from '../services/share';
 
 export function Routines() {
   const s = useStore();
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null);
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
+  const [exportTarget, setExportTarget] = useState<{ id?: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleCreate = () => {
@@ -26,17 +29,35 @@ export function Routines() {
     navigate(`/rutinas/${routine.id}`);
   };
 
-  const handleExport = () => {
+  const handleExport = (includeSessions: boolean) => {
+    const id = exportTarget?.id;
+    setExportTarget(null);
     try {
-      const n = exportRoutines();
+      const { routines, sessions } = exportRoutines(includeSessions, id ? [id] : undefined);
+      const rutinas = `${routines} rutina${routines === 1 ? '' : 's'} exportada${routines === 1 ? '' : 's'}`;
+      const sesiones = `${sessions} sesión${sessions === 1 ? '' : 'es'}`;
       setMessage({
         kind: 'ok',
-        text: `${n} rutina${n === 1 ? '' : 's'} exportada${n === 1 ? '' : 's'} (solo rutinas y sus ejercicios: sin sesiones ni ajustes).`,
+        text: includeSessions
+          ? sessions > 0
+            ? `${rutinas} con ${sesiones} realizada${sessions === 1 ? '' : 's'} (sin ajustes).`
+            : `${rutinas} sin sesiones: todavía no hay ninguna realizada de esas rutinas.`
+          : `${rutinas} (solo rutinas y sus ejercicios: sin sesiones ni ajustes).`,
       });
     } catch (err) {
       setMessage({ kind: 'error', text: err instanceof Error ? err.message : 'No se pudo exportar.' });
     }
   };
+
+  // Sin id, exporta todas; con id, solo esa rutina desde su tarjeta.
+  const routinesToExport = exportTarget?.id
+    ? s.routines.filter((r) => r.id === exportTarget.id)
+    : s.routines;
+  const sessionsCount = sessionsOfRoutines(routinesToExport, s.sessions).length;
+  const sessionsLabel = `${sessionsCount} ${sessionsCount === 1 ? 'sesión' : 'sesiones'} realizada${sessionsCount === 1 ? '' : 's'}`;
+  const exportTitle = exportTarget?.id
+    ? `Exportar ${routinesToExport[0]?.name ?? 'rutina'}`
+    : 'Exportar rutinas';
 
   const handleImport = async (file: File | undefined) => {
     if (!file) return;
@@ -47,6 +68,11 @@ export function Routines() {
       if (res.skipped) partes.push(`${res.skipped} ya existía${res.skipped === 1 ? '' : 'n'}`);
       if (res.exercisesAdded) {
         partes.push(`${res.exercisesAdded} ejercicio${res.exercisesAdded === 1 ? '' : 's'} nuevo${res.exercisesAdded === 1 ? '' : 's'} en el catálogo`);
+      }
+      if (res.sessionsAdded) {
+        partes.push(
+          `${res.sessionsAdded} sesión${res.sessionsAdded === 1 ? '' : 'es'} añadida${res.sessionsAdded === 1 ? '' : 's'} al historial`,
+        );
       }
       setMessage({
         kind: 'ok',
@@ -88,7 +114,7 @@ export function Routines() {
       </header>
 
       <div class="btn-row" style="margin-bottom:6px">
-        <button class="btn btn-sm" onClick={handleExport}>
+        <button class="btn btn-sm" onClick={() => setExportTarget({})}>
           ⬇️ Exportar rutinas
         </button>
         <button class="btn btn-sm" onClick={() => fileRef.current?.click()}>
@@ -103,8 +129,8 @@ export function Routines() {
         />
       </div>
       <p class="hint" style="margin-bottom:14px">
-        Comparte tus rutinas entre dispositivos: el fichero lleva rutinas y sus ejercicios,
-        nunca sesiones ni ajustes.
+        Comparte tus rutinas entre dispositivos: el fichero lleva rutinas y sus ejercicios y,
+        si quieres, también las sesiones realizadas de esas rutinas. Nunca ajustes.
       </p>
       {message && <div class={`inline-msg is-${message.kind}`}>{message.text}</div>}
 
@@ -167,6 +193,9 @@ export function Routines() {
                 <button class="btn btn-sm" onClick={() => handleClone(routine.id)}>
                   ⧉ Clonar
                 </button>
+                <button class="btn btn-sm" onClick={() => setExportTarget({ id: routine.id })}>
+                  ⬇️ Exportar
+                </button>
                 {!isActive && !routine.archived && (
                   <button
                     class="btn btn-sm"
@@ -199,6 +228,24 @@ export function Routines() {
           );
         })
       )}
+
+      <BottomSheet
+        open={exportTarget !== null}
+        onClose={() => setExportTarget(null)}
+        title={exportTitle}
+      >
+        <button class="sheet-action" onClick={() => handleExport(false)}>
+          📋 Solo rutinas y ejercicios
+        </button>
+        <button class="sheet-action" onClick={() => handleExport(true)}>
+          🗓 Rutinas + {sessionsLabel}
+        </button>
+        <p class="hint" style="margin:4px 0 0">
+          Sin sesiones es el fichero para compartir la rutina con otra persona, que empieza sin
+          tus pesos. Con sesiones sirve de copia de seguridad o para pasar tu historial a otro
+          dispositivo.
+        </p>
+      </BottomSheet>
 
       <ConfirmDialog
         open={confirmDelete !== null}

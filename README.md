@@ -26,8 +26,12 @@ dispositivo. Funciona sin conexión e instalable desde el navegador.
 - **Rutinas**: editor por días → ejercicios → series (cada serie con su peso y reps),
   reordenación de días, ejercicios y series, clonado profundo, rutina activa, archivar. Cada
   rutina muestra la **primera y la última vez** que la entrenaste y su **duración en semanas**.
-- **Compartir rutinas**: exportar/importar un `.json` con solo rutinas y sus ejercicios
-  (nunca sesiones ni ajustes) desde la pestaña *Rutinas*; reimportar no duplica.
+- **Compartir rutinas**: exportar/importar un `.json` desde la pestaña *Rutinas* (todas o una
+  sola desde su tarjeta), eligiendo
+  entre **solo rutinas y sus ejercicios** (para compartirla con otra persona, sin tus pesos)
+  o **rutinas + las sesiones realizadas de esas rutinas** (copia de seguridad o pasar el
+  historial a otro dispositivo). Nunca incluye ajustes, y reimportar no duplica rutinas,
+  ejercicios ni sesiones.
 - **Catálogo de ejercicios con id estable**: al montar una rutina autocompleta y elige un
   ejercicio existente o crea uno nuevo (queda guardado); la comparación entre sesiones usa
   el **id**, no el nombre. Pestaña *Ejercicios* para buscar, renombrar (propaga a todas las
@@ -183,6 +187,8 @@ tests/             # vitest (253 tests)
 - ✓ **Copia de seguridad en Google Drive** (v0.8.4; manual o automática, con retardos).
 - ✓ **v0.9.0**: lastrados, asistidos y unilaterales; progresión doble; récords al finalizar;
   series semanales por grupo muscular.
+- ✓ **v0.10.0**: compartir rutinas con o sin sus sesiones realizadas, todas o una sola desde
+  su tarjeta.
 - **Siguiente**: superseries.
 - Sincronización automática entre dispositivos (requiere backend que custodie refresh
   tokens: un access token de navegador dura ~1 h y renovarlo exige un gesto).

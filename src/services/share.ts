@@ -1,7 +1,7 @@
-import type { Exercise, Routine } from '../models';
+import type { Exercise, Routine, Session } from '../models';
 import { BACKUP_APP_ID } from './backup';
 import { findExercise } from './catalog';
-import { parseExercise, parseRoutine } from './validation';
+import { parseExercise, parseRoutine, parseSession } from './validation';
 
 // Estable a propósito, no el nombre visible de la app.
 export const ROUTINES_KIND = 'gymrutinas-routines';
@@ -12,6 +12,8 @@ export interface RoutinesFile {
   exportedAt: string;
   routines: Routine[];
   exercises: Exercise[];
+  // Opcional: solo cuando se exportan también las sesiones de esas rutinas.
+  sessions?: Session[];
 }
 
 const isObject = (v: unknown): v is Record<string, unknown> =>
@@ -35,21 +37,44 @@ const validExercises = (items: unknown[]): Exercise[] =>
     }
   });
 
+const validSessions = (items: unknown[]): Session[] =>
+  items.flatMap((item, i) => {
+    try {
+      return [parseSession(item, `La sesión ${i + 1}`)];
+    } catch {
+      return [];
+    }
+  });
+
+/** Sesiones realizadas (no las que están en curso) que pertenecen a esas rutinas. */
+export function sessionsOfRoutines(
+  routines: Routine[],
+  sessions: Session[],
+): Session[] {
+  const ids = new Set(routines.map((r) => r.id));
+  return sessions.filter(
+    (s) => s.status === 'completed' && s.routineId !== undefined && ids.has(s.routineId),
+  );
+}
+
 export function referencedExercises(
   routines: Routine[],
   catalog: Exercise[],
+  sessions: Session[] = [],
 ): Exercise[] {
   const out = new Map<string, Exercise>();
+  const add = (exerciseId: string | undefined, name: string) => {
+    const byId = exerciseId ? catalog.find((e) => e.id === exerciseId) : undefined;
+    const hit = byId ?? findExercise(catalog, name);
+    if (hit) out.set(hit.id, hit);
+  };
   for (const routine of routines) {
     for (const day of routine.days) {
-      for (const entry of day.exercises) {
-        const byId = entry.exerciseId
-          ? catalog.find((e) => e.id === entry.exerciseId)
-          : undefined;
-        const hit = byId ?? findExercise(catalog, entry.name);
-        if (hit) out.set(hit.id, hit);
-      }
+      for (const entry of day.exercises) add(entry.exerciseId, entry.name);
     }
+  }
+  for (const session of sessions) {
+    for (const entry of session.entries) add(entry.exerciseId, entry.exerciseName);
   }
   return [...out.values()];
 }
@@ -58,13 +83,15 @@ export function buildRoutinesFile(
   routines: Routine[],
   catalog: Exercise[],
   now: Date = new Date(),
+  sessions: Session[] = [],
 ): RoutinesFile {
   return {
     kind: ROUTINES_KIND,
     version: 1,
     exportedAt: now.toISOString(),
     routines,
-    exercises: referencedExercises(routines, catalog),
+    exercises: referencedExercises(routines, catalog, sessions),
+    ...(sessions.length > 0 ? { sessions } : {}),
   };
 }
 
@@ -107,27 +134,36 @@ export function parseRoutinesFile(text: string): RoutinesFile {
     throw new Error('El fichero no contiene ninguna rutina válida.');
   }
 
+  // Las sesiones solo se leen del fichero de rutinas: una copia completa se restaura en Ajustes.
+  const sessions = isRoutinesFile && Array.isArray(data.sessions)
+    ? validSessions(data.sessions)
+    : [];
+
   return {
     kind: ROUTINES_KIND,
     version: 1,
     exportedAt: typeof data.exportedAt === 'string' ? data.exportedAt : new Date().toISOString(),
     routines,
     exercises: Array.isArray(data.exercises) ? validExercises(data.exercises) : [],
+    ...(sessions.length > 0 ? { sessions } : {}),
   };
 }
 
 export interface MergeResult {
   routines: Routine[];
   exercises: Exercise[];
+  sessions: Session[];
   added: number;
   skipped: number;
   exercisesAdded: number;
+  sessionsAdded: number;
 }
 
 export function mergeRoutines(
   localRoutines: Routine[],
   localExercises: Exercise[],
   file: RoutinesFile,
+  localSessions: Session[] = [],
 ): MergeResult {
   const exercises = [...localExercises];
   const byId = new Map(exercises.map((e) => [e.id, e]));
@@ -181,5 +217,25 @@ export function mergeRoutines(
     added++;
   }
 
-  return { routines, exercises, added, skipped, exercisesAdded };
+  // Reimportar no duplica el historial: se descarta la sesión cuyo id ya existe.
+  const sessionIds = new Set(localSessions.map((s) => s.id));
+  const sessions = [...localSessions];
+  let sessionsAdded = 0;
+  for (const session of file.sessions ?? []) {
+    if (sessionIds.has(session.id)) continue;
+    sessions.push({
+      ...session,
+      entries: session.entries.map((entry) => {
+        if (!entry.exerciseId) return entry;
+        const mapped = idMap.get(entry.exerciseId);
+        return mapped && mapped !== entry.exerciseId
+          ? { ...entry, exerciseId: mapped }
+          : entry;
+      }),
+    });
+    sessionIds.add(session.id);
+    sessionsAdded++;
+  }
+
+  return { routines, exercises, sessions, added, skipped, exercisesAdded, sessionsAdded };
 }

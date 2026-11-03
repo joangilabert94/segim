@@ -14,7 +14,13 @@ import { normalizeName } from './services/previousSession';
 import { convertExercises, convertRoutines, convertSessions, convertWeight } from './services/units';
 import { applyTheme } from './theme';
 import { pushNotice } from './services/notices';
-import { buildRoutinesFile, downloadRoutinesFile, mergeRoutines, parseRoutinesFile } from './services/share';
+import {
+  buildRoutinesFile,
+  downloadRoutinesFile,
+  mergeRoutines,
+  parseRoutinesFile,
+  sessionsOfRoutines,
+} from './services/share';
 import { buildBackup } from './services/backup';
 import {
   type AutoBackupReason,
@@ -423,30 +429,46 @@ export function deleteSession(id: string): void {
   touchBackup('session-edit');
 }
 
-export function exportRoutines(): number {
-  if (state.routines.length === 0) {
+export function exportRoutines(
+  includeSessions = false,
+  routineIds?: string[],
+): { routines: number; sessions: number } {
+  const selected = routineIds
+    ? state.routines.filter((r) => routineIds.includes(r.id))
+    : state.routines;
+  if (selected.length === 0) {
     throw new Error('No hay rutinas para exportar.');
   }
-  downloadRoutinesFile(buildRoutinesFile(state.routines, state.exercises));
-  return state.routines.length;
+  const sessions = includeSessions ? sessionsOfRoutines(selected, state.sessions) : [];
+  downloadRoutinesFile(buildRoutinesFile(selected, state.exercises, new Date(), sessions));
+  return { routines: selected.length, sessions: sessions.length };
 }
 
 export function importRoutines(text: string): {
   added: number;
   skipped: number;
   exercisesAdded: number;
+  sessionsAdded: number;
 } {
   const file = parseRoutinesFile(text);
-  const merged = mergeRoutines(state.routines, state.exercises, file);
+  const merged = mergeRoutines(state.routines, state.exercises, file, state.sessions);
   if (merged.added > 0 || merged.exercisesAdded > 0) {
     setState({ routines: merged.routines, exercises: merged.exercises });
     persistRoutines();
     persistExercises();
   }
+  if (merged.sessionsAdded > 0) {
+    const before = new Set(state.sessions.map((s) => s.id));
+    setState({ sessions: sortSessions(merged.sessions) });
+    for (const session of merged.sessions) {
+      if (!before.has(session.id)) persistSession(session);
+    }
+  }
   return {
     added: merged.added,
     skipped: merged.skipped,
     exercisesAdded: merged.exercisesAdded,
+    sessionsAdded: merged.sessionsAdded,
   };
 }
 

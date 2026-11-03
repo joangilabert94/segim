@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import type { Exercise, Routine } from '../src/models';
+import type { Exercise, Routine, Session } from '../src/models';
 import {
   buildRoutinesFile,
   mergeRoutines,
   parseRoutinesFile,
   referencedExercises,
+  sessionsOfRoutines,
 } from '../src/services/share';
 
 const CATALOGO: Exercise[] = [
@@ -32,6 +33,25 @@ function makeRoutine(over: Partial<Routine> = {}): Routine {
   };
 }
 
+function makeSession(over: Partial<Session> = {}): Session {
+  return {
+    id: 's-1',
+    date: '2026-10-06',
+    routineId: 'r-push',
+    dayId: 'd1',
+    dayName: 'Día 1',
+    status: 'completed',
+    entries: [
+      {
+        exerciseId: 'e-press',
+        exerciseName: 'Press banca',
+        sets: [{ weight: 60, reps: 8, done: true }],
+      },
+    ],
+    ...over,
+  };
+}
+
 describe('buildRoutinesFile', () => {
   it('incluye las rutinas y SOLO los ejercicios referenciados', () => {
     const file = buildRoutinesFile([makeRoutine()], CATALOGO, new Date('2026-10-06T10:00:00Z'));
@@ -49,6 +69,22 @@ describe('buildRoutinesFile', () => {
     expect(json).not.toHaveProperty('settings');
   });
 
+  it('incluye las sesiones cuando se piden, con sus ejercicios', () => {
+    const sesion = makeSession({
+      entries: [
+        {
+          exerciseId: 'e-sent',
+          exerciseName: 'Sentadilla',
+          sets: [{ weight: 80, reps: 5, done: true }],
+        },
+      ],
+    });
+    const file = buildRoutinesFile([makeRoutine()], CATALOGO, new Date(), [sesion]);
+
+    expect(file.sessions).toEqual([sesion]);
+    expect(file.exercises.map((e) => e.id).sort()).toEqual(['e-press', 'e-sent']);
+  });
+
   it('resuelve por nombre los ejercicios de entradas sin vínculo', () => {
     const sinId = makeRoutine({
       days: [
@@ -57,6 +93,18 @@ describe('buildRoutinesFile', () => {
     });
     const refs = referencedExercises([sinId], CATALOGO);
     expect(refs.map((e) => e.id)).toEqual(['e-sent']);
+  });
+});
+
+describe('sessionsOfRoutines', () => {
+  it('solo devuelve las sesiones realizadas de esas rutinas', () => {
+    const sesiones = [
+      makeSession(),
+      makeSession({ id: 's-2', status: 'in-progress' }),
+      makeSession({ id: 's-3', routineId: 'r-otra' }),
+      makeSession({ id: 's-4', routineId: undefined }),
+    ];
+    expect(sessionsOfRoutines([makeRoutine()], sesiones).map((s) => s.id)).toEqual(['s-1']);
   });
 });
 
@@ -96,6 +144,32 @@ describe('parseRoutinesFile', () => {
     expect(file.kind).toBe('gymrutinas-routines');
     expect(file.routines).toHaveLength(1);
     expect(file.exercises).toHaveLength(2);
+  });
+
+  it('lee las sesiones incluidas en el fichero de rutinas', () => {
+    const file = buildRoutinesFile([makeRoutine()], CATALOGO, new Date(), [makeSession()]);
+    const parsed = parseRoutinesFile(JSON.stringify(file));
+    expect(parsed.sessions?.map((s) => s.id)).toEqual(['s-1']);
+    expect(parsed.sessions?.[0]?.entries[0]?.sets[0]).toMatchObject({ weight: 60, reps: 8 });
+  });
+
+  it('descarta las sesiones rotas sin tumbar la importación', () => {
+    const file = buildRoutinesFile([makeRoutine()], CATALOGO, new Date(), [makeSession()]);
+    const json = JSON.stringify({ ...file, sessions: [...(file.sessions ?? []), { id: 'rota' }] });
+    const parsed = parseRoutinesFile(json);
+    expect(parsed.sessions?.map((s) => s.id)).toEqual(['s-1']);
+  });
+
+  it('no arrastra las sesiones de una copia completa', () => {
+    const backup = JSON.stringify({
+      app: 'gymrutinas',
+      version: 1,
+      routines: [makeRoutine()],
+      exercises: CATALOGO,
+      sessions: [makeSession()],
+      settings: { unit: 'kg' },
+    });
+    expect(parseRoutinesFile(backup).sessions).toBeUndefined();
   });
 
   it('rechaza una copia sin rutinas', () => {
@@ -158,6 +232,36 @@ describe('mergeRoutines', () => {
     expect(res.added).toBe(1);
     expect(res.routines.map((r) => r.id)).toEqual(['r-local', 'r-otra']);
     expect(res.routines[0].name).toBe('Local');
+  });
+});
+
+describe('mergeRoutines con sesiones', () => {
+  it('añade las sesiones y las vincula al catálogo local', () => {
+    const localCatalog: Exercise[] = [
+      { id: 'e-local', name: 'Press banca', createdAt: '2026-01-01T00:00:00.000Z' },
+    ];
+    const file = buildRoutinesFile([makeRoutine()], CATALOGO, new Date(), [makeSession()]);
+    const res = mergeRoutines([], localCatalog, file);
+
+    expect(res.sessionsAdded).toBe(1);
+    expect(res.sessions[0]?.entries[0]?.exerciseId).toBe('e-local');
+    expect(res.sessions[0]?.entries[0]?.exerciseName).toBe('Press banca');
+  });
+
+  it('no duplica las sesiones que ya existen por id', () => {
+    const file = buildRoutinesFile([makeRoutine()], CATALOGO, new Date(), [makeSession()]);
+    const res = mergeRoutines([], [], file, [makeSession()]);
+
+    expect(res.sessionsAdded).toBe(0);
+    expect(res.sessions.map((s) => s.id)).toEqual(['s-1']);
+  });
+
+  it('sin sesiones en el fichero no toca el historial', () => {
+    const local = [makeSession()];
+    const res = mergeRoutines([makeRoutine()], CATALOGO, buildRoutinesFile([makeRoutine()], CATALOGO), local);
+
+    expect(res.sessionsAdded).toBe(0);
+    expect(res.sessions).toEqual(local);
   });
 });
 
