@@ -52,6 +52,15 @@ describe('progresión doble', () => {
     expect(out.sets).toEqual([{ weight: 62.5, reps: 8, repsMax: 12 }, { weight: 40, reps: 10 }]);
   });
 
+  it('dentro del rango nunca sugiere menos reps que la semana pasada', () => {
+    const rango = [{ weight: 170, reps: 4, repsMax: 6 }];
+    const last = [done(180, 5)];
+    const out = suggestExercise(rango, last.map((s) => [s]), last, external);
+
+    expect(out.progressed).toBe(false);
+    expect(out.sets).toEqual([{ weight: 180, reps: 5, repsMax: 6 }]);
+  });
+
   it('usa el incremento del ejercicio y, en asistidos, quita asistencia', () => {
     const last = [done(30, 12)];
     const assisted: LoadProfile = { load: 'assisted', unilateral: false, increment: 5 };

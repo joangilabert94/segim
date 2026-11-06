@@ -311,7 +311,7 @@ describe('prefillFromHistory — sugerencia de la sesión', () => {
     expect(result[0]).toEqual({ weight: 0, reps: 0, done: false, durationSec: 30 });
   });
 
-  it('un rango en el plan llega a la sesión como número fijo: el mínimo', () => {
+  it('un rango en el plan llega a la sesión como número fijo con las reps conseguidas', () => {
     const planned = [
       { weight: 0, reps: 4, repsMax: 6 },
       { reps: 10 },
@@ -321,7 +321,7 @@ describe('prefillFromHistory — sugerencia de la sesión', () => {
       { weight: 40, reps: 12, done: true },
     ];
     const result = prefill(planned, best);
-    expect(result[0]).toEqual({ weight: 0, reps: 4, done: false });
+    expect(result[0]).toEqual({ weight: 0, reps: 5, done: false });
     expect(result[0].repsMax).toBeUndefined();
     expect(result[1].reps).toBe(12);
     expect(result[1].repsMax).toBeUndefined();
@@ -338,7 +338,8 @@ describe('prefillFromHistory — sugerencia de la sesión', () => {
       [{ weight: 0, reps: 4, repsMax: 6 }],
       [{ weight: 0, reps: 5, repsMax: 7, done: true }],
     );
-    expect(result[0]).toEqual({ weight: 0, reps: 4, done: false });
+    expect(result[0]).toEqual({ weight: 0, reps: 5, done: false });
+    expect(result[0].repsMax).toBeUndefined();
   });
 
   it('un mejor por encima del rango no lo convierte en reps fijas: sugiere el mínimo', () => {
@@ -357,18 +358,20 @@ describe('prefillFromHistory — sugerencia de la sesión', () => {
     expect(result[0]).toEqual({ weight: 120, reps: 4, done: false });
   });
 
-  it('con el mismo peso se sugiere el mínimo aunque la mejor esté en su tope', () => {
+  it('con el mismo peso se mantienen las reps de la mejor, sin bajar al mínimo', () => {
     const planned = [{ weight: 115, reps: 4, repsMax: 6 }];
-    const best = [{ weight: 115, reps: 6, done: true }];
+    const best = [{ weight: 115, reps: 5, done: true }];
     const result = prefill(planned, best);
-    expect(result[0]).toEqual({ weight: 115, reps: 4, done: false });
+    expect(result[0]).toEqual({ weight: 115, reps: 5, done: false });
+    expect(result[0].repsMax).toBeUndefined();
   });
 
-  it('el peso superior de la historia sube la sugerencia (sin rango en la sesión)', () => {
+  it('el peso superior de la historia sube la sugerencia con sus reps (sin rango en la sesión)', () => {
     const planned = [{ weight: 115, reps: 4, repsMax: 6 }];
     const best = [{ weight: 120, reps: 6, done: true }];
     const result = prefill(planned, best);
-    expect(result[0]).toEqual({ weight: 120, reps: 4, done: false });
+    expect(result[0]).toEqual({ weight: 120, reps: 6, done: false });
+    expect(result[0].repsMax).toBeUndefined();
   });
 
   it('reps por encima del rango (8 > 6) mantienen el mínimo del rango', () => {
@@ -471,10 +474,10 @@ describe('mergeWithBest — tabla de reglas (plan | mejor → sugerencia)', () =
   const rango = { weight: 115, reps: 4, repsMax: 6 };
   const fijo = { weight: 35, reps: 8 };
 
-  it('plan 4-6 a 115 con mejor 5 a 115 → 4-6 a 115 (dentro del rango)', () => {
+  it('plan 4-6 a 115 con mejor 5 a 115 → 5-6 a 115 (mantiene las reps conseguidas)', () => {
     expect(mergeWithBest(rango, { weight: 115, reps: 5, done: true })).toEqual({
       weight: 115,
-      reps: 4,
+      reps: 5,
       repsMax: 6,
     });
   });
@@ -495,10 +498,18 @@ describe('mergeWithBest — tabla de reglas (plan | mejor → sugerencia)', () =
     });
   });
 
-  it('plan 4-6 a 115 con mejor 5 a 120 → 4-6 a 120 (sube el peso)', () => {
+  it('plan 4-6 a 115 con mejor 5 a 120 → 5-6 a 120 (sube el peso, no las reps)', () => {
     expect(mergeWithBest(rango, { weight: 120, reps: 5, done: true })).toEqual({
       weight: 120,
-      reps: 4,
+      reps: 5,
+      repsMax: 6,
+    });
+  });
+
+  it('plan 4-6 a 115 con mejor 6 a 115 → 6 a 115 (el tope del rango, nunca menos reps)', () => {
+    expect(mergeWithBest(rango, { weight: 115, reps: 6, done: true })).toEqual({
+      weight: 115,
+      reps: 6,
       repsMax: 6,
     });
   });

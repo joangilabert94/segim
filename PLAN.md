@@ -375,6 +375,9 @@ leen por `exerciseId`, así que cambiarlo reinterpreta también el historial):
   del rango con al menos el peso sugerido, la siguiente sugerencia sube **todas** esas series
   el incremento y vuelve al mínimo del rango. Si no, se mantiene el peso (sin descarga
   automática).
+- Dentro del rango la sugerencia nunca baja de las reps conseguidas: al mismo peso se propone
+  al menos lo que salió la última vez (180 × 5 no vuelve a 180 × 4); el mínimo del rango solo
+  regresa al subir el peso.
 - Incremento: `Settings.progressionIncrement` (2,5 kg por defecto, editable en Ajustes) o
   `Exercise.increment` si el ejercicio tiene uno propio. En asistidos, el incremento **resta**
   asistencia (mínimo 0).

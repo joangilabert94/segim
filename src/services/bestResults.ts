@@ -124,7 +124,12 @@ export function mergeWithBest(
     return { weight, reps: planned.reps, durationSec: best.durationSec, ...note };
   }
   if (planned.repsMax !== undefined && planned.repsMax > planned.reps) {
-    return { weight, reps: planned.reps, repsMax: planned.repsMax, ...note };
+    // Dentro del rango se mantienen las reps conseguidas: al mismo peso, volver al mínimo
+    // del plan propondría menos reps que la última vez (180 × 5 → 180 × 4). Por encima del
+    // tope no se toca el rango: de eso se encarga la progresión doble, que sube el peso y
+    // vuelve al mínimo del rango.
+    const reps = best.reps > planned.repsMax ? planned.reps : best.reps;
+    return { weight, reps, repsMax: planned.repsMax, ...note };
   }
   return { weight, reps: best.reps, ...note };
 }
