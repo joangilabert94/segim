@@ -15,7 +15,8 @@ import {
   matchesExercise,
   refOfEntry,
 } from '../services/previousSession';
-import { bestSetsForExercise, recentSince } from '../services/bestResults';
+import { bestSetsForExercise, recentSince, setHistoryForExercise } from '../services/bestResults';
+import { lastRecentSets, suggestExercise } from '../services/doubleProgression';
 import { fmtDate, fmtRelative, plural, todayISO } from '../services/format';
 import { pushNotice } from '../services/notices';
 import { sessionRecords } from '../services/records';
@@ -86,7 +87,26 @@ export function SessionView() {
     const plannedEx = day?.exercises.find((e) =>
       matchesExercise(ref, { exerciseId: e.exerciseId, name: e.name }),
     );
-    return { prevSession, prevEntry, plannedEx, profile: profileOf(entry.exerciseId) };
+    const profile = profileOf(entry.exerciseId);
+    // La subida de la progresión doble se ofrece aparte: los inputs llevan lo de la semana anterior.
+    const suggestion = plannedEx
+      ? suggestExercise(
+          plannedEx.plannedSets,
+          setHistoryForExercise(s.sessions, ref, {
+            maxDate: session.date,
+            sinceDate: recentSince(session.date),
+          }),
+          lastRecentSets(s.sessions, ref, session.date, session.id),
+          profile,
+        )
+      : undefined;
+    return {
+      prevSession,
+      prevEntry,
+      plannedEx,
+      profile,
+      suggestion: suggestion?.progressed ? suggestion.sets : undefined,
+    };
   });
 
   const patchSet = (ei: number, si: number, patch: Partial<PerformedSet>) => {
@@ -308,7 +328,7 @@ export function SessionView() {
       )}
 
       {session.entries.map((entry, ei) => {
-        const { prevSession, prevEntry, plannedEx, profile } = comparisons[ei];
+        const { prevSession, prevEntry, plannedEx, profile, suggestion } = comparisons[ei];
         const entryDone = entry.sets.filter((st) => st.done).length;
         return (
           <article class="exercise-card" key={`${ei}-${entry.exerciseName}`}>
@@ -355,6 +375,7 @@ export function SessionView() {
                 // Una serie sin marcar no es un resultado: no cuenta como "Anterior".
                 const prevSet = prevEntry?.sets[si];
                 const previousSet = prevSet?.done ? prevSet : undefined;
+                const suggested = suggestion?.[si];
                 return (
                 <SeriesRow
                   key={si}
@@ -365,6 +386,17 @@ export function SessionView() {
                   planned={plannedEx?.plannedSets[si]}
                   previousSet={previousSet}
                   previousDate={previousSet ? prevSession?.date : undefined}
+                  suggestion={suggested}
+                  onApplySuggestion={
+                    suggested
+                      ? () =>
+                          patchSet(ei, si, {
+                            weight: suggested.weight ?? 0,
+                            reps: suggested.reps,
+                            repsMax: undefined,
+                          })
+                      : undefined
+                  }
                   onPatch={(patch) => patchSet(ei, si, patch)}
                   onMenu={() => setSheet({ kind: 'serie', entry: ei, set: si })}
                 />

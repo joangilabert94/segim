@@ -95,7 +95,7 @@ describe('progresión doble', () => {
     expect(lastRecentSets([old], ref, '2026-07-15')).toEqual([done(60, 12)]);
   });
 
-  it('una sesión nueva ya llega con el peso subido', () => {
+  it('una sesión nueva arranca con lo de la semana anterior: la subida queda como sugerencia', () => {
     const routine: Routine = {
       id: 'r1',
       name: 'Torso',
@@ -125,8 +125,8 @@ describe('progresión doble', () => {
     );
 
     expect(next.entries[0].sets).toEqual([
-      { weight: 65, reps: 8, done: false },
-      { weight: 65, reps: 8, done: false },
+      { weight: 60, reps: 12, done: false },
+      { weight: 60, reps: 12, done: false },
     ]);
   });
 });

@@ -624,6 +624,31 @@ describe('buildSessionFromDay', () => {
     ]);
   });
 
+  it('arranca con lo de la semana anterior aunque un resultado más antiguo sea mayor', () => {
+    const routine = makeRoutine();
+    routine.days[0].exercises[0].plannedSets = [{ weight: 12.5, reps: 4, repsMax: 6 }];
+    const older = makeSession({
+      id: 'older',
+      date: '2026-09-10',
+      entries: [{ exerciseName: 'Press banca', sets: [{ weight: 15, reps: 6, done: true }] }],
+    });
+    const previous = makeSession({
+      id: 'prev',
+      date: '2026-09-28',
+      entries: [{ exerciseName: 'Press banca', sets: [{ weight: 12.5, reps: 4, done: true }] }],
+    });
+
+    const session = buildSessionFromDay(
+      routine,
+      routine.days[0],
+      [previous, older],
+      [],
+      '2026-10-01',
+    );
+
+    expect(session.entries[0].sets).toEqual([{ weight: 12.5, reps: 4, done: false }]);
+  });
+
   it('ignora los resultados de hace más de 8 semanas', () => {
     const routine = makeRoutine();
     const old = makeSession({

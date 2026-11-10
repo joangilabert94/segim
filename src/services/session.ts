@@ -3,8 +3,8 @@ import { DEFAULT_SETTINGS, newId } from '../models';
 import { loadProfile } from './load';
 import { findExercise } from './catalog';
 import { recentSince, setHistoryForExercise } from './bestResults';
-import { toPerformedSets } from './prefill';
-import { lastRecentSets, suggestExercise } from './doubleProgression';
+import { prefillForSession } from './prefill';
+import { lastRecentSets } from './doubleProgression';
 import { todayISO } from './format';
 
 export function buildSessionFromDay(
@@ -23,16 +23,15 @@ export function buildSessionFromDay(
       maxDate: date,
       sinceDate: recentSince(date),
     });
-    const suggestion = suggestExercise(
-      ex.plannedSets,
-      history,
-      lastRecentSets(sessions, ref, date),
-      loadProfile(catalog.find((e) => e.id === exerciseId), settings),
-    );
     return {
       exerciseId,
       exerciseName: ex.name,
-      sets: toPerformedSets(suggestion.sets),
+      sets: prefillForSession(
+        ex.plannedSets,
+        history,
+        lastRecentSets(sessions, ref, date),
+        loadProfile(catalog.find((e) => e.id === exerciseId), settings),
+      ),
     };
   });
 

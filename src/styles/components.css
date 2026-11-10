@@ -399,6 +399,29 @@
   color: var(--dim);
 }
 
+.series-suggest {
+  margin-top: 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--ok);
+  background: var(--ok-soft);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 4px 9px;
+}
+
+.series-suggest b {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.series-suggest:active {
+  border-color: var(--ok);
+}
+
 .preset-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

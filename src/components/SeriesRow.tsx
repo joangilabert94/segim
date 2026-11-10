@@ -32,6 +32,8 @@ interface Props {
   planned?: PlannedSet;
   previousSet?: PerformedSet;
   previousDate?: string;
+  suggestion?: PlannedSet;
+  onApplySuggestion?: () => void;
   onPatch: (patch: Partial<PerformedSet>) => void;
   onMenu: () => void;
 }
@@ -44,6 +46,8 @@ export function SeriesRow({
   planned,
   previousSet,
   previousDate,
+  suggestion,
+  onApplySuggestion,
   onPatch,
   onMenu,
 }: Props) {
@@ -90,6 +94,13 @@ export function SeriesRow({
   const upText = heavier
     ? `↑ ${profile.load === 'assisted' ? '−' : '+'}${fmtWeight(Math.abs(performed.weight - previousSet.weight))}`
     : undefined;
+  // La subida de la progresión doble se ofrece, no se precarga: al aplicarla deja de verse.
+  const suggested =
+    suggestion !== undefined &&
+    onApplySuggestion !== undefined &&
+    (suggestion.weight !== performed.weight || suggestion.reps !== performed.reps)
+      ? suggestion
+      : undefined;
 
   return (
     <div class={`series-row ${performed.done ? 'is-done' : ''}`}>
@@ -180,6 +191,15 @@ export function SeriesRow({
             {previousDate && <i> · {fmtRelative(previousDate)}</i>}
           </span>
         </div>
+        {suggested && (
+          <button
+            class="series-suggest"
+            title="Aplicar la subida que propone la progresión doble"
+            onClick={onApplySuggestion}
+          >
+            ↑ Subir a <b>{fmtSetForCompare(suggested, profile)}</b>
+          </button>
+        )}
       </div>
 
       <button class="icon-btn" aria-label="Opciones de la serie" onClick={onMenu}>
