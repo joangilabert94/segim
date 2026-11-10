@@ -133,7 +133,7 @@ Settings {
 - **Comparación por serie** (la fila de cada serie muestra tres columnas):
   - **Plan**: `60 kg × 8` (de la serie i de la rutina),
   - **Anterior**: `62 kg × 8` + fecha relativa ("hace 4 días" / "semana pasada"), de la serie i de la sesión anterior,
-  - **Hoy**: dos inputs editables (peso y reps) precargados con la sugerencia anterior.
+  - **Hoy**: dos inputs editables (peso y reps) precargados con lo de la semana anterior; la subida que propone la progresión doble aparece como sugerencia aparte.
   - La identidad del ejercicio es su **`exerciseId` del catálogo**; solo se usa el nombre
     normalizado como fallback en datos antiguos. Si la sesión anterior tenía **otro número
     de series**: se mapean por índice, y las que no tengan equivalente se muestran como «—».
@@ -145,8 +145,9 @@ Settings {
 - Barra inferior con **"Finalizar sesión"** (guarda con `date` = hoy). La sesión `in-progress` se persiste **en cada cambio** en IndexedDB: cerrar o recargar la app no pierde nada; al volver se retoma.
 - **Fecha editable**: la cabecera tiene un botón 📅 para cambiar la fecha de realización de la sesión en curso (la sesión no guarda duración: sin marcar arranque/final).
 - Solo puede haber **una sesión en curso** a la vez (al empezar otra, la anterior se cierra con aviso).
-- **Progresión doble** (§9.2): la serie que sube respecto a la sesión anterior se marca con
-  `↑ +2,5`. Al finalizar, aviso con los **récords** de la sesión. Si queda alguna serie sin
+- **Progresión doble** (§9.2): la sesión arranca con lo de la semana anterior y la subida se
+  ofrece como sugerencia (`↑ Subir a 62,5 kg × 8`), que se aplica al tocarla; la serie que ya
+  sube respecto a la sesión anterior se marca con `↑ +2,5`. Al finalizar, aviso con los **récords** de la sesión. Si queda alguna serie sin
   marcar como hecha, *Finalizar* avisa de cuántas y de qué ejercicios (no contarán como
   resultado) y pide confirmación: *Seguir entrenando* o *Finalizar igualmente*.
 
@@ -204,7 +205,8 @@ Settings {
 - `findPreviousSession(sessions, ref, options)`: última sesión completada anterior que
   contenga el ejercicio (por id o nombre). Devuelve `date` para "hace N días" / "semana pasada".
 - `prefillFromHistory(plannedSets, history)` / `suggestFromHistory`: emparejamiento **serie i ↔ serie i**
-  con la regla de la sugerencia (§4.2).
+  con la regla de la sugerencia (§4.2). `prefillForSession` usa lo de la semana anterior y deja
+  la subida de la progresión doble como sugerencia.
 - Catálogo (`services/catalog.ts`): `findExercise` (nombre normalizado),
   `pickOrCreateExercise` (nunca duplica), `seedCatalogFromRoutines` y
   `linkRoutinesToCatalog` (vinculado automático de datos antiguos).
@@ -375,6 +377,8 @@ leen por `exerciseId`, así que cambiarlo reinterpreta también el historial):
   del rango con al menos el peso sugerido, la siguiente sugerencia sube **todas** esas series
   el incremento y vuelve al mínimo del rango. Si no, se mantiene el peso (sin descarga
   automática).
+- La sesión **no aplica la subida sola**: los inputs se precargan con lo de la semana anterior
+  y la subida se muestra como sugerencia (`↑ Subir a 62,5 kg × 8`) para aplicarla a mano.
 - Dentro del rango la sugerencia nunca baja de las reps conseguidas: al mismo peso se propone
   al menos lo que salió la última vez (180 × 5 no vuelve a 180 × 4); el mínimo del rango solo
   regresa al subir el peso.
