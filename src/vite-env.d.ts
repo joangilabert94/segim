@@ -3,8 +3,6 @@
 declare const __APP_VERSION__: string;
 
 interface ImportMetaEnv {
-  // No es un secreto: viaja en el bundle y Google lo restringe por origen autorizado.
-  readonly VITE_GOOGLE_CLIENT_ID?: string;
   // Tampoco es secreto: la publishable key identifica la app y el RLS filtra las filas.
   readonly VITE_SUPABASE_URL?: string;
   readonly VITE_SUPABASE_PUBLISHABLE_KEY?: string;

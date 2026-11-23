@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('../src/db/idb', () => ({
   saveRoutines: vi.fn(async () => undefined),
@@ -13,8 +13,7 @@ vi.mock('../src/theme', () => ({ applyTheme: vi.fn() }));
 vi.mock('../src/services/notices', () => ({ pushNotice: vi.fn() }));
 
 import { saveRoutines } from '../src/db/idb';
-import { clearAllData, createRoutine, patchRoutine, updateSettings } from '../src/state';
-import { cancelPendingAutoBackup, pendingAutoBackup } from '../src/services/drive/autoBackup';
+import { createRoutine } from '../src/state';
 import { pushNotice } from '../src/services/notices';
 
 describe('fallos al guardar', () => {
@@ -29,29 +28,5 @@ describe('fallos al guardar', () => {
       expect.stringContaining('No se pudo guardar las rutinas'),
       'error',
     ]);
-  });
-});
-
-describe('borrar todos los datos', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-
-  afterEach(() => {
-    cancelPendingAutoBackup();
-    vi.useRealTimers();
-  });
-
-  it('cancela la copia automática pendiente para no subir datos vacíos', () => {
-    updateSettings({ autoBackup: true });
-    const routine = createRoutine();
-    patchRoutine(routine.id, (draft) => {
-      draft.name = 'Torso';
-    });
-    expect(pendingAutoBackup()).not.toBeNull();
-
-    clearAllData();
-
-    expect(pendingAutoBackup()).toBeNull();
   });
 });

@@ -1,10 +1,7 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useRef, useState } from 'preact/hooks';
 import type { Unit } from '../models';
-import type { BackupFile, BackupTargetStatus } from '../services/backup';
-import { ExistingBackupError, buildBackup, downloadBackup, parseBackup } from '../services/backup';
-import { driveTarget } from '../services/drive/target';
-import { revokeAccess } from '../services/drive/auth';
-import { driveMetaStore } from '../db/driveStore';
+import type { BackupFile } from '../services/backup';
+import { buildBackup, downloadBackup, parseBackup } from '../services/backup';
 import {
   clearAllData,
   getState,
@@ -29,93 +26,11 @@ export function SettingsView() {
   const [pendingUnit, setPendingUnit] = useState<Unit | null>(null);
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
-  const [drive, setDrive] = useState<BackupTargetStatus | null>(null);
-  const [driveBusy, setDriveBusy] = useState<'upload' | 'restore' | 'disconnect' | null>(null);
-  const [driveMessage, setDriveMessage] = useState<{
-    kind: 'ok' | 'error';
-    text: string;
-  } | null>(null);
-  const [pendingDrive, setPendingDrive] = useState<BackupFile | null>(null);
-  const [existingRemote, setExistingRemote] = useState<{ modifiedTime?: string } | null>(null);
-
-  const autoOn = s.settings.autoBackup === true;
   const nonArchived = s.routines.filter((r) => !r.archived);
   // Activa archivada o borrada: el selector muestra el placeholder en vez de quedarse en blanco.
   const activeRoutineSelectable = nonArchived.some(
     (r) => r.id === s.settings.activeRoutineId,
   );
-
-  const refreshDrive = async () => {
-    try {
-      setDrive(await driveTarget.status());
-    } catch {
-      setDrive({ available: true, connected: false });
-    }
-  };
-
-  useEffect(() => {
-    void refreshDrive();
-  }, []);
-
-  const driveErrorText = (err: unknown) =>
-    err instanceof Error ? err.message : 'No se pudo hablar con Google Drive.';
-
-  const subirADrive = async (replaceExisting = false) => {
-    setDriveBusy('upload');
-    setDriveMessage(null);
-    try {
-      const result = await driveTarget.upload(buildBackup(getState()), {
-        interactive: true,
-        replaceExisting,
-      });
-      await refreshDrive();
-      setDriveMessage({
-        kind: 'ok',
-        text: result.warning
-          ? `Copia subida (${fmtDateTime(result.syncedAt)}), pero la copia fechada falló: ${result.warning}`
-          : `Copia subida a tu Drive (${fmtDateTime(result.syncedAt)}).`,
-      });
-    } catch (err) {
-      if (err instanceof ExistingBackupError) {
-        setExistingRemote({ modifiedTime: err.modifiedTime });
-      } else {
-        setDriveMessage({ kind: 'error', text: driveErrorText(err) });
-      }
-    } finally {
-      setDriveBusy(null);
-    }
-  };
-
-  const pedirRestauracion = async () => {
-    setDriveBusy('restore');
-    setDriveMessage(null);
-    try {
-      setPendingDrive(await driveTarget.downloadLatest({ interactive: true }));
-      await refreshDrive();
-    } catch (err) {
-      setDriveMessage({ kind: 'error', text: driveErrorText(err) });
-    } finally {
-      setDriveBusy(null);
-    }
-  };
-
-  const desconectarDrive = async () => {
-    setDriveBusy('disconnect');
-    setDriveMessage(null);
-    try {
-      await revokeAccess();
-      await driveMetaStore.clear();
-      await refreshDrive();
-      setDriveMessage({
-        kind: 'ok',
-        text: 'Google Drive desconectado. La copia sigue en tu Drive por si la necesitas.',
-      });
-    } catch (err) {
-      setDriveMessage({ kind: 'error', text: driveErrorText(err) });
-    } finally {
-      setDriveBusy(null);
-    }
-  };
 
   const themeHint = () => {
     const ahora = currentTheme() === 'light' ? 'claro' : 'oscuro';
@@ -163,7 +78,6 @@ export function SettingsView() {
       text: `Importadas ${plural(imported.routines.length, 'rutina', 'rutinas')}, ${plural(imported.exercises.length, 'ejercicio', 'ejercicios')} y ${plural(imported.sessions.length, 'sesión', 'sesiones')}.`,
     });
     setPendingBackup(null);
-    setPendingDrive(null);
   };
 
   const setPreset = (index: number, text: string) => {
@@ -315,8 +229,8 @@ export function SettingsView() {
 
       <div class="card">
         <p class="card-sub" style="margin-bottom:12px">
-          Tus datos viven solo en este dispositivo (IndexedDB). Exporta una copia periódica
-          para no perderlos y para migrar de móvil.
+          Los datos viven en este dispositivo (IndexedDB) y, si inicias sesión, también en tu
+          cuenta de Supabase. Exporta una copia periódica para no perderlos.
         </p>
         <div class="btn-row">
           <button class="btn" style="flex:1" onClick={exportar}>
@@ -349,96 +263,6 @@ export function SettingsView() {
 
       <CloudPanel />
 
-      <div class="section-title">Copia en Google Drive</div>
-
-      <div class="card">
-        {drive?.available === false ? (
-          <p class="card-sub">
-            Esta versión no tiene configurado el acceso a Google Drive. Las copias en la nube se
-            activan al publicar la app con el Client ID del proyecto.
-          </p>
-        ) : (
-          <>
-            <p class="card-sub" style="margin-bottom:12px">
-              {drive?.connected
-                ? `Copia en tu propio Drive${drive.account ? ` de ${drive.account}` : ''}. Última subida: ${
-                    drive.lastSyncAt ? fmtDateTime(drive.lastSyncAt) : 'desconocida'
-                  }.`
-                : 'Sube todas tus sesiones, rutinas y ajustes a tu propio Google Drive. Solo se toca el fichero que crea esta app. Si ya la usabas en otro dispositivo, pulsa ⬇️ Restaurar.'}
-            </p>
-            <div class="btn-row">
-              <button
-                class="btn"
-                style="flex:1"
-                onClick={() => subirADrive()}
-                disabled={driveBusy !== null}
-              >
-                {driveBusy === 'upload'
-                  ? 'Subiendo…'
-                  : drive?.connected
-                    ? '☁️ Subir ahora'
-                    : '☁️ Conectar con Drive'}
-              </button>
-              <button
-                class="btn"
-                style="flex:1"
-                onClick={pedirRestauracion}
-                disabled={driveBusy !== null}
-              >
-                {driveBusy === 'restore' ? 'Descargando…' : '⬇️ Restaurar'}
-              </button>
-            </div>
-            <div style="margin-top:14px">
-              <span class="field-label">Copia automática</span>
-              <div class="segmented segmented--full">
-                <button
-                  class={autoOn ? '' : 'is-active'}
-                  aria-pressed={!autoOn}
-                  disabled={!drive?.connected}
-                  onClick={() => updateSettings({ autoBackup: false })}
-                >
-                  Solo manual
-                </button>
-                <button
-                  class={autoOn ? 'is-active' : ''}
-                  aria-pressed={autoOn}
-                  disabled={!drive?.connected}
-                  onClick={() => updateSettings({ autoBackup: true })}
-                >
-                  Al terminar sesión
-                </button>
-              </div>
-              <p class="hint" style="margin-top:8px">
-                {!drive?.connected
-                  ? 'Conecta con tu Drive para poder activarla.'
-                  : autoOn
-                    ? 'Al finalizar una sesión se sube a los pocos segundos; al editar una sesión, una rutina o un ejercicio, tras un rato sin tocar nada (30 s). El permiso de Google dura una hora: si ha caducado, el aviso trae un botón para autorizar y subir en un toque.'
-                    : 'Solo se sube cuando pulses ☁️ Subir ahora.'}
-              </p>
-            </div>
-            {drive?.connected && (
-              <button
-                class="btn btn-block"
-                style="margin-top:10px"
-                onClick={desconectarDrive}
-                disabled={driveBusy !== null}
-              >
-                Desconectar Google Drive
-              </button>
-            )}
-            <p class="hint" style="margin-top:10px">
-              Se conservan las últimas 10 copias fechadas: se crean al terminar una sesión y al
-              subir a mano, mientras que las ediciones solo actualizan la copia principal. Al
-              conectar se abre la ventana de Google: elige tu cuenta y acepta el permiso (solo
-              ficheros de esta app).
-            </p>
-            {driveMessage && (
-              <div class={`inline-msg is-${driveMessage.kind}`}>{driveMessage.text}</div>
-            )}
-          </>
-        )}
-      </div>
-
       <div class="section-title">Instalar y cómo funciona</div>
 
       <div class="card">
@@ -446,7 +270,7 @@ export function SettingsView() {
           <li>Instálala desde tu navegador: menú → "Añadir a pantalla de inicio".</li>
           <li>Funciona sin conexión: todo se guarda en el dispositivo.</li>
           <li>Las sesiones en curso se guardan solas: puedes cerrar y volver.</li>
-          <li>Copia en tu propio Google Drive: manual o automática (al terminar y al editar).</li>
+          <li>Con cuenta, las rutinas y las sesiones se sincronizan entre dispositivos.</li>
         </ul>
       </div>
 
@@ -494,39 +318,7 @@ export function SettingsView() {
         onCancel={() => setConfirmClear(false)}
       />
 
-      <ConfirmDialog
-        open={pendingDrive !== null}
-        title="Restaurar desde Google Drive"
-        message={`Se reemplazarán los datos actuales por la copia del ${
-          pendingDrive ? fmtDateTime(pendingDrive.exportedAt) || 'sin fecha' : ''
-        } (${plural(pendingDrive?.routines.length ?? 0, 'rutina', 'rutinas')}, ${plural(
-          pendingDrive?.sessions.length ?? 0,
-          'sesión',
-          'sesiones',
-        )}).`}
-        confirmLabel="Restaurar"
-        onConfirm={() => applyBackup(pendingDrive)}
-        onCancel={() => setPendingDrive(null)}
-      />
 
-      <ConfirmDialog
-        open={existingRemote !== null}
-        title="Ya hay una copia en tu Drive"
-        message={`Tu Drive ya tiene una copia de Segim${
-          existingRemote?.modifiedTime ? ` del ${fmtDateTime(existingRemote.modifiedTime)}` : ''
-        }. Si sigues, se sustituirá por los datos de este dispositivo (${plural(
-          s.routines.length,
-          'rutina',
-          'rutinas',
-        )}, ${plural(s.sessions.length, 'sesión', 'sesiones')}). Para recuperarla aquí, cancela y pulsa ⬇️ Restaurar.`}
-        confirmLabel="Sustituir copia"
-        danger
-        onConfirm={() => {
-          setExistingRemote(null);
-          void subirADrive(true);
-        }}
-        onCancel={() => setExistingRemote(null)}
-      />
     </>
   );
 }

@@ -7,7 +7,7 @@
     <title>Política de privacidad — Segim</title>
     <meta
       name="description"
-      content="Qué datos guarda Segim, dónde se guardan y cómo se gestionan las copias de seguridad en Google Drive."
+      content="Qué datos guarda Segim, dónde se guardan y cómo se sincronizan de forma opcional con Supabase."
     />
     <style>
       :root {
@@ -100,24 +100,25 @@
     <main>
       <header>
         <h1>Política de privacidad de Segim</h1>
-        <p class="meta">Última actualización: 29 de octubre de 2026</p>
+        <p class="meta">Última actualización: 23 de noviembre de 2026</p>
       </header>
 
       <p>
         <strong>Segim</strong> es una aplicación web progresiva (PWA) para registrar rutinas,
-        series y sesiones de gimnasio. Funciona sin conexión y no tiene servidor propio: tus
-        datos se guardan en tu dispositivo y, si lo decides, en tu propia cuenta de Google
-        Drive.
+        series y sesiones de gimnasio. Funciona sin conexión: tus datos se guardan en tu
+        dispositivo y, si lo decides, en tu cuenta de Supabase.
       </p>
 
       <div class="card">
         <h2 style="margin-top: 0">Resumen</h2>
         <ul>
-          <li>No hay cuentas ni registro, y no existe un servidor que almacene tus datos.</li>
+          <li>
+            La cuenta es opcional: sin iniciar sesión, los datos solo viven en tu dispositivo.
+          </li>
           <li>No se usan analíticas, publicidad, ni rastreadores de terceros.</li>
           <li>
-            Las copias en Google Drive son opcionales, se guardan en <em>tu</em> Drive y
-            solo tú puedes verlas.
+            Si inicias sesión, tus datos se guardan en una base de datos de Supabase y solo tu
+            cuenta puede leerlos.
           </li>
           <li>El desarrollador no puede acceder a tus datos en ningún caso.</li>
         </ul>
@@ -152,61 +153,46 @@
       </p>
       <p>
         Como consecuencia, si borras los datos del navegador, usas el modo privado o
-        desinstalas la aplicación sin haber hecho una copia, esa información se pierde.
+        desinstalas la aplicación sin haber hecho una copia ni haber iniciado sesión, esa
+        información se pierde.
+      </p>
+      <p>
+        Si inicias sesión, además se guarda una copia en tu cuenta de Supabase, con las
+        condiciones del apartado 4.
       </p>
 
-      <h2>4. Copias de seguridad en Google Drive (opcional)</h2>
+      <h2>4. Sincronización con Supabase (opcional)</h2>
       <p>
-        Si decides conectar tu cuenta de Google, la aplicación solicita el permiso
-        <code>https://www.googleapis.com/auth/drive.file</code>. Ese permiso permite
-        <strong>crear y ver únicamente los ficheros creados por esta aplicación</strong>; no da
-        acceso al resto de tu Drive.
+        Si creas una cuenta e inicias sesión con tu correo y una contraseña, la aplicación
+        guarda tus rutinas, ejercicios, sesiones y ajustes en una base de datos PostgreSQL
+        alojada en <a href="https://supabase.com" rel="noopener" target="_blank">Supabase</a>,
+        para que puedas tenerlos en varios dispositivos.
       </p>
       <ul>
         <li>
-          Los ficheros se crean en la carpeta <code>Segim</code> de <strong>tu</strong> unidad
-          de Google Drive: <code>segim-backup.json</code> y copias fechadas rotativas.
+          Cada fila guarda el identificador de tu usuario y el <em>Row Level Security</em> de
+          Postgres impide que cualquier otra cuenta la lea o la modifique.
         </li>
         <li>
-          El fichero contiene exactamente los mismos datos descritos en el apartado 2, para
-          poder restaurarlos.
+          La aplicación usa la clave pública del proyecto (<em>publishable key</em>), que no
+          permite saltarse el RLS: quién puede leer cada fila lo decide tu sesión.
         </li>
         <li>
-          El espacio consumido se descuenta de <strong>tu</strong> cuota de Google, no de la
-          del desarrollador.
+          Supabase actúa como encargado del tratamiento (alojamiento de la base de datos y del
+          servicio de autenticación). No se envían datos a ningún otro tercero, ni analíticas,
+          ni publicidad.
         </li>
         <li>
-          El permiso se concede a través de Google Identity Services y el token de acceso se
-          mantiene solo en memoria: no se guarda en el dispositivo ni se envía a terceros.
-        </li>
-        <li>
-          Puedes desconectar Drive desde la propia app o revocar el acceso en
-          <a href="https://myaccount.google.com/permissions" rel="noopener" target="_blank"
-            >myaccount.google.com/permissions</a
-          >. Los ficheros seguirán en tu Drive hasta que los borres, porque son tuyos.
+          Puedes cerrar sesión cuando quieras: la app deja de enviar cambios y sigue
+          funcionando solo con los datos del dispositivo.
         </li>
       </ul>
       <p>
-        Salvo que conectes Drive, la aplicación no realiza ninguna petición de red para tus
-        datos: solo descarga los ficheros del propio sitio y comprueba si hay una versión
-        nueva.
+        Sin sesión iniciada, la aplicación no envía tus datos a ninguna parte: solo descarga
+        los ficheros del propio sitio y comprueba si hay una versión nueva.
       </p>
 
-      <h2>5. Uso de datos de las API de Google</h2>
-      <p>
-        El uso que Segim hace de la información recibida de las API de Google cumple la
-        <a
-          href="https://developers.google.com/terms/api-services-user-data-policy"
-          rel="noopener"
-          target="_blank"
-          >Política de Datos de Usuario de los Servicios de API de Google</a
-        >, incluidos sus requisitos de uso limitado (<em>Limited Use</em>). Los datos de Drive
-        se usan exclusivamente para crear y restaurar tus copias de seguridad dentro de la
-        aplicación; no se venden, no se comparten y no se utilizan para publicidad ni para
-        elaborar perfiles.
-      </p>
-
-      <h2>6. Conservación y eliminación</h2>
+      <h2>5. Conservación y eliminación</h2>      <h2>6. Conservación y eliminación</h2>
       <ul>
         <li>
           Los datos locales permanecen en tu dispositivo hasta que los borras. En
@@ -214,41 +200,41 @@
           puedes exportarlos antes como JSON.
         </li>
         <li>
-          Las copias de Drive se conservan en tu cuenta hasta que las borras desde Google
-          Drive o desde la propia app.
+          Los datos sincronizados se conservan en tu cuenta de Supabase hasta que los borras
+          desde la app o pides la eliminación de la cuenta.
         </li>
         <li>
-          Al desconectar Google Drive, la aplicación olvida la referencia a los ficheros y el
-          permiso queda revocado.
+          Al cerrar sesión, la aplicación deja de enviar cambios; lo que ya estaba en la nube
+          sigue en tu cuenta hasta que lo borres.
         </li>
       </ul>
 
-      <h2>7. Tus derechos</h2>
+      <h2>6. Tus derechos</h2>
       <p>
         Puedes acceder a tus datos en cualquier momento desde la propia aplicación,
         rectificarlos editando rutinas o sesiones, exportarlos en JSON y eliminarlos. Si
         resides en el Espacio Económico Europeo, puedes ejercer tus derechos de acceso,
         rectificación, supresión, portabilidad, limitación y oposición escribiendo a
-        <a href="mailto:me.joang+segim@gmail.com">me.joang+segim@gmail.com</a>. Como los datos no
-        salen de tu dispositivo ni de tu cuenta de Google, el ejercicio de esos derechos se
-        ejerce directamente sobre ellos.
+        <a href="mailto:me.joang+segim@gmail.com">me.joang+segim@gmail.com</a>. Los datos solo salen de tu
+        dispositivo si inicias sesión, así que puedes ejercer esos derechos desde la propia
+        app y, para lo sincronizado, escribiendo al responsable.
       </p>
 
-      <h2>8. Seguridad</h2>
+      <h2>7. Seguridad</h2>
       <p>
         El sitio se sirve por HTTPS. La protección de los datos almacenados depende del
-        navegador y del dispositivo que uses, y las copias de Drive quedan protegidas por la
-        seguridad de tu cuenta de Google. Se recomienda usar el bloqueo de pantalla y la
-        verificación en dos pasos de tu cuenta.
+        navegador y del dispositivo que uses, y lo sincronizado queda protegido por el RLS de
+        Supabase y por tu contraseña. Se recomienda usar el bloqueo de pantalla, una contraseña
+        larga y la verificación en dos pasos de tu correo.
       </p>
 
-      <h2>9. Menores</h2>
+      <h2>8. Menores</h2>
       <p>
         La aplicación no está dirigida a menores de 14 años y no recoge datos personales de
         forma consciente.
       </p>
 
-      <h2>10. Cambios en esta política</h2>
+      <h2>9. Cambios en esta política</h2>
       <p>
         Si la aplicación incorpora nuevas funciones que afecten al tratamiento de datos, esta
         página se actualizará y se indicará la fecha del cambio. El uso continuado de la app

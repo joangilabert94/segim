@@ -21,13 +21,6 @@ import {
   parseRoutinesFile,
   sessionsOfRoutines,
 } from './services/share';
-import { buildBackup } from './services/backup';
-import {
-  type AutoBackupReason,
-  cancelPendingAutoBackup,
-  requestAutoBackup,
-} from './services/drive/autoBackup';
-
 export interface AppState {
   routines: Routine[];
   exercises: Exercise[];
@@ -86,16 +79,6 @@ const logError = (what: string, err: unknown) => {
     'error',
   );
 };
-
-function touchBackup(reason: AutoBackupReason): void {
-  requestAutoBackup({
-    reason,
-    enabled: state.settings.autoBackup === true,
-    build: () => buildBackup(state),
-    // Fechadas solo en hitos: con cada edición, la rotación de 10 se las comería.
-    dated: reason === 'session-complete',
-  });
-}
 
 export async function loadState(): Promise<void> {
   try {
@@ -171,7 +154,6 @@ export function upsertRoutine(routine: Routine): void {
       : [...state.routines, routine],
   });
   persistRoutines();
-  touchBackup('routine-edit');
 }
 
 export function patchRoutine(id: string, mutate: (draft: Routine) => void): Routine | undefined {
@@ -194,7 +176,6 @@ export function deleteRoutine(id: string): void {
   });
   persistRoutines();
   db.saveSettings(state.settings).catch((e) => logError('guardar los ajustes', e));
-  touchBackup('routine-edit');
 }
 
 function persistExercises(): void {
@@ -210,7 +191,6 @@ export function ensureExercise(name: string, muscleGroup?: string): Exercise {
   if (!state.exercises.some((e) => e.id === exercise.id)) {
     setState({ exercises: [...state.exercises, exercise] });
     persistExercises();
-    touchBackup('exercise-edit');
   }
   return exercise;
 }
@@ -240,7 +220,6 @@ export function setExerciseTraining(
     }),
   });
   persistExercises();
-  touchBackup('exercise-edit');
 }
 
 export function applyExerciseDefinition(
@@ -290,7 +269,6 @@ export function applyExerciseDefinition(
   });
   persistExercises();
   persistRoutines();
-  touchBackup('exercise-edit');
   return true;
 }
 
@@ -310,14 +288,12 @@ export function deleteExerciseFromCatalog(id: string): void {
       db.saveSession(changed).catch((e) => logError('guardar la sesión', e));
     }
   }
-  touchBackup('exercise-edit');
 }
 
 export function updateSettings(patch: Partial<Settings>): void {
   const settings = { ...state.settings, ...patch };
   setState({ settings });
   db.saveSettings(settings).catch((e) => logError('guardar los ajustes', e));
-  if (patch.autoBackup === false) cancelPendingAutoBackup();
 }
 
 export function setUnit(unit: Unit): void {
@@ -398,7 +374,6 @@ export function finalizeSession(id: string): Session | undefined {
   const updated = patchSession(id, (s) => {
     s.status = 'completed';
   });
-  if (updated) touchBackup('session-complete');
   return updated;
 }
 
@@ -409,7 +384,6 @@ export function setSessionDate(id: string, date: string): Session | undefined {
   });
   if (updated) {
     setState({ sessions: sortSessions(state.sessions) });
-    touchBackup('session-edit');
   }
   return updated;
 }
@@ -419,14 +393,12 @@ export function reopenSession(id: string): Session | undefined {
   const reopened = patchSession(id, (s) => {
     s.status = 'in-progress';
   });
-  if (reopened) touchBackup('session-edit');
   return reopened;
 }
 
 export function deleteSession(id: string): void {
   setState({ sessions: state.sessions.filter((s) => s.id !== id) });
   db.removeSession(id).catch((e) => logError('borrar la sesión', e));
-  touchBackup('session-edit');
 }
 
 export function exportRoutines(
@@ -497,8 +469,6 @@ export function replaceAll(data: {
 }
 
 export function clearAllData(): void {
-  // La subida pendiente leería el estado ya vacío y machacaría la copia de Drive.
-  cancelPendingAutoBackup();
   setState({
     routines: [],
     exercises: [],

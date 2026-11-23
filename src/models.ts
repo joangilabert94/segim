@@ -95,8 +95,6 @@ export interface Settings {
   restPresets: number[];
   activeRoutineId?: string;
   theme: ThemeMode;
-  // Desactivada por defecto: cada subida es una petición a un servicio externo.
-  autoBackup: boolean;
   progressionIncrement: number;
   bodyweight?: number;
 }
@@ -105,7 +103,6 @@ export const DEFAULT_SETTINGS: Settings = {
   unit: 'kg',
   restPresets: [60, 90, 120, 180, 240, 300],
   theme: 'auto',
-  autoBackup: false,
   progressionIncrement: 2.5,
 };
 

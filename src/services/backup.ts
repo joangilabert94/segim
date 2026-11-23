@@ -14,35 +14,6 @@ export interface BackupFile {
   settings: Settings;
 }
 
-export interface BackupTargetStatus {
-  available: boolean;
-  connected: boolean;
-  lastSyncAt?: string;
-  account?: string;
-  authorized?: boolean;
-}
-
-export interface BackupTarget {
-  readonly label: string;
-  // `dated: false` (ediciones, a ráfagas): sin copia fechada, para no expulsar las de otros días.
-  upload(
-    backup: BackupFile,
-    options?: { interactive?: boolean; dated?: boolean; replaceExisting?: boolean },
-  ): Promise<{ syncedAt: string; warning?: string }>;
-  downloadLatest(options?: { interactive?: boolean }): Promise<BackupFile>;
-  status(): Promise<BackupTargetStatus>;
-}
-
-export class ExistingBackupError extends Error {
-  readonly modifiedTime?: string;
-
-  constructor(modifiedTime?: string) {
-    super('Ya hay una copia de Segim en tu Google Drive.');
-    this.name = 'ExistingBackupError';
-    this.modifiedTime = modifiedTime;
-  }
-}
-
 export function buildBackup(data: {
   routines: Routine[];
   exercises: Exercise[];

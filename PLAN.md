@@ -4,21 +4,21 @@
 >
 > **Estado (30 oct 2026): v0.9.3.** Fases 0–4 completadas, catálogo de ejercicios, revisión
 > de robustez, **fase 2: copia de seguridad en Google Drive** (manual o automática, con
-> retardos), **renombrado de la app a Segim** e **iconos rediseñados** (PNG + SVG con
+> retardos; **retirada en la v0.12.0**), **renombrado de la app a Segim** e **iconos rediseñados** (PNG + SVG con
 > generador propio). v0.9.0 añade la **fase 6, entrenamiento guiado** (§9.2): lastrados,
 > asistidos y unilaterales, progresión doble, récords al finalizar y series semanales por
 > grupo muscular; v0.9.1 corrige detalles visuales, v0.9.2 avisa al finalizar con series
 > sin marcar y v0.9.3 añade fechas de uso a rutinas y ejercicios. Verificado:
 > `npm run typecheck` ✓ · `npm test` (253 tests) ✓ ·
 > `npm run build` ✓ (PWA offline instalable). Incluye la **política de privacidad**
-> pública (`/segim/privacidad.html`) que Google exige para publicar la app. El despliegue
+> pública (`/segim/privacidad.html`). El despliegue
 > va por etiqueta de versión (`v0.9.3`).
 
 ## 1. Objetivo
 
 Aplicación PWA mobile-first para gestionar rutinas de gimnasio y registrar sesiones de entrenamiento: rutinas multi-día, modo "entrenamiento" con series/pesos/reps planeados vs. reales, comparación con la sesión anterior (progresión semana a semana), historial con fechas, clonado de rutinas y persistencia **local** (IndexedDB) con exportación/importación JSON. Desplegable en GitHub Pages y usable offline desde cualquier dispositivo.
 
-Fase 2 (v0.7.0, ampliada en v0.8.0): copia de seguridad en el Google Drive del usuario, manual o automática (al cerrar sesión y, con retardo, al editar) — ver §9.1.
+Fase 2 (v0.7.0, ampliada en v0.8.0): copia de seguridad en el Google Drive del usuario, manual o automática (al cerrar sesión y, con retardo, al editar) — ver §9.1. **Retirada en la v0.12.0**: la sustituye la sincronización con Supabase (§11).
 
 ## 2. Stack técnico
 
@@ -30,7 +30,7 @@ Fase 2 (v0.7.0, ampliada en v0.8.0): copia de seguridad en el Google Drive del u
 | Persistencia | **IndexedDB** con `idb-keyval` (~600 B) + repositorios tipados propios | Offline total, sin backend; suficiente para cientos de sesiones |
 | Estilos | **CSS moderno propio** (custom properties, grid, `clamp()`) | Sin framework; tema oscuro mobile-first, control total del diseño |
 | PWA | **`vite-plugin-pwa`** (Workbox `generateSW`) | Manifest + cache del shell para offline e instalable, configuración mínima |
-| Copia en la nube (opcional) | **Drive API v3 + Google Identity Services** por `fetch` | Copia en el Drive del usuario sin backend, sin SDK y con permiso por fichero |
+| Sincronización (opcional) | **Supabase** (Postgres + RLS + Realtime) por `fetch` | Tablas SQL por usuario, cambios al momento y login por correo, sin backend propio |
 | Tests | **Vitest** sobre lógica pura (comparación por serie, clonado, cálculos) | Barato de mantener y protege la parte no trivial |
 
 Objetivo de peso: **< 50 KB comprimido** (JS+CSS), FCP instantánea.
@@ -192,10 +192,9 @@ Settings {
 - **Incremento de la progresión** (2,5 por defecto) y **peso corporal** opcional.
 - **Exportar backup** (JSON descargado) / **Importar backup** (restaurar — incluye
   rutinas, catálogo de ejercicios, sesiones y ajustes).
-- **Copia en Google Drive** (opcional): conectar/desconectar, *Subir ahora* y *Restaurar*,
-  más el ajuste **copia automática** (por defecto, desactivado) al terminar una sesión o al
-  editar una sesión, rutina o ejercicio. Deja `segim-backup.json` (última) y las 10
-  copias fechadas más recientes.
+- **Cuenta y sincronización** (opcional): entrar con correo y contraseña, *Sincronizar ahora* y
+  salir. Con sesión, los cambios se suben por diferencias y llegan a los demás dispositivos al
+  momento; sin sesión, todo sigue en local.
 - Borrar todos los datos, versión, instrucciones de instalación PWA.
 
 ## 5. Lógica clave (servicios puros, testeadas)
@@ -244,7 +243,6 @@ src/
   state.ts                 # estado global + mutaciones + persistencia
   db/
     idb.ts                 # wrappers idb-keyval (exercises/routines/sessions/settings)
-    driveStore.ts          # metadatos de la conexión con Drive (fileId, última subida)
   services/
     previousSession.ts     # identidad por id con fallback a nombre
     catalog.ts             # catálogo: buscar/crear, sembrado y vinculado
@@ -257,11 +255,13 @@ src/
     cloneRoutine.ts
     suggestDay.ts
     stats.ts
-    backup.ts              # export/import JSON + contrato BackupTarget
-    drive/
-      api.ts               # Drive v3 por REST: subir, descargar, listar, borrar
-      auth.ts              # Google Identity Services: token en memoria (~1 h)
-      target.ts            # BackupTarget: última copia + 10 fechadas con rotación
+    backup.ts              # export/import JSON
+    cloud/
+      config.ts            # URL y publishable key de Supabase
+      client.ts            # sesión y acceso a la API
+      mappers.ts           # modelo de la app ↔ filas SQL
+      sync.ts              # subida por diferencias y descarga completa
+      bridge.ts            # estado de la nube para la UI y realtime
     format.ts              # fechas/números es-ES
   views/
     Hoy.tsx
@@ -282,7 +282,7 @@ src/
     tokens.css
     base.css
     components.css
-tests/                     # vitest (253): comparación por id, catálogo, prefill, clonado, stats, Drive
+tests/                     # vitest (207): comparación por id, catálogo, prefill, clonado, stats, nube
 README.md
 ```
 
@@ -302,11 +302,14 @@ README.md
 | **2. Sesión** | Modo entrenamiento: prefill serie↔serie, comparación Plan/Ant./Hoy por serie, checks, notas, series extra, atajos de relleno, cronómetro con presets, persistencia incremental, finalizar | Núcleo de la app funcionando |
 | **3. Historial y datos** | Lista/detalle/edición de sesiones, métricas y racha, ajustes (unidad, presets), export/import JSON | Ciclo completo de datos |
 | **4. Pulido y salida** | Diseño fino y microinteracciones, iconos, instalabilidad, offline real, README, tests de lógica | **v1 publicada** |
-| **5. Google Drive** (v0.7.0) | OAuth con Google Identity Services, cliente REST, copia visible + 10 fechadas con rotación, restauración validada | Copia de seguridad en la nube (manual o automática) |
+| **5. Google Drive** (v0.7.0; retirada en v0.12.0) | OAuth con Google Identity Services, cliente REST, copia visible + 10 fechadas con rotación, restauración validada | Sustituida por la sincronización con Supabase (§11) |
 | **6. Entrenamiento guiado** (v0.9.0) | Lastrados, asistidos y unilaterales; progresión doble; récords al finalizar; series semanales por grupo muscular | La app propone qué levantar y celebra los récords |
 | **7. Superseries** (siguiente versión) | Agrupar ejercicios que se alternan en la sesión | Pendiente de diseñar |
 
-### 9.1 Fase 2 — Copia en Google Drive (v0.7.0)
+### 9.1 Fase 2 — Copia en Google Drive (v0.7.0; **retirada en la v0.12.0**)
+
+> Retirada en la v0.12.0: la sustituye la sincronización con Supabase (§11). Se conserva la
+> sección como registro de lo que se hizo.
 
 Implementada como **copia de seguridad** (manual o automática), no como sincronización.
 
@@ -422,6 +425,8 @@ la primera vez que se hace un ejercicio no hay récord):
 
 ## 10. Riesgos y decisiones tomadas
 
+*(Las decisiones sobre Drive quedaron obsoletas en la v0.12.0; se conservan como registro.)*
+
 - **Identidad de ejercicios**: resuelta con **catálogo + `exerciseId` estable** (fase «catálogo").
   Los datos antiguos sin id siguen funcionando por nombre normalizado hasta que se editen
   (o hasta el sembrado/vinculado automático en la primera carga). Al cargar o importar una
@@ -455,6 +460,10 @@ la primera vez que se hace un ejercicio no hay récord):
 
 ## 11. Estado del repositorio y pendientes
 
+- **v0.12.0** — retirada de Google Drive: fuera el cliente REST, el OAuth de Google, la
+  copia automática y la columna `settings.auto_backup` (`0002_quitar_auto_backup.sql`).
+  La sincronización con Supabase es la única vía a la nube; el export/import JSON sigue
+  igual.
 - **v0.11.0** — sincronización con Supabase: login por correo y contraseña, tablas
   normalizadas con RLS por usuario (`supabase/migrations/0001_schema.sql`), realtime entre
   dispositivos y subida por diferencias. IndexedDB sigue siendo la copia local y la app
@@ -480,18 +489,12 @@ la primera vez que se hace un ejercicio no hay récord):
   finalizar sin series; Vite 8, Vitest 5, TypeScript 7, Preact 11 y Node 24 en CI.
 - **Iconos**: generador propio sin dependencias (`npm run icons`) con antialiasing 4×4,
   mancuerna diagonal, sombra y exportación de `public/icons/icon.svg` para la pestaña.
-- **Configuración local**: `VITE_GOOGLE_CLIENT_ID` y las de Supabase
-  (`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`) en `.env.local` (ignorado por Git);
-  en CI son variables del repositorio. Sin la de Google, Ajustes muestra Drive "no
-  configurado"; sin las de Supabase, la nube sale "no configurada". La publishable key es
+- **Configuración local**: `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY` en
+  `.env.local` (ignorado por Git); en CI son variables del repositorio. Sin ellas, Ajustes
+  muestra la nube «no configurada» y la app funciona solo en local. La publishable key es
   pública: la autorización de filas la hace el RLS con el token del usuario.
-- **Caducidad de Google**: en modo Testing el consentimiento expira a los 7 días. Para
-  salir de Testing: Branding completo, dominio `joangilabert94.github.io` verificado en
-  Search Console, homepage y política de privacidad publicadas, y **Audience → Publish app**.
-  Con `drive.file` (no sensible) no hay verificación de scopes; la de marca solo hace falta
-  para que se vean nombre y logo en el consentimiento.
-- **Decisiones aparcadas**: publicar y verificar la app en Google (quita Testing y los 7
-  días), copias ocultas (`appDataFolder`) y más automatismos de subida.
+- **Decisiones aparcadas**: borrado de la cuenta desde la app (hoy se hace en el panel de
+  Supabase) y más automatismos de sincronización (hoy se sube al guardar cada cambio).
 - **Ideas propuestas y no elegidas (por ahora)**: RIR/RPE por serie, calculadora de discos,
   registro de peso corporal y medidas, descarga automática tras varias sesiones sin
   progresar, progresión en series de reps fijas y cronometradas, récords de tiempo, y avisos

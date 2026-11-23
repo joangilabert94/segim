@@ -33,10 +33,9 @@ describe('importar una copia en IndexedDB', () => {
     vi.clearAllMocks();
     store.set('routines', [{ id: 'vieja' }]);
     store.set('session:vieja', session('vieja'));
-    store.set('drive:meta', { fileId: 'file-1' });
   });
 
-  it('escribe lo nuevo antes de borrar lo que sobra y conserva Drive', async () => {
+  it('escribe lo nuevo antes de borrar lo que sobra', async () => {
     await replaceAllData({
       routines: [],
       exercises: [],
@@ -45,7 +44,6 @@ describe('importar una copia en IndexedDB', () => {
     });
 
     expect([...store.keys()].sort()).toEqual([
-      'drive:meta',
       'exercises',
       'routines',
       'session:nueva',
@@ -56,9 +54,9 @@ describe('importar una copia en IndexedDB', () => {
     );
   });
 
-  it('borrar todo conserva los metadatos de Drive', async () => {
+  it('borrar todo deja el almacén vacío', async () => {
     await clearAll();
 
-    expect([...store.keys()]).toEqual(['drive:meta']);
+    expect([...store.keys()]).toEqual([]);
   });
 });

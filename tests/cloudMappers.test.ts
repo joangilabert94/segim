@@ -169,7 +169,6 @@ describe('mapeadores de catálogo y ajustes', () => {
       restPresets: [45, 90, 150],
       activeRoutineId: 'r1',
       theme: 'dark',
-      autoBackup: true,
       progressionIncrement: 5,
       bodyweight: 78.5,
     };

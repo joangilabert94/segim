@@ -185,7 +185,6 @@ export function parseSettings(v: unknown): Settings {
     unit: raw.unit === 'lb' ? 'lb' : 'kg',
     restPresets: presets.length > 0 ? presets : DEFAULT_SETTINGS.restPresets,
     theme: normalizeThemeMode(raw.theme),
-    autoBackup: raw.autoBackup === true,
     progressionIncrement:
       isFiniteNumber(raw.progressionIncrement) && raw.progressionIncrement > 0
         ? raw.progressionIncrement

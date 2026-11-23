@@ -37,8 +37,6 @@ jobs:
         env:
           # Si el repo es "usuario.github.io", BASE_PATH debe ser /.
           BASE_PATH: /${{ github.event.repository.name }}/
-          # No es un secreto (viaja en el bundle y Google lo restringe por origen): va en Variables.
-          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
           # Supabase: URL y publishable key (públicas; la secret key no se usa en el cliente).
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}

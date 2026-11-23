@@ -6,11 +6,8 @@ const K_ROUTINES = 'routines';
 const K_EXERCISES = 'exercises';
 const K_SETTINGS = 'settings';
 const K_SESSION_PREFIX = 'session:';
-export const K_DRIVE_META = 'drive:meta';
-const DRIVE_PREFIX = 'drive:';
 
 const sessionKey = (id: string) => `${K_SESSION_PREFIX}${id}`;
-const isDriveKey = (key: IDBValidKey) => typeof key === 'string' && key.startsWith(DRIVE_PREFIX);
 
 export async function loadRoutines(): Promise<Routine[]> {
   return (await get<Routine[]>(K_ROUTINES)) ?? [];
@@ -54,10 +51,9 @@ export async function saveSettings(settings: Settings): Promise<void> {
   await set(K_SETTINGS, settings);
 }
 
-// Conserva la conexión con Drive: sin la referencia, la siguiente copia duplicaría o pisaría una buena.
 export async function clearAll(): Promise<void> {
   const all = await keys();
-  await delMany(all.filter((k) => !isDriveKey(k)));
+  await delMany(all);
 }
 
 export async function replaceAllData(data: {
@@ -73,7 +69,7 @@ export async function replaceAllData(data: {
     ...data.sessions.map((s): [IDBValidKey, unknown] => [sessionKey(s.id), s]),
   ];
   const keep = new Set(entries.map(([key]) => key));
-  const stale = (await keys()).filter((k) => !keep.has(k) && !isDriveKey(k));
+  const stale = (await keys()).filter((k) => !keep.has(k));
   // Primero se escribe y luego se borra: si se corta a medias sobran datos, no faltan.
   await setMany(entries);
   await delMany(stale);

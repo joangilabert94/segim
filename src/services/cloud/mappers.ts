@@ -101,7 +101,6 @@ export interface SettingsRow {
   rest_presets: number[] | string | null;
   active_routine_id: string | null;
   theme: Settings['theme'];
-  auto_backup: boolean;
   progression_increment: number | string;
   bodyweight: number | string | null;
 }
@@ -397,7 +396,6 @@ export function settingsToRow(settings: Settings, userId: string): SettingsRow {
     rest_presets: settings.restPresets,
     active_routine_id: settings.activeRoutineId ?? null,
     theme: settings.theme,
-    auto_backup: settings.autoBackup === true,
     progression_increment: settings.progressionIncrement,
     bodyweight: settings.bodyweight ?? null,
   };
@@ -412,7 +410,6 @@ export function settingsFromRow(row: SettingsRow | null): Settings {
     unit: row.unit === 'lb' ? 'lb' : 'kg',
     restPresets: presets.length > 0 ? presets : DEFAULT_SETTINGS.restPresets,
     theme: row.theme === 'light' || row.theme === 'dark' ? row.theme : 'auto',
-    autoBackup: row.auto_backup === true,
     progressionIncrement: numOr(row.progression_increment, DEFAULT_SETTINGS.progressionIncrement),
   };
   if (row.active_routine_id) settings.activeRoutineId = row.active_routine_id;

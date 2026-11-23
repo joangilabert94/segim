@@ -45,8 +45,7 @@ dispositivo. Funciona sin conexión e instalable desde el navegador.
 - **Ajustes**: **tema (automático/claro/oscuro)**, cambio de unidad kg/lb que **convierte
   los pesos guardados** (con confirmación), presets de descanso, incremento de la progresión,
   peso corporal opcional (para 1RM y volumen de lastrados y asistidos), **exportar/importar JSON**
-  validado, **copia de seguridad en Google Drive** (opcional; manual o automática) y borrado
-  total.
+  validado, **sincronización opcional con Supabase** (cuenta por correo) y borrado total.
 
 ## Compartir rutinas y llevar el historial
 
@@ -59,7 +58,7 @@ esa. En los dos casos eliges qué lleva el `.json`:
   (las que están en curso no viajan), con su fecha, su día, las notas y todas sus series.
 
 Los ajustes (unidad, tema, descansos, peso corporal…) nunca van en este fichero: para eso está la
-copia de **Ajustes** o la de Google Drive.
+copia de **Ajustes**.
 
 ### Qué hace la importación
 
@@ -155,63 +154,40 @@ edites. El cambio se aplica a todas las rutinas y a todo el historial del ejerci
 - Con el peso corporal en Ajustes y con *por lado*, el volumen en kg del historial sube.
 - Si haces el mismo movimiento asistido y lastrado, usa dos ejercicios distintos.
 
-## Copia de seguridad en Google Drive (opcional)
+## Sincronización con Supabase (opcional)
 
-Desde Ajustes puedes conectar tu cuenta de Google y subir todas tus rutinas, sesiones y
-ajustes a **tu** Drive. Nada pasa por un servidor: la app habla directamente con la API de
-Google con un token que vive solo en memoria.
+IndexedDB sigue siendo la copia de trabajo: la app funciona sin cuenta y sin conexión. Si
+quieres, puedes entrar con tu correo y contraseña y tener las rutinas, el catálogo de
+ejercicios, las sesiones y los ajustes en todos tus dispositivos, con los cambios al momento.
 
-```
-Segim/
-  segim-backup.json             ← última copia (es la que se restaura)
-  copia-2026-10-28-1842.json    ← copias fechadas (se conservan las 10 últimas)
-```
-
-- Copia **manual** (*Subir ahora*) o **automática**, que se activa en Ajustes: sube al
-  terminar una sesión (a los 5 s) y, tras editar una sesión, una rutina o un ejercicio,
-  cuando dejas de tocar nada (20–30 s), de modo que una ráfaga de cambios produce una sola
-  copia.
-- Las copias fechadas se crean al terminar una sesión y al subir a mano; las ediciones solo
-  actualizan `segim-backup.json`, para no expulsar del historial las de días anteriores.
-- Si no hay conexión o Google pide volver a autorizar, la app lo avisa y queda la vía
-  manual; nunca restaura nada por su cuenta. Sin permiso vigente (dura ~1 h) no intenta
-  pedirlo en segundo plano, porque el navegador bloquea esa ventana: el aviso trae un botón
-  *☁️ Subir ahora* que autoriza y sube en un toque.
-- El JSON conserva la marca interna `"app": "gymrutinas"` y la app sigue leyendo
-  `gymrutinas-backup.json`: son identificadores de formato, no el nombre visible, y cambiarlos
-  invalidaría las copias ya guardadas.
-- Si tu carpeta se creó con el nombre anterior (`GymRutinas`), la primera subida la renombra a
-  `Segim` sin mover ni duplicar nada; el fichero de la copia conserva el nombre con el que se
-  creó.
-- Permiso **`drive.file`** (no sensible): la app solo ve los ficheros que ella crea.
-- En Ajustes se muestra **la cuenta de Google a la que se sube la copia**: se consulta con
-  `about.get`, que también admite `drive.file`, así que no pide ningún permiso nuevo.
-- *Restaurar* valida el JSON con el mismo criterio que el import por fichero y pide
-  confirmación antes de reemplazar los datos locales. Está disponible aunque el dispositivo
-  no esté conectado, para recuperar la copia en un móvil nuevo.
-- Conectar un dispositivo que nunca ha subido nada **no pisa** una copia que ya esté en
-  Drive: la app avisa con su fecha y solo la sustituye si lo confirmas. También reutiliza la
-  carpeta `Segim` existente en vez de crear otra.
-- El token de Google dura ~1 h; al caducar, el botón vuelve a autorizar sin repetir el
-  consentimiento mientras la sesión de Google siga activa.
-- *Desconectar* revoca el permiso; los ficheros siguen en tu Drive.
+- **Base de datos normalizada** (`supabase/migrations/0001_schema.sql`): `routines`,
+  `routine_days`, `routine_exercises`, `planned_sets`, `sessions`, `session_entries`,
+  `performed_sets`, `exercises` y `settings`, más dos vistas. Todas cuelgan de `auth.users`
+  por `user_id` y el **RLS** hace que cada cuenta solo vea lo suyo; se puede consultar con SQL
+  desde el panel de Supabase.
+- **Subida por diferencias**: al guardar se suben solo esa rutina, esa sesión o esos ajustes,
+  no la base entera (`src/services/cloud/sync.ts`). Las tablas hijas sin id propio se
+  reescriben completas con su padre.
+- **Realtime**: los cambios hechos en otro dispositivo llegan al momento y la copia local se
+  actualiza sin recargar.
+- **Primera vez con datos en los dos lados**: la app pregunta qué se queda (local o nube) en
+  vez de mezclar. Sin sesión no se escribe nada en la nube.
+- **Sin la nube configurada**, Ajustes muestra «no configurada» y todo sigue siendo local.
 
 ### Configurarlo
 
-1. Crea un **Client ID de OAuth** (tipo "Aplicación web") en Google Cloud, con la Drive API
-   habilitada y estos orígenes autorizados: `https://joangilabert94.github.io` y
-   `http://localhost:5173`.
-2. En local, define `VITE_GOOGLE_CLIENT_ID` en `.env.local` (ignorado por Git).
-3. En GitHub Pages, define la **variable del repositorio** `VITE_GOOGLE_CLIENT_ID`
+1. Crea un proyecto en [Supabase](https://supabase.com) y ejecuta los dos ficheros de
+   `supabase/migrations/` en el **SQL Editor** (primero `0001_schema.sql`, después
+   `0002_quitar_auto_backup.sql`). Son idempotentes.
+2. En *Authentication → Users* crea tu usuario: el registro está cerrado (se abre en
+   *Authentication → Sign In / Providers* si lo prefieres).
+3. En local, define `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY` en `.env.local`
+   (ignorado por Git).
+4. En GitHub Pages, define esas dos como **variables del repositorio**
    (Settings → Secrets and variables → Actions → Variables).
 
-La app publica su **política de privacidad** en `/segim/privacidad.html` (enlazada desde
-Ajustes): Google exige una URL pública y el dominio verificado en Search Console.
-
-Con el proyecto en modo *Testing* solo conectan las cuentas de prueba (hasta 100) y la
-autorización caduca a los 7 días. Publicar la app (**Audience → Publish app**) elimina ambos
-límites; con `drive.file`, que no es sensible, no hay verificación de scopes, y la de marca
-solo es necesaria para que el consentimiento muestre el nombre y el logo.
+La publishable key es pública: viaja en el bundle y solo identifica el proyecto; quién puede
+leer cada fila lo decide el RLS con el token de la sesión.
 
 ## Stack
 
@@ -266,23 +242,20 @@ src/
   router.ts        # hash router
   timer.ts         # cronómetro de descanso
   services/        # lógica pura (catálogo, comparación, prefill, clonado, stats, backup)
-  services/drive/  # copia en Google Drive (api REST, auth, BackupTarget)
-  db/driveStore.ts # metadatos de la conexión con Google Drive
+  services/cloud/  # sincronización con Supabase (config, cliente, mapeadores, sync)
   views/           # Hoy, Session, History, SessionDetail, Routines, RoutineEditor, Exercises, Settings
-  components/      # SeriesRow, ExercisePicker, BottomSheet, ConfirmDialog, RestControls
+  components/      # SeriesRow, ExercisePicker, BottomSheet, ConfirmDialog, RestControls, CloudPanel
   styles/          # tokens, base, componentes
-tests/             # vitest (253 tests)
+tests/             # vitest (207 tests)
 ```
 
 ## Roadmap
 
-- ✓ **Copia de seguridad en Google Drive** (v0.8.4; manual o automática, con retardos).
+- ✓ **Sincronización con Supabase** (v0.11.0; login por correo, tablas con RLS y realtime).
 - ✓ **v0.9.0**: lastrados, asistidos y unilaterales; progresión doble; récords al finalizar;
   series semanales por grupo muscular.
 - ✓ **v0.10.0**: compartir rutinas con o sin sus sesiones realizadas, todas o una sola desde
   su tarjeta.
 - **Siguiente**: superseries.
-- Sincronización automática entre dispositivos (requiere backend que custodie refresh
-  tokens: un access token de navegador dura ~1 h y renovarlo exige un gesto).
 - Estadísticas y gráficas de progresión.
 - Exportar/importar el catálogo hacia plantillas compartibles.
