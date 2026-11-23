@@ -724,8 +724,11 @@
 
 .day-preview li {
   display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
   justify-content: space-between;
-  gap: 10px;
+  gap: 2px 10px;
+  min-width: 0;
   font-size: 0.88rem;
   color: var(--muted);
 }
@@ -733,12 +736,21 @@
 .day-preview li b {
   color: var(--text);
   font-weight: 600;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
+/* Las series de un ejercicio pueden ser largas: si no caben al lado del nombre,
+   bajan a otra línea en vez de ensanchar la tarjeta más allá de la pantalla. */
 .day-preview li .sets-n {
   color: var(--dim);
   font-size: 0.8rem;
-  white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
+  margin-left: auto;
+  text-align: right;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
 }
 
 .editor-section {
