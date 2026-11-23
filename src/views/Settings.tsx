@@ -17,6 +17,7 @@ import { DEFAULT_SETTINGS } from '../models';
 import { THEME_OPTIONS } from '../services/theme';
 import { currentTheme } from '../theme';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { CloudPanel } from '../components/CloudPanel';
 import { fmtDateTime, fmtWeightInput, parseNumber, plural } from '../services/format';
 
 const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev';
@@ -343,6 +344,10 @@ export function SettingsView() {
 
         {message && <div class={`inline-msg is-${message.kind}`}>{message.text}</div>}
       </div>
+
+      <div class="section-title">Cuenta y sincronización</div>
+
+      <CloudPanel />
 
       <div class="section-title">Copia en Google Drive</div>
 

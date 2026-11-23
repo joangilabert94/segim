@@ -2,6 +2,7 @@ import { render } from 'preact';
 import { App } from './app';
 import { loadState, notifyListeners } from './state';
 import { initTheme, onThemeChange } from './theme';
+import { startCloud } from './services/cloud/bridge';
 import { registerSW } from 'virtual:pwa-register';
 
 import './styles/tokens.css';
@@ -15,6 +16,8 @@ onThemeChange(notifyListeners);
 
 loadState().then(() => {
   if (root) render(<App />, root);
+  // Retoma la sesión de Supabase si existe; sin configurar o sin sesión, no hace nada.
+  void startCloud();
 });
 
 if ('serviceWorker' in navigator) {

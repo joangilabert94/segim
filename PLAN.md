@@ -455,6 +455,11 @@ la primera vez que se hace un ejercicio no hay récord):
 
 ## 11. Estado del repositorio y pendientes
 
+- **v0.11.0** — sincronización con Supabase: login por correo y contraseña, tablas
+  normalizadas con RLS por usuario (`supabase/migrations/0001_schema.sql`), realtime entre
+  dispositivos y subida por diferencias. IndexedDB sigue siendo la copia local y la app
+  funciona igual sin cuenta; al entrar con datos en los dos lados, la app pregunta cuáles
+  se quedan. Nada se escribe en la nube sin sesión iniciada.
 - **Versión**: `v0.9.3` — Rutinas muestra la primera y la última vez de cada rutina y su
   duración en semanas; Ejercicios muestra la última vez que se hizo cada ejercicio; Hoy no
   propone otro entrenamiento si hay una sesión en curso.
@@ -475,8 +480,11 @@ la primera vez que se hace un ejercicio no hay récord):
   finalizar sin series; Vite 8, Vitest 5, TypeScript 7, Preact 11 y Node 24 en CI.
 - **Iconos**: generador propio sin dependencias (`npm run icons`) con antialiasing 4×4,
   mancuerna diagonal, sombra y exportación de `public/icons/icon.svg` para la pestaña.
-- **Configuración local**: `VITE_GOOGLE_CLIENT_ID` en `.env.local` (ignorado por Git);
-  en CI es una variable del repositorio. Sin ella, Ajustes muestra Drive "no configurado".
+- **Configuración local**: `VITE_GOOGLE_CLIENT_ID` y las de Supabase
+  (`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`) en `.env.local` (ignorado por Git);
+  en CI son variables del repositorio. Sin la de Google, Ajustes muestra Drive "no
+  configurado"; sin las de Supabase, la nube sale "no configurada". La publishable key es
+  pública: la autorización de filas la hace el RLS con el token del usuario.
 - **Caducidad de Google**: en modo Testing el consentimiento expira a los 7 días. Para
   salir de Testing: Branding completo, dominio `joangilabert94.github.io` verificado en
   Search Console, homepage y política de privacidad publicadas, y **Audience → Publish app**.
