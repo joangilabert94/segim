@@ -15,9 +15,23 @@
     <link rel="apple-touch-icon" href="%BASE_URL%icons/icon-192.png" />
     <title>Segim</title>
     <script>
-      /* Antes del primer pintado para evitar el destello; mismo criterio que src/services/theme.ts. */
+      /* Antes del primer pintado para evitar el destello; mismo criterio que src/services/theme.ts y
+         la misma tabla de paletas que src/services/palette.ts (mantener sincronizados). */
       (function () {
         try {
+          var BAR = {
+            salvia: '#f4f7f1', oceano: '#f0f5fa', arcilla: '#faf3ec',
+            lima: '#0c0f0e', medianoche: '#0d1420', ambar: '#141010',
+          };
+          var LIGHT = ['salvia', 'oceano', 'arcilla'];
+          var DARK = ['lima', 'medianoche', 'ambar'];
+          var palettes = { light: 'salvia', dark: 'lima' };
+          try {
+            var raw = localStorage.getItem('segim-palettes');
+            var parsed = raw ? JSON.parse(raw) : null;
+            if (parsed && LIGHT.indexOf(parsed.light) !== -1) palettes.light = parsed.light;
+            if (parsed && DARK.indexOf(parsed.dark) !== -1) palettes.dark = parsed.dark;
+          } catch (e) { /* sin caché válida: valores por defecto */ }
           var mode = localStorage.getItem('segim-theme');
           if (mode !== 'light' && mode !== 'dark') mode = 'auto';
           var theme;
@@ -31,11 +45,13 @@
             }
             theme = prefers === false ? 'dark' : 'light';
           }
+          var palette = theme === 'light' ? palettes.light : palettes.dark;
           var root = document.documentElement;
           root.setAttribute('data-theme', theme);
+          root.setAttribute('data-palette', palette);
           root.style.setProperty('color-scheme', theme);
           var meta = document.querySelector('meta[name="theme-color"]');
-          if (meta) meta.setAttribute('content', theme === 'dark' ? '#0c0f0e' : '#f4f7f1');
+          if (meta) meta.setAttribute('content', BAR[palette]);
           var ios = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
           if (ios) ios.setAttribute('content', theme === 'dark' ? 'black-translucent' : 'default');
         } catch (e) {
@@ -48,9 +64,25 @@
         --splash-bg: #f4f7f1;
         --splash-ink: #141a14;
       }
+      html[data-palette='oceano'] {
+        --splash-bg: #f0f5fa;
+        --splash-ink: #0e5aa8;
+      }
+      html[data-palette='arcilla'] {
+        --splash-bg: #faf3ec;
+        --splash-ink: #b0441c;
+      }
       html[data-theme='dark'] {
         --splash-bg: #0c0f0e;
         --splash-ink: #c6f24e;
+      }
+      html[data-palette='medianoche'] {
+        --splash-bg: #0d1420;
+        --splash-ink: #7dd3fc;
+      }
+      html[data-palette='ambar'] {
+        --splash-bg: #141010;
+        --splash-ink: #f2b33d;
       }
       html,
       body {

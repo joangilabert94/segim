@@ -11,6 +11,7 @@ import type {
 } from '../models';
 import { DEFAULT_SETTINGS } from '../models';
 import { normalizeThemeMode } from './theme';
+import { normalizeDarkPalette, normalizeLightPalette } from './palette';
 
 const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null;
@@ -185,6 +186,8 @@ export function parseSettings(v: unknown): Settings {
     unit: raw.unit === 'lb' ? 'lb' : 'kg',
     restPresets: presets.length > 0 ? presets : DEFAULT_SETTINGS.restPresets,
     theme: normalizeThemeMode(raw.theme),
+    lightPalette: normalizeLightPalette(raw.lightPalette),
+    darkPalette: normalizeDarkPalette(raw.darkPalette),
     progressionIncrement:
       isFiniteNumber(raw.progressionIncrement) && raw.progressionIncrement > 0
         ? raw.progressionIncrement

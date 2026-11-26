@@ -413,10 +413,14 @@ export function settingsFromRow(row: SettingsRow | null): Settings {
   const presets = Array.isArray(row.rest_presets)
     ? row.rest_presets.map((value) => numOr(value, 60)).filter((value) => value > 0)
     : [];
+  // Las paletas no viajan en la copia de la nube: son locales al dispositivo
+  // (el puente las re-aplica tras aplicar los ajustes remotos).
   const settings: Settings = {
     unit: row.unit === 'lb' ? 'lb' : 'kg',
     restPresets: presets.length > 0 ? presets : DEFAULT_SETTINGS.restPresets,
     theme: row.theme === 'light' || row.theme === 'dark' ? row.theme : 'auto',
+    lightPalette: DEFAULT_SETTINGS.lightPalette,
+    darkPalette: DEFAULT_SETTINGS.darkPalette,
     progressionIncrement: numOr(row.progression_increment, DEFAULT_SETTINGS.progressionIncrement),
   };
   if (row.active_routine_id) settings.activeRoutineId = row.active_routine_id;

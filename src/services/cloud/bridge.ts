@@ -109,6 +109,13 @@ function localData(): LocalData {
   return { routines: s.routines, exercises: s.exercises, sessions: s.sessions, settings: s.settings };
 }
 
+// La nube no guarda paletas: las de este dispositivo sobreviven a cualquier aplicación
+// de ajustes remotos (pull, conexión inicial, elección de lado en el conflicto).
+function withLocalPalettes(remote: Settings | null, local: Settings): Settings {
+  if (!remote) return local;
+  return { ...remote, lightPalette: local.lightPalette, darkPalette: local.darkPalette };
+}
+
 function sameMap(a: Map<string, string>, b: Map<string, string>): boolean {
   if (a.size !== b.size) return false;
   for (const [key, value] of a) {
@@ -275,7 +282,7 @@ async function pullDown(): Promise<void> {
         sessions: remote.sessions,
         // Sin fila de ajustes en la nube se conservan los locales (unidad, peso
         // corporal, presets…), nunca se pisan con los valores por defecto.
-        settings: remote.settings ?? local.settings,
+        settings: withLocalPalettes(remote.settings, local.settings),
       });
     } finally {
       applying = false;
@@ -308,7 +315,7 @@ async function attach(uid: string, email: string | undefined, remoteData?: Await
         routines: remote.routines,
         exercises: remote.exercises,
         sessions: remote.sessions,
-        settings: remote.settings ?? local.settings,
+        settings: withLocalPalettes(remote.settings, local.settings),
       });
     } finally {
       applying = false;
@@ -423,7 +430,7 @@ export async function resolveCloudChoice(choice: 'cloud' | 'local'): Promise<voi
           routines: remote.routines,
           exercises: remote.exercises,
           sessions: remote.sessions,
-          settings: remote.settings ?? local.settings,
+          settings: withLocalPalettes(remote.settings, local.settings),
         });
       } finally {
         applying = false;

@@ -58,7 +58,7 @@ export function getState(): AppState {
 function setState(patch: Partial<AppState>): void {
   state = { ...state, ...patch };
   // Aquí y no en cada acción, para que ninguna vía (cargar, importar, borrar) se salte el tema.
-  if (patch.settings) applyTheme(patch.settings.theme);
+  if (patch.settings) applyTheme(patch.settings);
   listeners.forEach((fn) => fn());
 }
 

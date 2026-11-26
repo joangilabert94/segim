@@ -169,10 +169,18 @@ describe('mapeadores de catálogo y ajustes', () => {
       restPresets: [45, 90, 150],
       activeRoutineId: 'r1',
       theme: 'dark',
+      lightPalette: 'oceano',
+      darkPalette: 'ambar',
       progressionIncrement: 5,
       bodyweight: 78.5,
     };
-    expect(settingsFromRow(settingsToRow(settings, USER))).toEqual(settings);
+    // La nube no transporta paletas (son locales al dispositivo): el round-trip
+    // las deja en los valores por defecto y el puente re-aplica las locales.
+    expect(settingsFromRow(settingsToRow(settings, USER))).toEqual({
+      ...settings,
+      lightPalette: DEFAULT_SETTINGS.lightPalette,
+      darkPalette: DEFAULT_SETTINGS.darkPalette,
+    });
 
     const empty = settingsFromRow(null);
     expect(empty).toEqual(DEFAULT_SETTINGS);

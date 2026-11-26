@@ -12,6 +12,8 @@ import {
 } from '../state';
 import { DEFAULT_SETTINGS } from '../models';
 import { THEME_OPTIONS } from '../services/theme';
+import { palettesForMode } from '../services/palette';
+import type { DarkPaletteId, LightPaletteId } from '../models';
 import { currentTheme } from '../theme';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CloudPanel } from '../components/CloudPanel';
@@ -222,6 +224,46 @@ export function SettingsView() {
         </div>
         <p class="hint" style="margin-top:10px">
           {themeHint()}
+        </p>
+
+        {(['light', 'dark'] as const).map((mode) => (
+          <div class="palette-group" key={mode}>
+            <span class="palette-label">{mode === 'light' ? 'Paleta clara' : 'Paleta oscura'}</span>
+            <div class="palette-row" role="group" aria-label={mode === 'light' ? 'Paleta clara' : 'Paleta oscura'}>
+              {palettesForMode(mode).map((palette) => {
+                const active =
+                  mode === 'light'
+                    ? s.settings.lightPalette === palette.id
+                    : s.settings.darkPalette === palette.id;
+                return (
+                  <button
+                    key={palette.id}
+                    class={`palette-swatch${active ? ' is-active' : ''}`}
+                    aria-pressed={active}
+                    title={palette.hint}
+                    onClick={() =>
+                      updateSettings(
+                        mode === 'light'
+                          ? { lightPalette: palette.id as LightPaletteId }
+                          : { darkPalette: palette.id as DarkPaletteId },
+                      )
+                    }
+                  >
+                    <span class="palette-preview" style={`background:${palette.swatch.bg}`}>
+                      <span class="bar" style={`background:${palette.swatch.surface}`} />
+                      <span class="dot" style={`background:${palette.swatch.accent}`} />
+                    </span>
+                    <span class="palette-name">{palette.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+        <p class="hint" style="margin-top:10px">
+          Cada modo recuerda su paleta; con «Auto» se usa la que toque según el dispositivo. Se
+          guarda en este dispositivo (y viaja en la copia de seguridad), pero no se sincroniza con
+          la nube.
         </p>
       </div>
 

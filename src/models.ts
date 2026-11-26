@@ -4,6 +4,9 @@ export type ThemeMode = 'auto' | 'light' | 'dark';
 
 export type ResolvedTheme = 'light' | 'dark';
 
+export type { LightPaletteId, DarkPaletteId, PaletteId } from './services/palette';
+import type { DarkPaletteId, LightPaletteId } from './services/palette';
+
 // bodyweight: el peso de la serie es lastre; assisted: es asistencia, y menos es mejor.
 export type LoadType = 'external' | 'bodyweight' | 'assisted';
 
@@ -95,6 +98,8 @@ export interface Settings {
   restPresets: number[];
   activeRoutineId?: string;
   theme: ThemeMode;
+  lightPalette: LightPaletteId;
+  darkPalette: DarkPaletteId;
   progressionIncrement: number;
   bodyweight?: number;
 }
@@ -103,6 +108,8 @@ export const DEFAULT_SETTINGS: Settings = {
   unit: 'kg',
   restPresets: [60, 90, 120, 180, 240, 300],
   theme: 'auto',
+  lightPalette: 'salvia',
+  darkPalette: 'lima',
   progressionIncrement: 2.5,
 };
 

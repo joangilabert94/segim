@@ -1,13 +1,14 @@
-import type { ResolvedTheme, ThemeMode } from './models';
+import type { ResolvedTheme, Settings, ThemeMode } from './models';
 import { normalizeThemeMode, resolveTheme } from './services/theme';
+import {
+  normalizeDarkPalette,
+  normalizeLightPalette,
+  barColor,
+} from './services/palette';
 
 // La lee también el script inline de index.html: pinta el tema antes de IndexedDB, sin parpadeo.
-const CACHE_KEY = 'segim-theme';
-
-const THEME_COLOR: Record<ResolvedTheme, string> = {
-  light: '#f4f7f1',
-  dark: '#0c0f0e',
-};
+const THEME_CACHE_KEY = 'segim-theme';
+const PALETTE_CACHE_KEY = 'segim-palettes';
 
 const STATUS_BAR: Record<ResolvedTheme, string> = {
   light: 'default',
@@ -15,6 +16,8 @@ const STATUS_BAR: Record<ResolvedTheme, string> = {
 };
 
 let mode: ThemeMode = 'auto';
+let lightPalette = normalizeLightPalette(undefined);
+let darkPalette = normalizeDarkPalette(undefined);
 let watching: ThemeMode | null = null;
 let media: MediaQueryList | null = null;
 
@@ -29,15 +32,38 @@ export function onThemeChange(fn: () => void): () => void {
 
 export function readCachedTheme(): ThemeMode {
   try {
-    return normalizeThemeMode(localStorage.getItem(CACHE_KEY));
+    return normalizeThemeMode(localStorage.getItem(THEME_CACHE_KEY));
   } catch {
     return 'auto';
   }
 }
 
-function cache(mode: ThemeMode): void {
+/** Par de paletas guardado por el script inline / por applyTheme. Tolerante a datos corruptos. */
+export function readCachedPalettes(): { light: typeof lightPalette; dark: typeof darkPalette } {
   try {
-    localStorage.setItem(CACHE_KEY, mode);
+    const raw = localStorage.getItem(PALETTE_CACHE_KEY);
+    const parsed: unknown = raw === null ? undefined : JSON.parse(raw);
+    const obj = typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {};
+    return {
+      light: normalizeLightPalette(obj.light),
+      dark: normalizeDarkPalette(obj.dark),
+    };
+  } catch {
+    return { light: normalizeLightPalette(undefined), dark: normalizeDarkPalette(undefined) };
+  }
+}
+
+function cacheTheme(next: ThemeMode): void {
+  try {
+    localStorage.setItem(THEME_CACHE_KEY, next);
+  } catch {
+    // sin almacenamiento (modo privado): seguimos en memoria
+  }
+}
+
+function cachePalettes(): void {
+  try {
+    localStorage.setItem(PALETTE_CACHE_KEY, JSON.stringify({ light: lightPalette, dark: darkPalette }));
   } catch {
     // sin almacenamiento (modo privado): seguimos en memoria
   }
@@ -57,10 +83,11 @@ export function currentTheme(): ResolvedTheme {
 function paint(resolved: ResolvedTheme): void {
   const root = document.documentElement;
   root.setAttribute('data-theme', resolved);
+  root.setAttribute('data-palette', resolved === 'light' ? lightPalette : darkPalette);
   root.style.setProperty('color-scheme', resolved);
 
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', THEME_COLOR[resolved]);
+  if (meta) meta.setAttribute('content', barColor(resolved, lightPalette, darkPalette));
 
   const ios = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
   if (ios) ios.setAttribute('content', STATUS_BAR[resolved]);
@@ -84,13 +111,18 @@ function onSystemChange(): void {
   listeners.forEach((fn) => fn());
 }
 
-export function applyTheme(next: ThemeMode): void {
-  mode = normalizeThemeMode(next);
-  cache(mode);
+/** Aplica modo (auto/claro/oscuro) y las paletas de cada modo; pinta sin parpadeo. */
+export function applyTheme(next: Pick<Settings, 'theme' | 'lightPalette' | 'darkPalette'>): void {
+  mode = normalizeThemeMode(next.theme);
+  lightPalette = normalizeLightPalette(next.lightPalette);
+  darkPalette = normalizeDarkPalette(next.darkPalette);
+  cacheTheme(mode);
+  cachePalettes();
   syncWatcher();
   paint(currentTheme());
 }
 
 export function initTheme(): void {
-  applyTheme(readCachedTheme());
+  const cached = readCachedPalettes();
+  applyTheme({ theme: readCachedTheme(), lightPalette: cached.light, darkPalette: cached.dark });
 }
