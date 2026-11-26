@@ -89,12 +89,39 @@ let applying = false;
 let syncing = false;
 let dirty = false;
 let pullDeferrals = 0;
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
+let retryAttempts = 0;
 
 const PUSH_DELAY_MS = 1_200;
 const PUSH_RETRY_DELAY_MS = 5_000;
 const PULL_DELAY_MS = 600;
 const PULL_RETRY_DELAY_MS = 800;
 const MAX_PULL_DEFERRALS = 30;
+const PUSH_AUTO_RETRY_BASE_MS = 5_000;
+const PUSH_AUTO_RETRY_MAX_MS = 60_000;
+const PUSH_AUTO_MAX_ATTEMPTS = 20; // ~ con backoff, varios minutos de reintentos en segundo plano
+
+// Marca de que ESTE dispositivo ya resolvió la reconciliación inicial con la cuenta.
+// Sin ella, attach() vería "los dos lados tienen datos" en cada recarga (y los dos lados
+// tienen datos siempre, desde el primer sync) y preguntaría en cada arranque, dejando la
+// fase en 'choice' y la sincronización automática muerta hasta pulsar el botón a mano.
+const linkedKey = (userId: string) => `segim-cloud-linked:${userId}`;
+
+function isLinked(userId: string): boolean {
+  try {
+    return localStorage.getItem(linkedKey(userId)) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function markLinked(userId: string): void {
+  try {
+    localStorage.setItem(linkedKey(userId), '1');
+  } catch {
+    // sin almacenamiento (modo privado): se preguntará en cada arranque, como antes
+  }
+}
 
 function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : 'No se pudo hablar con la nube.';
@@ -138,9 +165,62 @@ function hasUnpushedChanges(): boolean {
   );
 }
 
+/**
+ * Sube TODO lo local sobrescribiendo filas remotas del mismo id, pero SIN borrar nada:
+ * a diferencia de cloudPushAll, no poda. Es seguro usarlo en cada arranque aunque la
+ * nube tenga cosas que este dispositivo no conoce todavía.
+ */
+async function cloudUpsertAllNoPrune(data: LocalData, uid: string): Promise<void> {
+  await cloudPushExercises(data.exercises, uid);
+  for (const routine of data.routines) await cloudPushRoutine(routine, uid);
+  for (const session of data.sessions) await cloudPushSession(session, uid);
+  await cloudPushSettings(data.settings, uid);
+}
+
+/**
+ * Ya vinculado: no hay conflicto que preguntar. Primero se sube lo local (prevalece id a
+ * id, sin borrar nada) y luego se aplica lo remoto resultante encima (así sobreviven las
+ * filas de otros dispositivos y lo subido hace un momento).
+ */
+async function reconcileLinked(uid: string, local: LocalData): Promise<void> {
+  await cloudUpsertAllNoPrune(local, uid);
+  const remote = await cloudPull();
+  applying = true;
+  try {
+    replaceAll({
+      routines: remote.routines,
+      exercises: remote.exercises,
+      sessions: remote.sessions,
+      settings: withLocalPalettes(remote.settings, local.settings),
+    });
+  } finally {
+    applying = false;
+  }
+  pushed = snapshot(localData());
+}
+
 function startListeners(): void {
   if (!unsubscribeStore) unsubscribeStore = subscribe(onLocalChange);
   if (!unsubscribeRemote) unsubscribeRemote = subscribeRemoteChanges(onRemoteChange);
+}
+
+function clearRetry(): void {
+  if (retryTimer) clearTimeout(retryTimer);
+  retryTimer = null;
+  retryAttempts = 0;
+}
+
+// Tras un fallo, se reintenta solo (con backoff): un corte de red ya no deja la nube
+// desactualizada hasta que el usuario vuelva a tocar algo o pulse «Subir ahora».
+function scheduleRetry(): void {
+  if (retryAttempts >= PUSH_AUTO_MAX_ATTEMPTS) return;
+  if (retryTimer) clearTimeout(retryTimer);
+  const delay = Math.min(PUSH_AUTO_RETRY_BASE_MS * 2 ** retryAttempts, PUSH_AUTO_RETRY_MAX_MS);
+  retryAttempts += 1;
+  retryTimer = setTimeout(() => {
+    retryTimer = null;
+    void syncUp();
+  }, delay);
 }
 
 function stopListeners(): void {
@@ -149,6 +229,7 @@ function stopListeners(): void {
   pushTimer = null;
   pullTimer = null;
   pullDeferrals = 0;
+  clearRetry();
   unsubscribeStore?.();
   unsubscribeRemote?.();
   unsubscribeStore = null;
@@ -232,9 +313,12 @@ async function syncUp(): Promise<void> {
     }
 
     pushed = snapshot(data);
+    clearRetry();
+    startListeners();
     setStatus({ lastSyncAt: new Date().toISOString(), message: undefined, phase: 'ready' });
   } catch (err) {
     setStatus({ phase: 'error', busy: false, message: messageOf(err) });
+    scheduleRetry();
   } finally {
     syncing = false;
     if (dirty) {
@@ -303,7 +387,16 @@ async function attach(uid: string, email: string | undefined, remoteData?: Await
   const localHasData = hasData(local);
 
   if (remoteHasData && localHasData) {
-    // Dos orígenes con datos: no se pisa ninguno sin que el usuario elija.
+    // Ya vinculado en este dispositivo: reconciliar en silencio (sin tocar nada de la
+    // nube que este dispositivo no conozca) en lugar de preguntar en cada arranque.
+    if (isLinked(uid)) {
+      await reconcileLinked(uid, local);
+      startListeners();
+      markLinked(uid);
+      setStatus({ phase: 'ready', busy: false, lastSyncAt: new Date().toISOString() });
+      return;
+    }
+    // Dos orígenes con datos por primera vez: no se pisa ninguno sin que el usuario elija.
     setStatus({ phase: 'choice', busy: false });
     return;
   }
@@ -328,6 +421,7 @@ async function attach(uid: string, email: string | undefined, remoteData?: Await
   }
 
   startListeners();
+  markLinked(uid);
   setStatus({ phase: 'ready', busy: false, lastSyncAt: new Date().toISOString() });
 }
 
@@ -347,6 +441,7 @@ export async function startCloud(): Promise<void> {
     await attach(data.session.user.id, data.session.user.email ?? undefined);
   } catch (err) {
     setStatus({ phase: 'error', busy: false, message: messageOf(err) });
+    scheduleRetry();
   }
 }
 
@@ -438,6 +533,7 @@ export async function resolveCloudChoice(choice: 'cloud' | 'local'): Promise<voi
       pushed = snapshot(localData());
     }
     startListeners();
+    markLinked(current);
     setStatus({ phase: 'ready', busy: false, lastSyncAt: new Date().toISOString() });
   } catch (err) {
     setStatus({ phase: 'error', busy: false, message: messageOf(err) });
