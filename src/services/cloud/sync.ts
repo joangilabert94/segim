@@ -96,7 +96,11 @@ export async function cloudPushRoutine(routine: Routine, userId: string): Promis
   fail(saved.error, 'guardar la rutina');
 
   // El borrado de los días arrastra en cascada sus ejercicios y series planificadas.
-  const cleared = await c.from('routine_days').delete().eq('routine_id', routine.id);
+  const cleared = await c
+    .from('routine_days')
+    .delete()
+    .eq('routine_id', routine.id)
+    .eq('user_id', userId);
   fail(cleared.error, 'guardar los días');
 
   if (payload.days.length > 0) {
@@ -113,9 +117,12 @@ export async function cloudPushRoutine(routine: Routine, userId: string): Promis
   }
 }
 
-export async function cloudDeleteRoutines(ids: string[]): Promise<void> {
+export async function cloudDeleteRoutines(ids: string[], userId: string): Promise<void> {
   if (ids.length === 0) return;
-  fail((await cloudClient().from('routines').delete().in('id', ids)).error, 'borrar las rutinas');
+  fail(
+    (await cloudClient().from('routines').delete().in('id', ids).eq('user_id', userId)).error,
+    'borrar las rutinas',
+  );
 }
 
 export async function cloudPushSession(session: Session, userId: string): Promise<void> {
@@ -128,7 +135,13 @@ export async function cloudPushSession(session: Session, userId: string): Promis
   );
 
   fail(
-    (await c.from('session_entries').delete().eq('session_id', session.id)).error,
+    (
+      await c
+        .from('session_entries')
+        .delete()
+        .eq('session_id', session.id)
+        .eq('user_id', userId)
+    ).error,
     'guardar los ejercicios de la sesión',
   );
 
@@ -144,19 +157,29 @@ export async function cloudPushSession(session: Session, userId: string): Promis
   );
 
   const idByPosition = new Map(created.map((row) => [Number(row.position), row.id]));
+  // Nunca se descartan series en silencio: si alguna no enlaza con su ejercicio, falla
+  // visible y reintentable en vez de dejar la nube a medias sin que nadie se entere.
+  const unlinked = payload.sets.filter((set) => !idByPosition.has(set.entry_position));
+  if (unlinked.length > 0) {
+    throw new Error(
+      `No se pudieron guardar ${unlinked.length} serie(s) de la sesión: faltan sus ejercicios.`,
+    );
+  }
   const sets = payload.sets.map(({ entry_position, ...set }) => ({
     ...set,
-    session_entry_id: idByPosition.get(entry_position) ?? '',
+    session_entry_id: idByPosition.get(entry_position) as string,
   }));
-  const valid = sets.filter((set) => set.session_entry_id !== '');
-  if (valid.length > 0) {
-    fail((await c.from('performed_sets').insert(valid)).error, 'guardar las series hechas');
+  if (sets.length > 0) {
+    fail((await c.from('performed_sets').insert(sets)).error, 'guardar las series hechas');
   }
 }
 
-export async function cloudDeleteSessions(ids: string[]): Promise<void> {
+export async function cloudDeleteSessions(ids: string[], userId: string): Promise<void> {
   if (ids.length === 0) return;
-  fail((await cloudClient().from('sessions').delete().in('id', ids)).error, 'borrar las sesiones');
+  fail(
+    (await cloudClient().from('sessions').delete().in('id', ids).eq('user_id', userId)).error,
+    'borrar las sesiones',
+  );
 }
 
 export async function cloudPushExercises(list: Exercise[], userId: string): Promise<void> {
@@ -168,10 +191,10 @@ export async function cloudPushExercises(list: Exercise[], userId: string): Prom
   );
 }
 
-export async function cloudDeleteExercises(ids: string[]): Promise<void> {
+export async function cloudDeleteExercises(ids: string[], userId: string): Promise<void> {
   if (ids.length === 0) return;
   fail(
-    (await cloudClient().from('exercises').delete().in('id', ids)).error,
+    (await cloudClient().from('exercises').delete().in('id', ids).eq('user_id', userId)).error,
     'borrar ejercicios del catálogo',
   );
 }
@@ -187,15 +210,18 @@ export async function cloudPushSettings(settings: Settings, userId: string): Pro
   );
 }
 
-async function remoteIds(table: string): Promise<string[]> {
-  const result = await cloudClient().from(table).select('id');
+async function remoteIds(table: string, userId: string): Promise<string[]> {
+  const result = await cloudClient().from(table).select('id').eq('user_id', userId);
   return rows<{ id: string }>(result, `leer ${table}`).map((row) => row.id);
 }
 
-async function prune(table: string, keep: Set<string>): Promise<void> {
-  const stale = (await remoteIds(table)).filter((id) => !keep.has(id));
+async function prune(table: string, keep: Set<string>, userId: string): Promise<void> {
+  const stale = (await remoteIds(table, userId)).filter((id) => !keep.has(id));
   if (stale.length === 0) return;
-  fail((await cloudClient().from(table).delete().in('id', stale)).error, `limpiar ${table}`);
+  fail(
+    (await cloudClient().from(table).delete().in('id', stale).eq('user_id', userId)).error,
+    `limpiar ${table}`,
+  );
 }
 
 /** Sube el estado completo. Se usa al conectar y al resolver el primer conflicto. */
@@ -208,9 +234,9 @@ export async function cloudPushAll(
   for (const session of data.sessions) await cloudPushSession(session, userId);
 
   // Al final, para no borrar una fila que todavía referencia una rutina recién subida.
-  await prune('exercises', new Set(data.exercises.map((e) => e.id)));
-  await prune('routines', new Set(data.routines.map((r) => r.id)));
-  await prune('sessions', new Set(data.sessions.map((s) => s.id)));
+  await prune('exercises', new Set(data.exercises.map((e) => e.id)), userId);
+  await prune('routines', new Set(data.routines.map((r) => r.id)), userId);
+  await prune('sessions', new Set(data.sessions.map((s) => s.id)), userId);
 
   await cloudPushSettings(data.settings, userId);
 }

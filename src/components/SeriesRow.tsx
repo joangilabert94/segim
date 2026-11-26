@@ -98,7 +98,9 @@ export function SeriesRow({
   const suggested =
     suggestion !== undefined &&
     onApplySuggestion !== undefined &&
-    (suggestion.weight !== performed.weight || suggestion.reps !== performed.reps)
+    (suggestion.weight !== performed.weight ||
+      suggestion.reps !== performed.reps ||
+      suggestion.durationSec !== performed.durationSec)
       ? suggestion
       : undefined;
 

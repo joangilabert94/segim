@@ -33,7 +33,9 @@ export function navigate(path: string): void {
   window.location.hash = path;
 }
 
-window.addEventListener('hashchange', emit);
+if (typeof window !== 'undefined') {
+  window.addEventListener('hashchange', emit);
+}
 
 export function matchPath(pattern: string, path: string): Record<string, string> | null {
   const p = pattern.split('/').filter(Boolean);
@@ -42,7 +44,12 @@ export function matchPath(pattern: string, path: string): Record<string, string>
   const params: Record<string, string> = {};
   for (let i = 0; i < p.length; i++) {
     if (p[i].startsWith(':')) {
-      params[p[i].slice(1)] = decodeURIComponent(a[i]);
+      try {
+        params[p[i].slice(1)] = decodeURIComponent(a[i]);
+      } catch {
+        // Un "%" mal formado en la URL no debe tumbar la app: no hay coincidencia.
+        return null;
+      }
     } else if (p[i] !== a[i]) {
       return null;
     }

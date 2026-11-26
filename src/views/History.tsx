@@ -1,5 +1,5 @@
 import { navigate } from '../router';
-import { useStore } from '../state';
+import { sortSessions, useStore } from '../state';
 import { fmtDate, fmtMonth, fmtVolume, fmtWeekday, parseISODate, plural } from '../services/format';
 import { setsCount, sessionsInLast, streak, volumeInLast, volumeOf } from '../services/stats';
 import { profileLookup } from '../services/load';
@@ -14,9 +14,11 @@ export function History() {
   const volumen30 = volumeInLast(sessions, 30, profileOf);
   const racha = streak(sessions);
 
-  // Cuenta con que las sesiones ya vienen ordenadas desc.
+  // No depender del orden almacenado: se ordena aquí para que los meses queden
+  // siempre agrupados y consecutivos.
+  const ordered = sortSessions(sessions);
   const groups: { label: string; items: typeof sessions }[] = [];
-  for (const ses of sessions) {
+  for (const ses of ordered) {
     const label = fmtMonth(ses.date);
     const last = groups[groups.length - 1];
     if (last && last.label === label) last.items.push(ses);

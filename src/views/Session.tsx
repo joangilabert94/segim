@@ -112,7 +112,14 @@ export function SessionView() {
   const patchSet = (ei: number, si: number, patch: Partial<PerformedSet>) => {
     patchSession(session.id, (draft) => {
       const target = draft.entries[ei]?.sets[si];
-      if (target) Object.assign(target, patch);
+      if (!target) return;
+      // Un valor undefined borra la clave (p. ej. al quitar un rango o una nota),
+      // en vez de dejar la propiedad puesta a undefined.
+      const target_ = target as unknown as Record<string, unknown>;
+      for (const [key, value] of Object.entries(patch)) {
+        if (value === undefined) delete target_[key];
+        else target_[key] = value;
+      }
     });
   };
 
@@ -210,6 +217,11 @@ export function SessionView() {
       });
       return acc;
     }, []);
+    // Sin historial no hay mejor resultado que precargar: al menos una serie en blanco
+    // para poder registrar de inmediato (el usuario puede añadir más con "＋ Serie").
+    if (sets.length === 0) {
+      sets.push({ weight: 0, reps: 10, done: false, extra: true });
+    }
     patchSession(session.id, (draft) => {
       draft.entries.push({
         exerciseId: known.id,
@@ -390,10 +402,17 @@ export function SessionView() {
                   onApplySuggestion={
                     suggested
                       ? () =>
-                          patchSet(ei, si, {
-                            weight: suggested.weight ?? 0,
-                            reps: suggested.reps,
-                            repsMax: undefined,
+                          patchEntry(ei, (entry) => {
+                            const target = entry.sets[si];
+                            if (!target) return;
+                            target.weight = suggested.weight ?? 0;
+                            target.reps = suggested.reps;
+                            delete target.repsMax;
+                            if (suggested.durationSec !== undefined) {
+                              target.durationSec = suggested.durationSec;
+                            } else {
+                              delete target.durationSec;
+                            }
                           })
                       : undefined
                   }

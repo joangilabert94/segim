@@ -314,6 +314,13 @@ export function sessionsFromRows(rows: {
     entriesBySession.set(entry.session_id, list);
   }
 
+  const entryIds = new Set(rows.entries.map((entry) => entry.id));
+  const orphanedSets = rows.sets.filter((set) => !entryIds.has(set.session_entry_id)).length;
+  // No se puede inventar el ejercicio al que pertenecen: se ignoran, pero que quede constancia.
+  if (orphanedSets > 0) {
+    console.warn(`Sincronización: ${orphanedSets} serie(s) sin su ejercicio; se ignoran.`);
+  }
+
   const setsByEntry = new Map<string, PerformedSetRow[]>();
   for (const set of rows.sets) {
     const list = setsByEntry.get(set.session_entry_id) ?? [];

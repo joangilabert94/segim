@@ -108,7 +108,7 @@ export function RoutineEditor({ id }: { id: string }) {
   // La firma de refs evita recalcular al escribir el nombre de la rutina (cada tecla re-renderiza).
   const refsKey = routine
     ? routine.days
-        .flatMap((day) => day.exercises.map((ex) => `${ex.exerciseId ?? ''}|${ex.name}`))
+        .flatMap((day) => day.exercises.map((ex) => `${ex.id}|${ex.exerciseId ?? ''}|${ex.name}`))
         .join('§')
     : '';
   const historyByExercise = useMemo(() => {

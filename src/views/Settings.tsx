@@ -300,7 +300,8 @@ export function SettingsView() {
         open={pendingBackup !== null}
         title="Importar copia"
         message={`Se reemplazarán los datos actuales por los de la copia (${plural(pendingBackup?.routines.length ?? 0, 'rutina', 'rutinas')}, ${plural(pendingBackup?.sessions.length ?? 0, 'sesión', 'sesiones')}).`}
-        confirmLabel="Importar"          onConfirm={() => applyBackup(pendingBackup)}
+        confirmLabel="Importar"
+        onConfirm={() => applyBackup(pendingBackup)}
         onCancel={() => setPendingBackup(null)}
       />
 

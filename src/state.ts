@@ -379,12 +379,12 @@ export function finalizeSession(id: string): Session | undefined {
 
 export function setSessionDate(id: string, date: string): Session | undefined {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return undefined;
-  const updated = patchSession(id, (s) => {
-    s.date = date;
-  });
-  if (updated) {
-    setState({ sessions: sortSessions(state.sessions) });
-  }
+  // Una sola notificación y con el array ya ordenado (evita un render intermedio desordenado).
+  const current = getSession(id);
+  if (!current) return undefined;
+  const updated: Session = { ...deepClone(current), date };
+  setState({ sessions: sortSessions(state.sessions.map((s) => (s.id === id ? updated : s))) });
+  persistSession(updated);
   return updated;
 }
 

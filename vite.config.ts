@@ -15,6 +15,10 @@ export default defineConfig({
   server: {
     allowedHosts: devAllowedHosts.length > 0 ? devAllowedHosts : undefined,
   },
+  preview: {
+    // Mismo mecanismo que el servidor de desarrollo: hosts extra vía VITE_DEV_ALLOWED_HOSTS.
+    allowedHosts: devAllowedHosts.length > 0 ? devAllowedHosts : undefined,
+  },
   define: {
     __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? 'dev'),
   },

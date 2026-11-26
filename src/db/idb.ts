@@ -31,7 +31,15 @@ export async function loadSessions(): Promise<Session[]> {
     .filter((k): k is string => typeof k === 'string' && k.startsWith(K_SESSION_PREFIX))
     .map((k) => k.slice(K_SESSION_PREFIX.length));
   const sessions = await Promise.all(ids.map((id) => get<Session>(sessionKey(id))));
-  return sessions.filter((s): s is Session => !!s && typeof s.date === 'string');
+  const valid: Session[] = [];
+  let dropped = 0;
+  for (const s of sessions) {
+    if (s && typeof s.date === 'string') valid.push(s);
+    else dropped += 1;
+  }
+  // No debería pasar (la app siempre escribe fecha): que al menos quede constancia.
+  if (dropped > 0) console.warn(`Se ignoraron ${dropped} sesión(es) guardadas sin fecha válida.`);
+  return valid;
 }
 
 export async function saveSession(session: Session): Promise<void> {

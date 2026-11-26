@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { Exercise, Routine, Session, Settings } from '../../models';
-import { DEFAULT_SETTINGS } from '../../models';
 import { getState, replaceAll, subscribe } from '../../state';
 import { isCloudConfigured } from './config';
 import { cloudClient } from './client';
@@ -89,9 +88,13 @@ let suppressPullUntil = 0;
 let applying = false;
 let syncing = false;
 let dirty = false;
+let pullDeferrals = 0;
 
 const PUSH_DELAY_MS = 1_200;
+const PUSH_RETRY_DELAY_MS = 5_000;
 const PULL_DELAY_MS = 600;
+const PULL_RETRY_DELAY_MS = 800;
+const MAX_PULL_DEFERRALS = 30;
 
 function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : 'No se pudo hablar con la nube.';
@@ -106,6 +109,28 @@ function localData(): LocalData {
   return { routines: s.routines, exercises: s.exercises, sessions: s.sessions, settings: s.settings };
 }
 
+function sameMap(a: Map<string, string>, b: Map<string, string>): boolean {
+  if (a.size !== b.size) return false;
+  for (const [key, value] of a) {
+    if (b.get(key) !== value) return false;
+  }
+  return true;
+}
+
+/**
+ * ¿Hay cambios locales pendientes de subir? Si los hay, un pull ahora los
+ * sobrescribiría sin remedio: primero debe ir el push.
+ */
+function hasUnpushedChanges(): boolean {
+  const current = snapshot(localData());
+  return (
+    !sameMap(current.routines, pushed.routines) ||
+    !sameMap(current.sessions, pushed.sessions) ||
+    !sameMap(current.exercises, pushed.exercises) ||
+    current.settings !== pushed.settings
+  );
+}
+
 function startListeners(): void {
   if (!unsubscribeStore) unsubscribeStore = subscribe(onLocalChange);
   if (!unsubscribeRemote) unsubscribeRemote = subscribeRemoteChanges(onRemoteChange);
@@ -116,6 +141,7 @@ function stopListeners(): void {
   if (pullTimer) clearTimeout(pullTimer);
   pushTimer = null;
   pullTimer = null;
+  pullDeferrals = 0;
   unsubscribeStore?.();
   unsubscribeRemote?.();
   unsubscribeStore = null;
@@ -125,28 +151,42 @@ function stopListeners(): void {
 function onLocalChange(): void {
   // Los cambios que llegan de la nube no se devuelven a la nube.
   if (applying) return;
-  if (status.phase !== 'ready') return;
+  // En 'error' se reintenta igualmente: si no, un fallo transitorio dejaría la
+  // nube desconectada para el resto de la sesión.
+  if (status.phase !== 'ready' && status.phase !== 'error') return;
   if (pushTimer) clearTimeout(pushTimer);
+  const delay = status.phase === 'error' ? PUSH_RETRY_DELAY_MS : PUSH_DELAY_MS;
   pushTimer = setTimeout(() => {
     pushTimer = null;
     void syncUp();
-  }, PUSH_DELAY_MS);
+  }, delay);
 }
 
 function onRemoteChange(): void {
-  if (status.phase !== 'ready' && status.phase !== 'choice') return;
-  // Los eventos que provocan nuestras propias subidas llegan unos segundos después.
-  if (Date.now() < suppressPullUntil) return;
+  // En 'error' una señal de que la red vive: reintentar la subida (nunca aplicar
+  // la nube encima de cambios locales sin subir). En 'choice' el usuario aún no ha
+  // elegido y un pull pisaría el lado local sin permiso.
+  if (status.phase === 'error') {
+    onLocalChange();
+    return;
+  }
+  if (status.phase !== 'ready') return;
+  // Los eventos que provocan nuestras propias subidas llegan unos segundos después:
+  // no se descartan, se aplaza el pull a que termine la ventana de supresión.
+  const wait = Math.max(0, suppressPullUntil - Date.now());
   if (pullTimer) clearTimeout(pullTimer);
-  pullTimer = setTimeout(() => {
-    pullTimer = null;
-    void pullDown();
-  }, PULL_DELAY_MS);
+  pullTimer = setTimeout(
+    () => {
+      pullTimer = null;
+      void pullDown();
+    },
+    wait > 0 ? wait + 100 : PULL_DELAY_MS,
+  );
 }
 
 async function syncUp(): Promise<void> {
   const current = userId;
-  if (!current || status.phase !== 'ready') return;
+  if (!current || (status.phase !== 'ready' && status.phase !== 'error')) return;
   if (syncing) {
     dirty = true;
     return;
@@ -168,17 +208,17 @@ async function syncUp(): Promise<void> {
 
     await cloudPushExercises([...exercisesDiff.added, ...exercisesDiff.changed], current);
     // Las borradas van después de subir las que quedan: si no, el vínculo se perdería.
-    await cloudDeleteExercises(exercisesDiff.removed);
+    await cloudDeleteExercises(exercisesDiff.removed, current);
 
     for (const routine of [...routinesDiff.added, ...routinesDiff.changed]) {
       await cloudPushRoutine(routine, current);
     }
-    await cloudDeleteRoutines(routinesDiff.removed);
+    await cloudDeleteRoutines(routinesDiff.removed, current);
 
     for (const session of [...sessionsDiff.added, ...sessionsDiff.changed]) {
       await cloudPushSession(session, current);
     }
-    await cloudDeleteSessions(sessionsDiff.removed);
+    await cloudDeleteSessions(sessionsDiff.removed, current);
 
     if (JSON.stringify(data.settings) !== pushed.settings) {
       await cloudPushSettings(data.settings, current);
@@ -200,6 +240,21 @@ async function syncUp(): Promise<void> {
 async function pullDown(): Promise<void> {
   const current = userId;
   if (!current) return;
+  // Primero el push: si hay cambios locales sin subir o uno en curso, aplicar la
+  // nube ahora los destruiría sin remedio. Se aplaza el pull (acotado) y el push
+  // los sube; después el pull ya encuentra la nube al día.
+  if (syncing || pushTimer !== null || hasUnpushedChanges()) {
+    if (pullDeferrals < MAX_PULL_DEFERRALS) {
+      pullDeferrals += 1;
+      if (pullTimer) clearTimeout(pullTimer);
+      pullTimer = setTimeout(() => {
+        pullTimer = null;
+        void pullDown();
+      }, PULL_RETRY_DELAY_MS);
+    }
+    return;
+  }
+  pullDeferrals = 0;
   try {
     const remote = await cloudPull();
     const local = localData();
@@ -218,7 +273,9 @@ async function pullDown(): Promise<void> {
         routines: remote.routines,
         exercises: remote.exercises,
         sessions: remote.sessions,
-        settings: remote.settings ?? DEFAULT_SETTINGS,
+        // Sin fila de ajustes en la nube se conservan los locales (unidad, peso
+        // corporal, presets…), nunca se pisan con los valores por defecto.
+        settings: remote.settings ?? local.settings,
       });
     } finally {
       applying = false;
@@ -251,7 +308,7 @@ async function attach(uid: string, email: string | undefined, remoteData?: Await
         routines: remote.routines,
         exercises: remote.exercises,
         sessions: remote.sessions,
-        settings: remote.settings ?? DEFAULT_SETTINGS,
+        settings: remote.settings ?? local.settings,
       });
     } finally {
       applying = false;
@@ -359,13 +416,14 @@ export async function resolveCloudChoice(choice: 'cloud' | 'local'): Promise<voi
       pushed = snapshot(local);
     } else {
       const remote = await cloudPull();
+      const local = localData();
       applying = true;
       try {
         replaceAll({
           routines: remote.routines,
           exercises: remote.exercises,
           sessions: remote.sessions,
-          settings: remote.settings ?? DEFAULT_SETTINGS,
+          settings: remote.settings ?? local.settings,
         });
       } finally {
         applying = false;
