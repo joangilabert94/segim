@@ -460,6 +460,12 @@ la primera vez que se hace un ejercicio no hay récord):
 
 ## 11. Estado del repositorio y pendientes
 
+- **v0.13.1** — corrección de la sincronización: desde el primer sync los dos lados siempre
+  tienen datos, así que cada recarga entraba en la pantalla de elección y la sincronización
+  automática quedaba muerta hasta pulsar el botón a mano. Ahora la reconciliación se pregunta
+  una única vez por dispositivo/cuenta (`segim-cloud-linked` en localStorage); los arranques
+  siguientes suben lo local sobrescribiendo por id sin borrar la nube y aplican lo remoto
+  encima, y un fallo de subida se reintenta solo con backoff. `.env.example` documentado.
 - **v0.13.0** — 6 paletas configurables en Ajustes → Apariencia (3 claras: Salvia, la actual;
   Océano; Arcilla. 3 oscuras: Lima, la actual; Medianoche; Ámbar). Cada modo recuerda su paleta
   y «Auto» aplica la del modo activo; el `theme-color` y la splash acompañan. La paleta es
