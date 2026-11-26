@@ -460,6 +460,17 @@ la primera vez que se hace un ejercicio no hay récord):
 
 ## 11. Estado del repositorio y pendientes
 
+- **v0.13.0** — 6 paletas configurables en Ajustes → Apariencia (3 claras: Salvia, la actual;
+  Océano; Arcilla. 3 oscuras: Lima, la actual; Medianoche; Ámbar). Cada modo recuerda su paleta
+  y «Auto» aplica la del modo activo; el `theme-color` y la splash acompañan. La paleta es
+  local al dispositivo (viaja en la copia de seguridad; no se sincroniza con la nube). Además,
+  un pase de corrección de errores: la sincronización reintenta tras un fallo en lugar de
+  quedar paralizada, nunca aplica la nube encima de cambios locales sin subir y ya no pierde
+  eventos realtime dentro de la ventana de supresión; una URL malformada muestra el «no
+  encontrado» en vez de una pantalla en blanco; añadir un ejercicio sin historial crea una
+  serie en blanco; aplicar una sugerencia también lleva la duración. `npm audit` en 0
+  (override de `glob` a ^14 vía workbox-build). El despliegue va por etiqueta: publicar
+  `v0.13.0` actualiza GitHub Pages.
 - **v0.12.0** — retirada de Google Drive: fuera el cliente REST, el OAuth de Google, la
   copia automática y la columna `settings.auto_backup` (`0002_quitar_auto_backup.sql`).
   La sincronización con Supabase es la única vía a la nube; el export/import JSON sigue
