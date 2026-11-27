@@ -92,15 +92,13 @@ export async function cloudPushRoutine(routine: Routine, userId: string): Promis
   const c = cloudClient();
   const payload = routineToRows(routine, userId);
 
-  const saved = await c.from('routines').upsert(payload.routine, { onConflict: 'user_id,id' });
+  // La subida de la rutina y el borrado de sus días son independientes entre sí:
+  // van en paralelo. El borrado de días arrastra en cascada ejercicios y series.
+  const [saved, cleared] = await Promise.all([
+    c.from('routines').upsert(payload.routine, { onConflict: 'user_id,id' }),
+    c.from('routine_days').delete().eq('routine_id', routine.id).eq('user_id', userId),
+  ]);
   fail(saved.error, 'guardar la rutina');
-
-  // El borrado de los días arrastra en cascada sus ejercicios y series planificadas.
-  const cleared = await c
-    .from('routine_days')
-    .delete()
-    .eq('routine_id', routine.id)
-    .eq('user_id', userId);
   fail(cleared.error, 'guardar los días');
 
   if (payload.days.length > 0) {
@@ -129,21 +127,17 @@ export async function cloudPushSession(session: Session, userId: string): Promis
   const c = cloudClient();
   const payload = sessionToRows(session, userId);
 
-  fail(
-    (await c.from('sessions').upsert(payload.session, { onConflict: 'user_id,id' })).error,
-    'guardar la sesión',
-  );
-
-  fail(
-    (
-      await c
-        .from('session_entries')
-        .delete()
-        .eq('session_id', session.id)
-        .eq('user_id', userId)
-    ).error,
-    'guardar los ejercicios de la sesión',
-  );
+  // Upsert de la sesión e borrado de sus entradas son independientes: en paralelo.
+  const [saved, cleared] = await Promise.all([
+    c.from('sessions').upsert(payload.session, { onConflict: 'user_id,id' }),
+    c
+      .from('session_entries')
+      .delete()
+      .eq('session_id', session.id)
+      .eq('user_id', userId),
+  ]);
+  fail(saved.error, 'guardar la sesión');
+  fail(cleared.error, 'guardar los ejercicios de la sesión');
 
   if (payload.entries.length === 0) return;
 

@@ -92,7 +92,7 @@ let pullDeferrals = 0;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 let retryAttempts = 0;
 
-const PUSH_DELAY_MS = 1_200;
+const PUSH_DELAY_MS = 800;
 const PUSH_RETRY_DELAY_MS = 5_000;
 const PULL_DELAY_MS = 600;
 const PULL_RETRY_DELAY_MS = 800;
@@ -298,14 +298,19 @@ async function syncUp(): Promise<void> {
     // Las borradas van después de subir las que quedan: si no, el vínculo se perdería.
     await cloudDeleteExercises(exercisesDiff.removed, current);
 
-    for (const routine of [...routinesDiff.added, ...routinesDiff.changed]) {
-      await cloudPushRoutine(routine, current);
-    }
+    // Rutinas y sesiones no se referencian entre sí en el esquema: se suben en paralelo.
+    const pushes = [
+      ...[...routinesDiff.added, ...routinesDiff.changed].map((routine) =>
+        cloudPushRoutine(routine, current),
+      ),
+      ...[...sessionsDiff.added, ...sessionsDiff.changed].map((session) =>
+        cloudPushSession(session, current),
+      ),
+    ];
+    const results = await Promise.allSettled(pushes);
+    const failure = results.find((r) => r.status === 'rejected');
+    if (failure && failure.status === 'rejected') throw failure.reason;
     await cloudDeleteRoutines(routinesDiff.removed, current);
-
-    for (const session of [...sessionsDiff.added, ...sessionsDiff.changed]) {
-      await cloudPushSession(session, current);
-    }
     await cloudDeleteSessions(sessionsDiff.removed, current);
 
     if (JSON.stringify(data.settings) !== pushed.settings) {
